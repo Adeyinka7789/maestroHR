@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: maestrohr
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/maestrohr_db
+    username: postgres
+    password: Omowunmi77897789*
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+server:
+  port: 8080
+
+spring.jpa.open-in-view: false
+
+logging:
+  level:
+    root: WARN
+    com.admtechhub.maestrohr: DEBUG
+    org.flywaydb: INFO
+    org.springframework.web: INFO
+    com.zaxxer.hikari: WARN
+    org.hibernate: WARN
+  pattern:
+    console: "%clr(%d{HH:mm:ss}){faint} %clr(%-5level) %clr(%-40.40logger{39}){cyan} : %msg%n"
+
+security:
+  jwt:
+    secret: 404D635166546A576E5A7234753778214125442A472D4B6150645367566B5970
+    expiry-ms: 86400000
+    refresh-expiry-ms: 604800000
