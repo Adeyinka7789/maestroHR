@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Payslip - [[${period}]]</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .payslip-title {
+            font-size: 18px;
+            margin-top: 5px;
+            color: #7f8c8d;
+        }
+        .employee-info {
+            background: #f5f5f5;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .employee-info table {
+            width: 100%;
+        }
+        .employee-info td {
+            padding: 5px;
+        }
+        .earnings, .deductions {
+            width: 48%;
+            float: left;
+            margin-bottom: 20px;
+        }
+        .deductions {
+            float: right;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #ecf0f1;
+        }
+        .clearfix {
+            clear: both;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .amount {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="company-name">MaestroHR</div>
+        <div class="payslip-title">Salary Payslip for [[${period}]]</div>
+    </div>
+
+    <div class="employee-info">
+        <table>
+            <tr>
+                <td><strong>Employee Name:</strong></td>
+                <td>[[${employee.fullName}]]</td>
+                <td><strong>Employee Number:</strong></td>
+                <td>[[${employee.employeeNumber}]]</td>
+            </tr>
+            <tr>
+                <td><strong>Department:</strong></td>
+                <td>[[${employee.department.name}]]</td>
+                <td><strong>Job Title:</strong></td>
+                <td>[[${employee.jobTitle}]]</td>
+            </tr>
+            <tr>
+                <td><strong>Bank:</strong></td>
+                <td>[[${employee.bankName}]]</td>
+                <td><strong>Account Number:</strong></td>
+                <td>[[${employee.bankAccountNumber}]]</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="earnings">
+        <h3>Earnings</h3>
+        <table>
+            <tr>
+                <th>Description</th>
+                <th class="amount">Amount (NGN)</th>
+            </tr>
+            <tr>
+                <td>Basic Salary</td>
+                <td class="amount">[[${#numbers.formatDecimal(entry.basicSalary / 100, 1, 2)}]]</td>
+            </tr>
+            <tr>
+                <td>Housing Allowance</td>
+                <td class="amount">[[${#numbers.formatDecimal(entry.housingAllowance / 100, 1, 2)}]]</td>
+            </tr>
+            <tr>
+                <td>Transport Allowance</td>
+                <td class="amount">[[${#numbers.formatDecimal(entry.transportAllowance / 100, 1, 2)}]]</td>
+            </tr>
+            <tr>
+                <td>Other Allowances</td>
+                <td class="amount">[[${#numbers.formatDecimal(entry.otherAllowances / 100, 1, 2)}]]</td>
+            </tr>
+            <tr class="total-row">
+                <td>Gross Salary</td>
+                <td class="amount">[[${#numbers.formatDecimal(grossSalary, 1, 2)}]]</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="deductions">
+        <h3>Deductions</h3>
+        <table>
+            <tr>
+                <th>Description</th>
+                <th class="amount">Amount (NGN)</th>
+            </tr>
+            <tr>
+                <td>PAYE Tax</td>
+                <td class="amount">[[${#numbers.formatDecimal(payeTax, 1, 2)}]]</td>
+            </tr>
+            <tr>
+                <td>Pension (Employee - 8%)</td>
+                <td class="amount">[[${#numbers.formatDecimal(pensionEmployee, 1, 2)}]]</td>
+            </tr>
+            <tr>
+                <td>NHF (2.5% of Basic)</td>
+                <td class="amount">[[${#numbers.formatDecimal(nhfDeduction, 1, 2)}]]</td>
+            </tr>
+            <tr class="total-row">
+                <td>Net Salary</td>
+                <td class="amount">[[${#numbers.formatDecimal(netSalary, 1, 2)}]]</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="clearfix"></div>
+
+    <div class="footer">
+        <p>This is a computer-generated document. No signature is required.</p>
+        <p>For inquiries, please contact HR department.</p>
+    </div>
+</div>
+</body>
+</html>

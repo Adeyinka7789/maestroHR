@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaestroHR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        body { margin: 0; font-family: 'DM Sans', sans-serif; color: #eff6ff; background:
+            radial-gradient(circle at 15% 20%, rgba(37,99,235,0.35), transparent 25%),
+            radial-gradient(circle at 80% 15%, rgba(14,165,233,0.22), transparent 22%),
+            linear-gradient(135deg, #04101d 0%, #081528 38%, #10274b 100%); }
+        .shell { min-height: 100vh; padding: 28px; }
+        .nav { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:48px; }
+        .logo { display:flex; align-items:center; gap:12px; }
+        .logo-mark { width:42px; height:42px; border-radius:13px; background:linear-gradient(135deg,#2563eb,#38bdf8); display:flex; align-items:center; justify-content:center; box-shadow:0 18px 40px rgba(37,99,235,0.25); }
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; border-radius:999px; padding:12px 18px; font-weight:600; }
+        .btn-primary { background:#f8fafc; color:#06111f; }
+        .btn-secondary { color:#e2e8f0; border:1px solid rgba(226,232,240,0.16); background:rgba(255,255,255,0.03); }
+        .hero { display:grid; grid-template-columns:1.15fr 0.85fr; gap:24px; align-items:stretch; }
+        .headline { padding:22px 0; }
+        .headline h1 { font-family:'Space Grotesk', sans-serif; font-size:clamp(52px,8vw,96px); line-height:0.95; margin:0 0 20px; max-width:760px; letter-spacing:-0.04em; }
+        .headline p { max-width:620px; font-size:18px; line-height:1.75; color:#cbd5e1; margin:0 0 26px; }
+        .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:28px; }
+        .stat { padding:18px; border-radius:22px; background:rgba(255,255,255,0.05); border:1px solid rgba(148,163,184,0.12); backdrop-filter: blur(10px); }
+        .stat strong { display:block; font-size:28px; margin-bottom:4px; font-family:'Space Grotesk', sans-serif; }
+        .showcase { position:relative; padding:20px; border-radius:30px; background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)); border:1px solid rgba(148,163,184,0.16); overflow:hidden; min-height:520px; }
+        .orb { position:absolute; width:260px; height:260px; border-radius:999px; filter:blur(24px); opacity:0.6; }
+        .orb-a { top:-50px; right:-50px; background:rgba(56,189,248,0.28); }
+        .orb-b { bottom:-40px; left:-30px; background:rgba(59,130,246,0.22); }
+        .panel { position:relative; z-index:1; border-radius:24px; background:#08111f; border:1px solid rgba(148,163,184,0.14); padding:18px; box-shadow:0 24px 60px rgba(2,6,23,0.32); }
+        .mini-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:14px; }
+        .mini { border-radius:18px; padding:16px; background:#0b1830; border:1px solid rgba(59,130,246,0.12); }
+        .chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+        .chip { padding:8px 12px; border-radius:999px; background:rgba(8,145,178,0.13); color:#bae6fd; font-size:13px; border:1px solid rgba(125,211,252,0.12); }
+        .band { margin-top:36px; padding:22px 24px; border-radius:26px; background:rgba(255,255,255,0.04); border:1px solid rgba(148,163,184,0.12); display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+        .band h3 { margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:#7dd3fc; }
+        .band p { margin:0; color:#cbd5e1; font-size:14px; line-height:1.6; }
+        @media (max-width: 980px) { .hero, .band { grid-template-columns:1fr; } .stats { grid-template-columns:1fr; } .shell { padding:18px; } .headline h1 { font-size:52px; } }
+    </style>
+</head>
+<body>
+<div class="shell">
+    <div class="nav">
+        <div class="logo">
+            <div class="logo-mark">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+            </div>
+            <div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;">MaestroHR</div>
+                <div style="font-size:12px;color:#93c5fd;">HR operations tuned for payroll velocity</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <a href="/login" class="btn btn-secondary">Sign In</a>
+            <a href="/register" class="btn btn-primary">Create Workspace</a>
+        </div>
+    </div>
+
+    <section class="hero">
+        <div class="headline">
+            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.14);margin-bottom:18px;font-size:13px;color:#bae6fd;">Multi-tenant HR, leave, and payroll in one workspace</div>
+            <h1>Run people operations with less drag and more signal.</h1>
+            <p>MaestroHR gives you a clean control surface for employee records, payroll approvals, leave workflows, attendance snapshots, and admin oversight without burying core actions under boilerplate.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <a href="/register" class="btn btn-primary">Launch Your Workspace</a>
+                <a href="/dashboard" class="btn btn-secondary" id="open-app-link">Open App</a>
+                <a href="/admin" class="btn btn-secondary" id="open-admin-link">Admin View</a>
+            </div>
+            <div class="stats">
+                <div class="stat"><strong>Payroll</strong><span>Monthly run initiation, approval, and disbursement flow.</span></div>
+                <div class="stat"><strong>Leave</strong><span>Request, review, and approve with one manager surface.</span></div>
+                <div class="stat"><strong>Admin</strong><span>Tenant, user, and operational health in one page.</span></div>
+            </div>
+        </div>
+
+        <div class="showcase">
+            <div class="orb orb-a"></div>
+            <div class="orb orb-b"></div>
+            <div class="panel">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:12px;color:#7dd3fc;text-transform:uppercase;letter-spacing:0.08em;">Workspace Preview</div>
+                        <div style="font-size:24px;font-family:'Space Grotesk',sans-serif;font-weight:700;margin-top:6px;">Operations Cockpit</div>
+                    </div>
+                    <div style="padding:8px 12px;border-radius:999px;background:rgba(16,185,129,0.12);color:#86efac;font-size:12px;">Live workflow</div>
+                </div>
+                <div class="mini-grid">
+                    <div class="mini">
+                        <div style="font-size:12px;color:#64748b;">Payroll Queue</div>
+                        <div style="font-size:30px;font-weight:700;margin:10px 0 6px;">04</div>
+                        <div style="font-size:13px;color:#cbd5e1;">Pending approvals and payouts.</div>
+                    </div>
+                    <div class="mini">
+                        <div style="font-size:12px;color:#64748b;">Active Headcount</div>
+                        <div style="font-size:30px;font-weight:700;margin:10px 0 6px;">128</div>
+                        <div style="font-size:13px;color:#cbd5e1;">Tracked across departments.</div>
+                    </div>
+                    <div class="mini" style="grid-column:1 / -1;">
+                        <div style="font-size:12px;color:#64748b;">Admin Surface</div>
+                        <div style="font-size:18px;font-weight:600;margin:10px 0;">Users, tenants, locks, subscriptions, and payroll bottlenecks on one screen.</div>
+                        <div class="chips">
+                            <span class="chip">Tenant snapshot</span>
+                            <span class="chip">Role overview</span>
+                            <span class="chip">Pending payroll</span>
+                            <span class="chip">Locked users</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="band">
+        <div><h3>Employee Core</h3><p>Directory, departments, pay grades, onboarding records, and banking data in one flow.</p></div>
+        <div><h3>Leave Flow</h3><p>Apply, approve, reject, and review current request pressure without leaving the app shell.</p></div>
+        <div><h3>Payroll Control</h3><p>Draft runs, compute salaries, submit for approval, and open run-level detail views.</p></div>
+        <div><h3>Admin Oversight</h3><p>Get the page you asked for: a single place to inspect tenants, users, locks, and workspace posture.</p></div>
+    </section>
+</div>
+
+<script>
+    const token = localStorage.getItem('maestrohr_token');
+    if (token) {
+        document.getElementById('open-app-link').textContent = 'Go To Dashboard';
+        document.getElementById('open-admin-link').textContent = 'Go To Admin';
+    }
+</script>
+</body>
+</html>

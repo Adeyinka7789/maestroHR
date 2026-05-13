@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaestroHR — Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; background: #060d1f; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
+
+        .grid-bg {
+            position: fixed; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .glow { position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, rgba(37,99,235,0.18) 0%, transparent 70%); pointer-events: none; }
+
+        .card {
+            position: relative; z-index: 10;
+            background: #0f2040;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 40px 40px;
+            width: 100%; max-width: 420px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+        }
+
+        .form-input {
+            width: 100%; padding: 10px 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 7px;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            color: #f1f5f9;
+            background: rgba(255,255,255,0.05);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .form-input::placeholder { color: #475569; }
+        .form-label { display: block; font-size: 13px; font-weight: 500; color: #94a3b8; margin-bottom: 6px; }
+
+        .btn-primary {
+            width: 100%; padding: 11px;
+            background: #2563eb; color: white;
+            border: none; border-radius: 7px;
+            font-size: 14px; font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer; transition: background 0.15s, transform 0.1s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:active { transform: scale(0.99); }
+        .btn-primary:disabled { background: #1e40af; opacity: 0.6; cursor: not-allowed; }
+
+        .error-box {
+            background: rgba(153,27,27,0.2); border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 7px; padding: 10px 14px;
+            color: #fca5a5; font-size: 13.5px;
+            display: none; margin-bottom: 20px;
+        }
+
+        .divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; }
+        .divider hr { flex: 1; border: none; border-top: 1px solid rgba(255,255,255,0.07); }
+        .divider span { font-size: 12px; color: #475569; }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    <div class="glow"></div>
+
+    <div class="card">
+        <!-- Logo -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:32px;">
+            <div style="width:38px;height:38px;background:#2563eb;border-radius:9px;display:flex;align-items:center;justify-content:center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+                <p style="font-size:18px;font-weight:600;color:#f1f5f9;line-height:1.2;">MaestroHR</p>
+                <p style="font-size:12px;color:#475569;margin-top:2px;">HR &amp; Payroll Platform</p>
+            </div>
+        </div>
+
+        <h1 style="font-size:22px;font-weight:600;color:#f1f5f9;margin:0 0 4px;">Welcome back</h1>
+        <p style="font-size:13.5px;color:#64748b;margin:0 0 28px;">Sign in to your workspace</p>
+
+        <!-- Error box -->
+        <div class="error-box" id="error-box"></div>
+
+        <!-- Form -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <div>
+                <label class="form-label" for="email">Work email</label>
+                <input class="form-input" type="email" id="email" placeholder="you@company.com" autocomplete="email">
+            </div>
+            <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <label class="form-label" for="password" style="margin:0;">Password</label>
+                </div>
+                <div style="position:relative;">
+                    <input class="form-input" type="password" id="password" placeholder="••••••••" autocomplete="current-password" style="padding-right:42px;">
+                    <button id="toggle-pw" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#475569;padding:0;display:flex;" title="Toggle password">
+                        <svg id="eye-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="login-btn" style="margin-top:4px;">
+                <span id="btn-text">Sign in</span>
+                <svg id="btn-spinner" style="display:none;animation:spin 0.8s linear infinite;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" stroke-opacity="0.3"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>
+            </button>
+        </div>
+
+        <div class="divider"><hr><span>don't have an account?</span><hr></div>
+
+        <a href="/register" style="display:block;text-align:center;font-size:13.5px;color:#3b82f6;text-decoration:none;font-weight:500;">
+            Create a workspace →
+        </a>
+    </div>
+
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+    <script>
+        const loginBtn    = document.getElementById('login-btn');
+        const emailInput  = document.getElementById('email');
+        const pwInput     = document.getElementById('password');
+        const errorBox    = document.getElementById('error-box');
+        const btnText     = document.getElementById('btn-text');
+        const btnSpinner  = document.getElementById('btn-spinner');
+
+        function persistAuthCookie(token) {
+            const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = `maestrohr_token=${encodeURIComponent(token)}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${secureFlag}`;
+        }
+
+        // Toggle password visibility
+        document.getElementById('toggle-pw').addEventListener('click', () => {
+            const isPassword = pwInput.type === 'password';
+            pwInput.type = isPassword ? 'text' : 'password';
+        });
+
+        // Enter key triggers login
+        [emailInput, pwInput].forEach(el => el.addEventListener('keydown', e => {
+            if (e.key === 'Enter') doLogin();
+        }));
+
+        loginBtn.addEventListener('click', doLogin);
+
+        async function doLogin() {
+            const email    = emailInput.value.trim();
+            const password = pwInput.value;
+
+            if (!email || !password) {
+                showError('Please enter your email and password.');
+                return;
+            }
+
+            setLoading(true);
+            errorBox.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showError(data.message || 'Invalid credentials. Please try again.');
+                    return;
+                }
+
+                localStorage.setItem('maestrohr_token',  data.data?.accessToken || data.accessToken || '');
+                localStorage.setItem('maestrohr_email',  data.data?.email || data.email || email);
+                localStorage.setItem('maestrohr_role',   data.data?.role || data.role || '');
+                localStorage.setItem('maestrohr_tenant', data.data?.tenantId || data.tenantId || '');
+                localStorage.setItem('maestrohr_company', data.data?.companyName || data.companyName || '');
+                persistAuthCookie(data.data?.accessToken || data.accessToken || '');
+
+                window.location.href = '/dashboard';
+
+            } catch (err) {
+                showError('Network error. Please check your connection.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+        }
+
+        function setLoading(loading) {
+            loginBtn.disabled  = loading;
+            btnText.textContent = loading ? 'Signing in…' : 'Sign in';
+            btnSpinner.style.display = loading ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>

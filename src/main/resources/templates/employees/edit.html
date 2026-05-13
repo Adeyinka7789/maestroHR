@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}"
+      lang="en">
+<head><title>Edit Employee</title></head>
+<body>
+<div layout:fragment="content">
+
+    <!-- Page header -->
+    <div class="page-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <a th:href="'/employees/' + ${employee.id}" style="color:#6b7280;text-decoration:none;display:flex;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </a>
+            <div>
+                <h1 class="page-title" th:text="${'Edit - ' + employee.firstName + ' ' + employee.lastName}">Edit Employee</h1>
+                <p class="page-subtitle" th:text="${employee.employeeNumber}">EMP-001</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="form-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:20px;color:#991b1b;font-size:13.5px;"></div>
+
+    <input type="hidden" id="employeeId" th:value="${employee.id}">
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Personal Information -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Personal Information</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label">First Name *</label>
+                    <input class="form-input" type="text" id="firstName" th:value="${employee.firstName}" required>
+                </div>
+                <div>
+                    <label class="form-label">Last Name *</label>
+                    <input class="form-input" type="text" id="lastName" th:value="${employee.lastName}" required>
+                </div>
+                <div>
+                    <label class="form-label">Work Email *</label>
+                    <input class="form-input" type="email" id="email" th:value="${employee.email}" required>
+                </div>
+                <div>
+                    <label class="form-label">Phone *</label>
+                    <input class="form-input" type="tel" id="phone" th:value="${employee.phone}" required>
+                </div>
+                <div>
+                    <label class="form-label">Date of Birth *</label>
+                    <input class="form-input" type="date" id="dateOfBirth" th:value="${#temporals.format(employee.dateOfBirth, 'yyyy-MM-dd')}" required>
+                </div>
+                <div>
+                    <label class="form-label">Gender *</label>
+                    <select class="form-input" id="gender" required>
+                        <option value="MALE"              th:selected="${employee.gender == 'MALE'}">Male</option>
+                        <option value="FEMALE"            th:selected="${employee.gender == 'FEMALE'}">Female</option>
+                        <option value="PREFER_NOT_TO_SAY" th:selected="${employee.gender == 'PREFER_NOT_TO_SAY'}">Prefer not to say</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Marital Status *</label>
+                    <select class="form-input" id="maritalStatus" required>
+                        <option value="SINGLE"   th:selected="${employee.maritalStatus == 'SINGLE'}">Single</option>
+                        <option value="MARRIED"  th:selected="${employee.maritalStatus == 'MARRIED'}">Married</option>
+                        <option value="DIVORCED" th:selected="${employee.maritalStatus == 'DIVORCED'}">Divorced</option>
+                        <option value="WIDOWED"  th:selected="${employee.maritalStatus == 'WIDOWED'}">Widowed</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label class="form-label">Residential Address *</label>
+                    <input class="form-input" type="text" id="address" th:value="${employee.address}" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employment Details -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Employment Details</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label">Employee Number *</label>
+                    <input class="form-input" type="text" id="employeeNumber" th:value="${employee.employeeNumber}" required>
+                </div>
+                <div>
+                    <label class="form-label">Job Title *</label>
+                    <input class="form-input" type="text" id="jobTitle" th:value="${employee.jobTitle}" required>
+                </div>
+                <div>
+                    <label class="form-label">Employment Type *</label>
+                    <select class="form-input" id="employmentType" required>
+                        <option value="FULL_TIME"  th:selected="${employee.employmentType.name() == 'FULL_TIME'}">Full-time</option>
+                        <option value="PART_TIME"  th:selected="${employee.employmentType.name() == 'PART_TIME'}">Part-time</option>
+                        <option value="CONTRACT"   th:selected="${employee.employmentType.name() == 'CONTRACT'}">Contract</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Department *</label>
+                    <select class="form-input" id="departmentId" required>
+                        <option th:each="dept : ${departments}"
+                                th:value="${dept.id}"
+                                th:text="${dept.name}"
+                                th:selected="${dept.id == employee.department?.id}">Dept</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Pay Grade *</label>
+                    <select class="form-input" id="payGradeId" required>
+                        <option th:each="grade : ${payGrades}"
+                                th:value="${grade.id}"
+                                th:text="${grade.name}"
+                                th:selected="${grade.id == employee.payGrade?.id}">Grade</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Start Date *</label>
+                    <input class="form-input" type="date" id="employmentStartDate" th:value="${#temporals.format(employee.employmentStartDate, 'yyyy-MM-dd')}" required>
+                </div>
+                <div>
+                    <label class="form-label">Probation End Date</label>
+                    <input class="form-input" type="date" id="probationEndDate" th:value="${employee.probationEndDate != null ? #temporals.format(employee.probationEndDate, 'yyyy-MM-dd') : ''}">
+                </div>
+            </div>
+        </div>
+
+        <!-- Bank Details -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Bank Details</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label">Bank Name *</label>
+                    <input class="form-input" type="text" id="bankName" th:value="${employee.bankName}" required>
+                </div>
+                <div>
+                    <label class="form-label">Account Number *</label>
+                    <input class="form-input" type="text" id="bankAccountNumber" th:value="${employee.bankAccountNumber}" maxlength="10" required>
+                </div>
+                <div>
+                    <label class="form-label">Account Name *</label>
+                    <input class="form-input" type="text" id="bankAccountName" th:value="${employee.bankAccountName}" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:8px;">
+            <a th:href="'/employees/' + ${employee.id}" class="btn-secondary">Cancel</a>
+            <button type="button" id="submit-btn" class="btn-primary">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="submit-text">Save Changes</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('submit-btn').addEventListener('click', async () => {
+    const errorBox = document.getElementById('form-error');
+    errorBox.style.display = 'none';
+    const empId = document.getElementById('employeeId').value;
+
+    const fields = ['firstName','lastName','email','phone','dateOfBirth','gender','maritalStatus',
+                    'address','employeeNumber','jobTitle','employmentType','departmentId','payGradeId',
+                    'employmentStartDate','bankName','bankAccountNumber','bankAccountName'];
+
+    const payload = {
+        department: {},
+        payGrade: {}
+    };
+    let valid = true;
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        const val = el?.value?.trim();
+        if (el?.required && !val) { el.style.borderColor='#ef4444'; valid = false; }
+        else if (el) {
+            el.style.borderColor = '';
+            if (id === 'departmentId') payload.department.id = val || null;
+            else if (id === 'payGradeId') payload.payGrade.id = val || null;
+            else payload[id] = val || null;
+        }
+    });
+    payload.probationEndDate = document.getElementById('probationEndDate').value || null;
+
+    if (!valid) {
+        errorBox.textContent = 'Please fill in all required fields.';
+        errorBox.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    const txt = document.getElementById('submit-text');
+    btn.disabled = true; txt.textContent = 'Saving…';
+
+    try {
+        const res  = await apiCall(`/api/employees/${empId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) { errorBox.textContent = data.message || 'Update failed.'; errorBox.style.display = 'block'; return; }
+        showToast('Employee updated successfully!', 'success');
+        setTimeout(() => window.location.href = `/employees/${empId}`, 800);
+    } catch (e) {
+        errorBox.textContent = 'Network error. Please try again.';
+        errorBox.style.display = 'block';
+    } finally { btn.disabled = false; txt.textContent = 'Save Changes'; }
+});
+</script>
+</body>
+</html>

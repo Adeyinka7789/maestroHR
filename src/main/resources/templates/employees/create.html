@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}"
+      lang="en">
+<head><title>Add Employee</title></head>
+<body>
+<div layout:fragment="content">
+
+    <!-- Page header -->
+    <div class="page-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <a href="/employees" style="color:#6b7280;text-decoration:none;display:flex;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </a>
+            <div>
+                <h1 class="page-title">Add Employee</h1>
+                <p class="page-subtitle">Create a new employee record</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="form-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:20px;color:#991b1b;font-size:13.5px;"></div>
+
+    <!-- Form sections -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Personal Information -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Personal Information</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label" for="firstName">First Name *</label>
+                    <input class="form-input" type="text" id="firstName" name="firstName" placeholder="e.g. Chukwuemeka" required>
+                </div>
+                <div>
+                    <label class="form-label" for="lastName">Last Name *</label>
+                    <input class="form-input" type="text" id="lastName" name="lastName" placeholder="e.g. Okonkwo" required>
+                </div>
+                <div>
+                    <label class="form-label" for="email">Work Email *</label>
+                    <input class="form-input" type="email" id="email" name="email" placeholder="emeka@company.com" required>
+                </div>
+                <div>
+                    <label class="form-label" for="phone">Phone *</label>
+                    <input class="form-input" type="tel" id="phone" name="phone" placeholder="+234 80X XXX XXXX" required>
+                </div>
+                <div>
+                    <label class="form-label" for="dateOfBirth">Date of Birth *</label>
+                    <input class="form-input" type="date" id="dateOfBirth" name="dateOfBirth" required>
+                </div>
+                <div>
+                    <label class="form-label" for="gender">Gender *</label>
+                    <select class="form-input" id="gender" name="gender" required>
+                        <option value="">Select gender</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="maritalStatus">Marital Status *</label>
+                    <select class="form-input" id="maritalStatus" name="maritalStatus" required>
+                        <option value="">Select status</option>
+                        <option value="SINGLE">Single</option>
+                        <option value="MARRIED">Married</option>
+                        <option value="DIVORCED">Divorced</option>
+                        <option value="WIDOWED">Widowed</option>
+                    </select>
+                </div>
+                <div style="grid-column:span 2;">
+                    <label class="form-label" for="address">Residential Address *</label>
+                    <input class="form-input" type="text" id="address" name="address" placeholder="123 Victoria Island, Lagos" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employment Details -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Employment Details</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label" for="employeeNumber">Employee Number *</label>
+                    <input class="form-input" type="text" id="employeeNumber" name="employeeNumber" placeholder="e.g. EMP-001" required>
+                </div>
+                <div>
+                    <label class="form-label" for="jobTitle">Job Title *</label>
+                    <input class="form-input" type="text" id="jobTitle" name="jobTitle" placeholder="e.g. Senior Engineer" required>
+                </div>
+                <div>
+                    <label class="form-label" for="employmentType">Employment Type *</label>
+                    <select class="form-input" id="employmentType" name="employmentType" required>
+                        <option value="">Select type</option>
+                        <option value="FULL_TIME">Full-time</option>
+                        <option value="PART_TIME">Part-time</option>
+                        <option value="CONTRACT">Contract</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="departmentId">Department *</label>
+                    <select class="form-input" id="departmentId" name="departmentId" required>
+                        <option value="">Select department</option>
+                        <option th:each="dept : ${departments}"
+                                th:value="${dept.id}"
+                                th:text="${dept.name}">Dept</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="payGradeId">Pay Grade *</label>
+                    <select class="form-input" id="payGradeId" name="payGradeId" required>
+                        <option value="">Select pay grade</option>
+                        <option th:each="grade : ${payGrades}"
+                                th:value="${grade.id}"
+                                th:text="${grade.name + ' — ₦' + #numbers.formatDecimal(grade.basicSalary / 100, 0, 'COMMA', 0, 'POINT')}">Grade</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="employmentStartDate">Start Date *</label>
+                    <input class="form-input" type="date" id="employmentStartDate" name="employmentStartDate" required>
+                </div>
+                <div>
+                    <label class="form-label" for="probationEndDate">Probation End Date</label>
+                    <input class="form-input" type="date" id="probationEndDate" name="probationEndDate">
+                </div>
+            </div>
+        </div>
+
+        <!-- Bank Details -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 4px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Bank & Paystack Details</h2>
+            <p style="font-size:12.5px;color:#6b7280;margin:0 0 20px;">Used for salary disbursement via Paystack</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label" for="bankName">Bank Name *</label>
+                    <input class="form-input" type="text" id="bankName" name="bankName" placeholder="e.g. Guaranty Trust Bank" required>
+                </div>
+                <div>
+                    <label class="form-label" for="bankAccountNumber">Account Number *</label>
+                    <input class="form-input" type="text" id="bankAccountNumber" name="bankAccountNumber" maxlength="10" placeholder="10-digit NUBAN" required>
+                </div>
+                <div>
+                    <label class="form-label" for="bankAccountName">Account Name *</label>
+                    <input class="form-input" type="text" id="bankAccountName" name="bankAccountName" placeholder="As on bank record" required>
+                </div>
+                <div>
+                    <label class="form-label" for="paystackRecipientCode">Paystack Recipient Code</label>
+                    <input class="form-input" type="text" id="paystackRecipientCode" name="paystackRecipientCode" placeholder="RCP_xxx (auto-populated)">
+                    <p style="font-size:11.5px;color:#9ca3af;margin-top:5px;">Leave blank — will be fetched from Paystack on save.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Identity (optional, encrypted) -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 4px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Identity Documents</h2>
+            <p style="font-size:12.5px;color:#6b7280;margin:0 0 20px;">Stored encrypted at rest. Required for statutory compliance.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label" for="nin">NIN (National Identification Number)</label>
+                    <input class="form-input" type="text" id="nin" name="nin" maxlength="11" placeholder="11-digit NIN">
+                </div>
+                <div>
+                    <label class="form-label" for="bvn">BVN (Bank Verification Number)</label>
+                    <input class="form-input" type="text" id="bvn" name="bvn" maxlength="11" placeholder="11-digit BVN">
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:8px;">
+            <a href="/employees" class="btn-secondary">Cancel</a>
+            <button type="button" id="submit-btn" class="btn-primary">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="submit-text">Create Employee</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.getElementById('submit-btn').addEventListener('click', async () => {
+    const errorBox = document.getElementById('form-error');
+    errorBox.style.display = 'none';
+
+    const fields = ['firstName','lastName','email','phone','dateOfBirth','gender','maritalStatus',
+                    'address','employeeNumber','jobTitle','employmentType','departmentId','payGradeId',
+                    'employmentStartDate','bankName','bankAccountNumber','bankAccountName'];
+
+    const payload = {
+        department: {},
+        payGrade: {}
+    };
+    let valid = true;
+
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        const val = el?.value?.trim();
+        if (el?.required && !val) { el.style.borderColor='#ef4444'; valid = false; }
+        else if (el) {
+            el.style.borderColor = '';
+            if (id === 'departmentId') payload.department.id = val || null;
+            else if (id === 'payGradeId') payload.payGrade.id = val || null;
+            else if (id !== 'employeeNumber' && id !== 'paystackRecipientCode' && id !== 'nin' && id !== 'bvn') payload[id] = val || null;
+        }
+    });
+
+    // optional fields
+    payload.probationEndDate       = document.getElementById('probationEndDate').value || null;
+    payload.paystackRecipientCode  = document.getElementById('paystackRecipientCode').value || null;
+    payload.ninEncrypted           = document.getElementById('nin').value || null;
+    payload.bvnEncrypted           = document.getElementById('bvn').value || null;
+
+    if (!valid) {
+        errorBox.textContent = 'Please fill in all required fields.';
+        errorBox.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    const txt = document.getElementById('submit-text');
+    btn.disabled = true;
+    txt.textContent = 'Saving…';
+
+    try {
+        const res = await apiCall('/api/employees', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorBox.textContent = data.message || 'Failed to create employee. Please check your inputs.';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        showToast('Employee created successfully!', 'success');
+        setTimeout(() => window.location.href = '/employees', 800);
+
+    } catch (e) {
+        errorBox.textContent = 'Network error. Please try again.';
+        errorBox.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        txt.textContent = 'Create Employee';
+    }
+});
+</script>
+</body>
+</html>
