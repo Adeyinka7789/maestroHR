@@ -49,10 +49,37 @@ logging:
     com.zaxxer.hikari: WARN
     org.hibernate: WARN
   pattern:
-    console: "%clr(%d{HH:mm:ss}){faint} %clr(%-5level) %clr(%-40.40logger{39}){cyan} : %msg%n"
+    console: "%clr(%d{HH:mm:ss}){faint} %clr(%-5level) [%X{requestId:-na}/%X{tenantId:-na}] %clr(%-40.40logger{39}){cyan} : %msg%n"
 
 security:
   jwt:
     secret: 404D635166546A576E5A7234753778214125442A472D4B6150645367566B5970
     expiry-ms: 86400000
     refresh-expiry-ms: 604800000
+
+paystack:
+  secret-key: sk_test_xxxxxxxxxxxxxxxxxxxx  # Replace with your test key
+  base-url: https://api.paystack.co
+  callback-url: http://localhost:8080/api/webhooks/paystack
+
+
+
+mail:
+  host: smtp.gmail.com  # Or your email provider
+  port: 587
+  username: your-email@gmail.com
+  password: your-app-password
+  properties:
+    mail:
+      smtp:
+        auth: true
+        starttls:
+          enable: true
+        connectiontimeout: 5000
+        timeout: 5000
+        writetimeout: 5000
+
+termii:
+  api-key: your-termii-api-key
+  sender-id: MaestroHR
+  base-url: https://api.termii.com/api

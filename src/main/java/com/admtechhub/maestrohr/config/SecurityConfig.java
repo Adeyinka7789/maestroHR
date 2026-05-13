@@ -31,8 +31,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/login",
+                                "/register",
+                                "/",
                                 "/actuator/health",
-                                "/actuator/info"
+                                "/actuator/info",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**"
                         ).permitAll()
                         .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
                         .anyRequest().authenticated()

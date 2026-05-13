@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="en">
+<head><title>Reports</title></head>
+<body>
+<div layout:fragment="content">
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px;">
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Employees</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${employees.size()}">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Departments</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${departmentsCount}">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Leave</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${leavePending}">0</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;margin-bottom:16px;">
+        <div class="card" style="padding:22px;">
+            <h2 style="margin:0 0 14px;font-size:18px;">Recent Payroll Runs</h2>
+            <div style="display:grid;gap:10px;">
+                <a th:each="run : ${payrollRuns}" th:href="'/payroll/' + ${run.id}" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:#f8fafc;text-decoration:none;color:#111827;">
+                    <span th:text="${run.period}">2026-05</span>
+                    <strong th:text="${'₦' + #numbers.formatDecimal(run.totalNet / 100, 0, 'COMMA', 0, 'POINT')}">₦0</strong>
+                </a>
+            </div>
+        </div>
+        <div class="card" style="padding:22px;">
+            <h2 style="margin:0 0 14px;font-size:18px;">Payslip Download</h2>
+            <div style="display:grid;gap:10px;">
+                <select class="form-input" id="payslipEmployeeId">
+                    <option value="">Select employee</option>
+                    <option th:each="employee : ${employees}" th:value="${employee.id}" th:text="${employee.fullName + ' (' + employee.employeeNumber + ')'}">Employee</option>
+                </select>
+                <a class="btn-primary" href="#" id="download-payslip-btn" style="justify-content:center;">Download Latest Payslip</a>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card" style="padding:22px;">
+            <h2 style="margin:0 0 14px;font-size:18px;">Payroll Schedules</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;margin-bottom:14px;">
+                <div><label class="form-label">Month</label><input class="form-input" type="number" id="reportMonth" min="1" max="12" th:value="${currentMonth}"></div>
+                <div><label class="form-label">Year</label><input class="form-input" type="number" id="reportYear" min="2024" max="2099" th:value="${currentYear}"></div>
+                <div><label class="form-label">Format</label><select class="form-input" id="reportFormat"><option value="PDF">PDF</option><option value="XLSX">Excel</option></select></div>
+            </div>
+            <div style="display:grid;gap:10px;">
+                <button class="btn-secondary report-btn" data-report="monthly-payroll-summary">Monthly Payroll Summary</button>
+                <button class="btn-secondary report-btn" data-report="paye-schedule">PAYE Schedule (Form A)</button>
+                <button class="btn-secondary report-btn" data-report="pension-schedule">Pension Schedule</button>
+                <button class="btn-secondary report-btn" data-report="nhf-schedule">NHF Schedule</button>
+            </div>
+        </div>
+
+        <div class="card" style="padding:22px;">
+            <h2 style="margin:0 0 14px;font-size:18px;">Workforce Reports</h2>
+            <div style="display:grid;gap:12px;">
+                <div style="display:flex;gap:10px;">
+                    <button class="btn-secondary" id="headcount-report-btn" style="flex:1;">Employee Headcount</button>
+                    <button class="btn-secondary" id="leave-balance-report-btn" style="flex:1;">Leave Balance</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 120px;gap:10px;">
+                    <div><label class="form-label">Leave Balance Year</label><input class="form-input" type="number" id="leaveBalanceYear" th:value="${currentYear}"></div>
+                    <div><label class="form-label">Format</label><select class="form-input" id="workforceFormat"><option value="PDF">PDF</option><option value="XLSX">Excel</option></select></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 120px;gap:10px;">
+                    <div><label class="form-label">Salary History Employee</label><select class="form-input" id="salaryHistoryEmployeeId"><option value="">Select employee</option><option th:each="employee : ${employees}" th:value="${employee.id}" th:text="${employee.fullName}">Employee</option></select></div>
+                    <div><label class="form-label">Format</label><select class="form-input" id="salaryHistoryFormat"><option value="PDF">PDF</option><option value="XLSX">Excel</option></select></div>
+                </div>
+                <button class="btn-secondary" id="salary-history-report-btn">Salary History Report</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="padding:22px;margin-top:16px;">
+        <h2 style="margin:0 0 14px;font-size:18px;">Audit Trail Export</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr 120px auto;gap:10px;align-items:end;">
+            <div><label class="form-label">From</label><input class="form-input" type="date" id="auditFrom" th:value="${auditFrom}"></div>
+            <div><label class="form-label">To</label><input class="form-input" type="date" id="auditTo" th:value="${auditTo}"></div>
+            <div><label class="form-label">Format</label><select class="form-input" id="auditFormat"><option value="PDF">PDF</option><option value="XLSX">Excel</option></select></div>
+            <button class="btn-primary" id="audit-report-btn">Download Audit Trail</button>
+        </div>
+    </div>
+
+    <script>
+        async function downloadReport(url) {
+            const res = await apiCall(url, { method: 'GET' });
+            if (!res.ok) {
+                let message = 'Report download failed.';
+                try {
+                    const data = await res.json();
+                    message = data.error || data.message || message;
+                } catch (error) {}
+                showToast(message, 'error');
+                return;
+            }
+
+            const blob = await res.blob();
+            const link = document.createElement('a');
+            const disposition = res.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            link.href = URL.createObjectURL(blob);
+            link.download = match ? match[1] : 'report';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(link.href);
+            showToast('Report downloaded.', 'success');
+        }
+
+        document.querySelectorAll('.report-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const month = document.getElementById('reportMonth').value;
+                const year = document.getElementById('reportYear').value;
+                const format = document.getElementById('reportFormat').value;
+                downloadReport(`/api/reports/${button.dataset.report}?month=${month}&year=${year}&format=${format}`);
+            });
+        });
+
+        document.getElementById('headcount-report-btn').addEventListener('click', () => {
+            const format = document.getElementById('workforceFormat').value;
+            downloadReport(`/api/reports/employee-headcount?format=${format}`);
+        });
+
+        document.getElementById('leave-balance-report-btn').addEventListener('click', () => {
+            const year = document.getElementById('leaveBalanceYear').value;
+            const format = document.getElementById('workforceFormat').value;
+            downloadReport(`/api/reports/leave-balance?year=${year}&format=${format}`);
+        });
+
+        document.getElementById('salary-history-report-btn').addEventListener('click', () => {
+            const employeeId = document.getElementById('salaryHistoryEmployeeId').value;
+            const format = document.getElementById('salaryHistoryFormat').value;
+            if (!employeeId) return showToast('Select an employee first.', 'error');
+            downloadReport(`/api/reports/salary-history?employeeId=${employeeId}&format=${format}`);
+        });
+
+        document.getElementById('audit-report-btn').addEventListener('click', () => {
+            const from = document.getElementById('auditFrom').value;
+            const to = document.getElementById('auditTo').value;
+            const format = document.getElementById('auditFormat').value;
+            if (!from || !to) return showToast('Select both audit dates.', 'error');
+            downloadReport(`/api/reports/audit-trail?from=${from}&to=${to}&format=${format}`);
+        });
+
+        document.getElementById('download-payslip-btn').addEventListener('click', event => {
+            event.preventDefault();
+            const employeeId = document.getElementById('payslipEmployeeId').value;
+            if (!employeeId) return showToast('Select an employee first.', 'error');
+            window.location.href = `/reports/payslip?employeeId=${employeeId}`;
+        });
+    </script>
+</div>
+</body>
+</html>

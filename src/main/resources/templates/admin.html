@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" layout:decorate="~{layout}" lang="en">
+<head><title>Admin</title></head>
+<body>
+<div layout:fragment="content">
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:18px;">
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Tenants</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${tenants.size()}">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Active Tenants</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${activeTenants}">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Users</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${users.size()}">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Locked Users</div><div style="font-size:30px;font-weight:600;margin-top:8px;" th:text="${lockedUsers}">0</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1.15fr 0.85fr;gap:16px;">
+        <div class="card" style="overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #e2e8f0;">
+                <div>
+                    <div style="font-size:18px;font-weight:600;">Tenant Admin</div>
+                    <div style="font-size:13px;color:#64748b;">Create, update, activate, and manage subscriber workspaces.</div>
+                </div>
+                <button class="btn-primary" onclick="openTenantModal()">New Tenant</button>
+            </div>
+            <table class="data-table" style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;"><th style="padding:12px 16px;text-align:left;">Company</th><th style="padding:12px 16px;text-align:left;">Plan</th><th style="padding:12px 16px;text-align:left;">Status</th><th style="padding:12px 16px;text-align:left;">Expires</th><th style="padding:12px 16px;text-align:right;"></th></tr></thead>
+                <tbody>
+                <tr th:if="${tenants.empty}"><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No tenants found.</td></tr>
+                <tr th:each="tenant : ${tenants}" style="border-bottom:1px solid #f8fafc;">
+                    <td style="padding:14px 16px;">
+                        <div style="font-weight:600;" th:text="${tenant.companyName}">Company</div>
+                        <div style="font-size:12px;color:#64748b;" th:text="${tenant.industry + ' · ' + tenant.companySize}">Industry</div>
+                    </td>
+                    <td style="padding:14px 16px;" th:text="${tenant.subscriptionPlan}">FREE_TRIAL</td>
+                    <td style="padding:14px 16px;"><span class="badge" th:classappend="${tenant.active} ? ' badge-green' : ' badge-gray'" th:text="${tenant.active} ? 'Active' : 'Inactive'">Active</span></td>
+                    <td style="padding:14px 16px;" th:text="${#temporals.format(tenant.subscriptionExpiresAt, 'dd MMM yyyy')}">14 Jun 2026</td>
+                    <td style="padding:14px 16px;text-align:right;">
+                        <button class="btn-secondary tenant-edit-btn"
+                                th:data-id="${tenant.id}"
+                                th:data-name="${tenant.companyName}"
+                                th:data-rc="${tenant.rcNumber}"
+                                th:data-industry="${tenant.industry}"
+                                th:data-size="${tenant.companySize}"
+                                th:data-plan="${tenant.subscriptionPlan}"
+                                th:data-expires="${#temporals.format(tenant.subscriptionExpiresAt, 'yyyy-MM-dd''T''HH:mm')}"
+                                th:data-active="${tenant.active}"
+                                style="font-size:12px;padding:5px 10px;">Edit</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #e2e8f0;">
+                <div>
+                    <div style="font-size:18px;font-weight:600;">User Admin</div>
+                    <div style="font-size:13px;color:#64748b;">Manage roles, access, status, and unlock accounts.</div>
+                </div>
+                <button class="btn-primary" onclick="openUserModal()">New User</button>
+            </div>
+            <table class="data-table" style="width:100%;border-collapse:collapse;">
+                <thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;"><th style="padding:12px 16px;text-align:left;">Email</th><th style="padding:12px 16px;text-align:left;">Role</th><th style="padding:12px 16px;text-align:left;">State</th><th style="padding:12px 16px;text-align:right;"></th></tr></thead>
+                <tbody>
+                <tr th:if="${users.empty}"><td colspan="4" style="padding:48px 16px;text-align:center;color:#94a3b8;">No users found.</td></tr>
+                <tr th:each="user : ${users}" style="border-bottom:1px solid #f8fafc;">
+                    <td style="padding:14px 16px;">
+                        <div style="font-weight:600;" th:text="${user.email}">admin@company.com</div>
+                        <div style="font-size:12px;color:#64748b;" th:text="${user.tenantId}">tenant</div>
+                    </td>
+                    <td style="padding:14px 16px;" th:text="${user.role}">HR_ADMIN</td>
+                    <td style="padding:14px 16px;"><span class="badge" th:classappend="${user.locked} ? ' badge-red' : (user.active ? ' badge-green' : ' badge-gray')" th:text="${user.locked} ? 'Locked' : (user.active ? 'Active' : 'Inactive')">Active</span></td>
+                    <td style="padding:14px 16px;text-align:right;">
+                        <button class="btn-secondary user-edit-btn"
+                                th:data-id="${user.id}"
+                                th:data-email="${user.email}"
+                                th:data-tenant="${user.tenantId}"
+                                th:data-role="${user.role}"
+                                th:data-active="${user.active}"
+                                th:data-locked="${user.locked}"
+                                style="font-size:12px;padding:5px 10px;">Edit</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tenant-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:200;align-items:center;justify-content:center;">
+        <div class="card" style="width:min(720px,94vw);padding:24px;">
+            <h2 style="margin:0 0 16px;font-size:20px;">Tenant</h2>
+            <input type="hidden" id="tenantId">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div style="grid-column:1 / -1;"><label class="form-label">Company Name</label><input class="form-input" id="tenantCompanyName"></div>
+                <div><label class="form-label">RC Number</label><input class="form-input" id="tenantRcNumber"></div>
+                <div><label class="form-label">Industry</label><input class="form-input" id="tenantIndustry"></div>
+                <div><label class="form-label">Company Size</label><input class="form-input" id="tenantCompanySize"></div>
+                <div><label class="form-label">Subscription Plan</label><select class="form-input" id="tenantPlan"><option th:each="plan : ${plans}" th:value="${plan}" th:text="${plan}">FREE_TRIAL</option></select></div>
+                <div><label class="form-label">Subscription Expires</label><input class="form-input" type="datetime-local" id="tenantExpiresAt"></div>
+                <div><label class="form-label">Status</label><select class="form-input" id="tenantActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                <button class="btn-secondary" onclick="closeModal('tenant-modal')">Cancel</button>
+                <button class="btn-primary" id="save-tenant-btn">Save Tenant</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:200;align-items:center;justify-content:center;">
+        <div class="card" style="width:min(720px,94vw);padding:24px;">
+            <h2 style="margin:0 0 16px;font-size:20px;">User</h2>
+            <input type="hidden" id="userId">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div style="grid-column:1 / -1;"><label class="form-label">Email</label><input class="form-input" id="userEmail"></div>
+                <div><label class="form-label">Tenant</label><select class="form-input" id="userTenantId"><option th:each="tenant : ${tenants}" th:value="${tenant.id}" th:text="${tenant.companyName}">Tenant</option></select></div>
+                <div><label class="form-label">Role</label><select class="form-input" id="userRole"><option th:each="role : ${roles}" th:value="${role}" th:text="${role}">HR_ADMIN</option></select></div>
+                <div><label class="form-label">Password</label><input class="form-input" id="userPassword" type="password" placeholder="Leave blank to keep unchanged"></div>
+                <div><label class="form-label">Status</label><select class="form-input" id="userActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+                <div><label class="form-label">Unlock Account</label><select class="form-input" id="userUnlock"><option value="false">No</option><option value="true">Yes</option></select></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                <button class="btn-secondary" onclick="closeModal('user-modal')">Cancel</button>
+                <button class="btn-primary" id="save-user-btn">Save User</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function openTenantModal() {
+            ['tenantId','tenantCompanyName','tenantRcNumber','tenantIndustry','tenantCompanySize','tenantExpiresAt'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('tenantPlan').value = 'FREE_TRIAL';
+            document.getElementById('tenantActive').value = 'true';
+            document.getElementById('tenant-modal').style.display = 'flex';
+        }
+        function openUserModal() {
+            ['userId','userEmail','userPassword'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('userActive').value = 'true';
+            document.getElementById('userUnlock').value = 'false';
+            document.getElementById('user-modal').style.display = 'flex';
+        }
+
+        document.querySelectorAll('.tenant-edit-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.getElementById('tenantId').value = button.dataset.id;
+                document.getElementById('tenantCompanyName').value = button.dataset.name || '';
+                document.getElementById('tenantRcNumber').value = button.dataset.rc || '';
+                document.getElementById('tenantIndustry').value = button.dataset.industry || '';
+                document.getElementById('tenantCompanySize').value = button.dataset.size || '';
+                document.getElementById('tenantPlan').value = button.dataset.plan || 'FREE_TRIAL';
+                document.getElementById('tenantExpiresAt').value = button.dataset.expires || '';
+                document.getElementById('tenantActive').value = button.dataset.active || 'true';
+                document.getElementById('tenant-modal').style.display = 'flex';
+            });
+        });
+
+        document.querySelectorAll('.user-edit-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.getElementById('userId').value = button.dataset.id;
+                document.getElementById('userEmail').value = button.dataset.email || '';
+                document.getElementById('userTenantId').value = button.dataset.tenant || '';
+                document.getElementById('userRole').value = button.dataset.role || 'HR_ADMIN';
+                document.getElementById('userActive').value = button.dataset.active || 'true';
+                document.getElementById('userUnlock').value = button.dataset.locked === 'true' ? 'true' : 'false';
+                document.getElementById('userPassword').value = '';
+                document.getElementById('user-modal').style.display = 'flex';
+            });
+        });
+
+        document.getElementById('save-tenant-btn').addEventListener('click', async () => {
+            const id = document.getElementById('tenantId').value;
+            const payload = {
+                companyName: document.getElementById('tenantCompanyName').value.trim(),
+                rcNumber: document.getElementById('tenantRcNumber').value.trim(),
+                industry: document.getElementById('tenantIndustry').value.trim(),
+                companySize: document.getElementById('tenantCompanySize').value.trim(),
+                subscriptionPlan: document.getElementById('tenantPlan').value,
+                subscriptionExpiresAt: document.getElementById('tenantExpiresAt').value ? new Date(document.getElementById('tenantExpiresAt').value).toISOString() : null,
+                active: document.getElementById('tenantActive').value === 'true'
+            };
+            const res = await apiCall(id ? `/api/admin/tenants/${id}` : '/api/admin/tenants', {
+                method: id ? 'PUT' : 'POST',
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) return showToast(data.error || data.message || 'Failed to save tenant.', 'error');
+            showToast('Tenant saved.', 'success');
+            setTimeout(() => window.location.reload(), 500);
+        });
+
+        document.getElementById('save-user-btn').addEventListener('click', async () => {
+            const id = document.getElementById('userId').value;
+            const payload = {
+                email: document.getElementById('userEmail').value.trim(),
+                tenantId: document.getElementById('userTenantId').value,
+                role: document.getElementById('userRole').value,
+                password: document.getElementById('userPassword').value,
+                active: document.getElementById('userActive').value === 'true',
+                unlockAccount: document.getElementById('userUnlock').value === 'true'
+            };
+            const res = await apiCall(id ? `/api/admin/users/${id}` : '/api/admin/users', {
+                method: id ? 'PUT' : 'POST',
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) return showToast(data.error || data.message || 'Failed to save user.', 'error');
+            showToast('User saved.', 'success');
+            setTimeout(() => window.location.reload(), 500);
+        });
+    </script>
+</div>
+</body>
+</html>
