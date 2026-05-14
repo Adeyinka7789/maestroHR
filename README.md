@@ -1,5 +1,3 @@
-Here's a professional README for your MaestroHR project:
-
 # MaestroHR - Multi-Tenant HR & Payroll SaaS Platform
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.5-6DB33F?style=flat&logo=springboot)](https://spring.io/projects/spring-boot)
