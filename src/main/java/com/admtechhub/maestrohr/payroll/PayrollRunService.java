@@ -94,6 +94,13 @@ public class PayrollRunService {
             throw new IllegalStateException("Payroll must be in DRAFT status to compute");
         }
 
+        // Delete existing entries for this payroll run to avoid duplicates
+        List<PayrollEntry> existingEntries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        if (!existingEntries.isEmpty()) {
+            log.info("Deleting {} existing entries for payroll run {}", existingEntries.size(), payrollRunId);
+            payrollEntryRepository.deleteAll(existingEntries);
+        }
+
         List<Employee> activeEmployees = employeeRepository.findByStatus(EmployeeStatus.ACTIVE).stream()
                 .filter(employee -> employee.getTenant() != null && tenantId.equals(employee.getTenant().getId()))
                 .toList();
@@ -150,8 +157,10 @@ public class PayrollRunService {
             totalNhf += result.getNhfDeduction();
         }
 
+        // Save new entries
         payrollEntryRepository.saveAll(entries);
 
+        // Update payroll run totals
         payrollRun.setTotalGross(totalGross);
         payrollRun.setTotalNet(totalNet);
         payrollRun.setTotalPaye(totalPaye);

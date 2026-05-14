@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Company Settings — MaestroHR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-soft: #eff6ff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --bg-card: #ffffff;
+        }
+
+        .settings-container { max-width: 1100px; margin: 0 auto; }
+
+        .settings-section {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; margin-bottom: 24px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .section-header {
+            padding: 24px 32px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .section-body { padding: 32px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block; font-size: 13px; font-weight: 600;
+            color: var(--text-main); margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+            border-radius: 10px; font-size: 14px; transition: all 0.2s;
+            background: #fcfcfd;
+        }
+        .form-control:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-soft);
+            background: white;
+        }
+        .form-control:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+
+        /* Subscription Mini-Card */
+        .plan-status-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white; border-radius: 14px; padding: 24px; position: relative;
+        }
+        .plan-badge-pill {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: 700;
+        }
+
+        /* Disbursement Toggle UI */
+        .provider-option {
+            border: 1px solid var(--border); padding: 16px; border-radius: 12px;
+            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px;
+            margin-bottom: 12px;
+        }
+        .provider-option.selected { border-color: var(--primary); background: var(--primary-soft); }
+
+        /* Billing Table */
+        .billing-table { width: 100%; border-collapse: collapse; }
+        .billing-table th {
+            text-align: left; padding: 12px; font-size: 12px;
+            text-transform: uppercase; color: var(--text-muted);
+            letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+        }
+        .billing-table td { padding: 16px 12px; font-size: 14px; border-bottom: 1px solid #f8fafc; }
+
+        .status-pill {
+            padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 500;
+        }
+        .status-success { background: #dcfce7; color: #166534; }
+
+        /* Switch Styling (Cleaner) */
+        .switch-group { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: #f8fafc; border-radius: 12px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e2e8f0; transition: .3s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(20px); }
+    </style>
+</head>
+<body>
+<div layout:fragment="content" class="settings-container px-4 py-8">
+
+    <div class="mb-8">
+        <h1 style="font-family:'Outfit'; font-size: 32px; color: var(--text-main);">Settings</h1>
+        <p style="color: var(--text-muted);">Manage your workspace identity and financial configurations.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div class="lg:col-span-2 space-y-6">
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2 style="font-size: 16px; font-weight: 700;">Company Profile</h2>
+                    <span style="font-size: 12px; color: var(--text-muted);">ID: <span th:text="${tenant.rcNumber}">---</span></span>
+                </div>
+                <div class="section-body">
+                    <form id="companyForm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="form-group">
+                                <label class="form-label">Full Registered Name</label>
+                                <input type="text" id="companyName" class="form-control" th:value="${tenant.companyName}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Industry</label>
+                                <input type="text" id="industry" class="form-control" th:value="${tenant.industry}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Organization Size</label>
+                                <select id="companySize" class="form-control">
+                                    <option value="1-10" th:selected="${tenant.companySize == '1-10'}">1-10 employees</option>
+                                    <option value="11-50" th:selected="${tenant.companySize == '11-50'}">11-50 employees</option>
+                                    <option value="51-200" th:selected="${tenant.companySize == '51-200'}">51-200 employees</option>
+                                    <option value="500+" th:selected="${tenant.companySize == '500+'}">500+ Large Enterprise</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">RC Number (Read-only)</label>
+                                <input type="text" class="form-control" th:value="${tenant.rcNumber}" disabled>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; display:flex; justify-content: flex-end;">
+                            <button type="submit" class="btn-primary px-8 py-2.5">Update Profile</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2 style="font-size: 16px; font-weight: 700;">Payout Configuration</h2>
+                </div>
+                <div class="section-body">
+                    <p class="text-sm text-muted mb-6">Choose how MaestroHR handles salary payments to your employees.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="provider-option" id="label-csv">
+                            <input type="radio" name="payoutType" value="CSV" th:checked="${tenant.disbursementProvider == 'CSV'}" style="accent-color: var(--primary);">
+                            <div>
+                                <p style="font-size: 14px; font-weight: 600;">Manual (CSV)</p>
+                                <p style="font-size: 12px; color: var(--text-muted);">Download bank-ready files</p>
+                            </div>
+                        </label>
+                        <label class="provider-option" id="label-paystack">
+                            <input type="radio" name="payoutType" value="PAYSTACK" th:checked="${tenant.disbursementProvider == 'PAYSTACK'}" style="accent-color: var(--primary);">
+                            <div>
+                                <p style="font-size: 14px; font-weight: 600;">Automated (Paystack)</p>
+                                <p style="font-size: 12px; color: var(--text-muted);">Instant direct-to-bank</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="paystackConnectBox" style="margin-top: 24px; padding: 20px; background: #f8fafc; border-radius: 14px; display: none;">
+                        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                            <img src="https://paystack.com/assets/img/login/paystack-logo.png" alt="Paystack" style="height: 20px;">
+                            <span style="font-size: 12px; color: var(--text-muted);">Direct Integration</span>
+                        </div>
+                        <button id="connectPaystackBtn" class="btn-secondary w-full py-3" style="background: white; border: 1px solid var(--border);">
+                            Connect your Paystack Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <div class="settings-section">
+                <div class="section-body">
+                    <div class="plan-status-card">
+                        <div class="flex justify-between items-start mb-6">
+                            <span class="plan-badge-pill" th:text="${tenant.subscriptionPlan.name()}">PLAN</span>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.3;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        </div>
+                        <h3 style="font-family:'Outfit'; font-size: 24px; margin-bottom: 4px;" th:text="${tenant.subscriptionPlan.displayName}">Free Trial</h3>
+                        <p style="font-size: 13px; opacity: 0.7; margin-bottom: 24px;" th:text="${tenant.subscriptionPlan.description}">Description</p>
+
+                        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; font-size: 13px;">
+                            <span style="opacity: 0.6;">Next billing:</span>
+                            <strong th:text="${#temporals.format(tenant.subscriptionExpiresAt, 'dd MMM yyyy')}">---</strong>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <div class="switch-group mb-4">
+                            <span style="font-size: 14px; font-weight: 500;">Auto-renewal</span>
+                            <label class="switch">
+                                <input type="checkbox" id="autoRenew" th:checked="${tenant.autoRenew}">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <a href="/subscription/plans" class="btn-primary w-full block text-center py-3" style="text-decoration: none;">Change Plan</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section" style="background: var(--primary-soft); border-color: #bfdbfe;">
+                <div class="section-body" style="padding: 24px;">
+                    <h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">Need help with RC?</h4>
+                    <p style="font-size: 12px; color: #1e40af; line-height: 1.5;">To update your RC number, please contact our compliance team with your CAC documents.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3">
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2 style="font-size: 16px; font-weight: 700;">Billing & Invoices</h2>
+                    <button class="text-primary" style="font-size:13px; font-weight:600; background:none; border:none; cursor:pointer;">Download All</button>
+                </div>
+                <div class="section-body" style="padding: 0;">
+                    <div id="billingHistory" class="overflow-x-auto">
+                        <div class="text-center py-12 text-muted">
+                            <div class="spinner mb-2"></div>
+                            Loading history...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const token = localStorage.getItem('maestrohr_token');
+
+    // 1. Disbursement Logic Refinement
+    const radios = document.querySelectorAll('input[name="payoutType"]');
+    const paystackBox = document.getElementById('paystackConnectBox');
+
+    function syncPayoutUI() {
+        radios.forEach(r => {
+            const label = r.closest('.provider-option');
+            if(r.checked) {
+                label.classList.add('selected');
+                if(r.value === 'PAYSTACK') paystackBox.style.display = 'block';
+                else paystackBox.style.display = 'none';
+            } else {
+                label.classList.remove('selected');
+            }
+        });
+    }
+
+    radios.forEach(r => r.addEventListener('change', async () => {
+        syncPayoutUI();
+        // API Call to update provider
+        await fetch(`/api/tenant/settings/disbursement-provider?provider=${r.value}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+    }));
+
+    syncPayoutUI();
+
+    // 2. Billing History Injection (Updated)
+    async function loadBillingHistory() {
+        const container = document.getElementById('billingHistory');
+        try {
+            const res = await fetch('/api/payment/billing-history', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+
+            if (result.success && result.data.length > 0) {
+                let html = `<table class="billing-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction Date</th>
+                            <th>Reference</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                result.data.forEach(inv => {
+                    html += `<tr>
+                        <td>${new Date(inv.date).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                        <td style="font-family:monospace; font-size:12px; color:var(--text-muted)">#${inv.id || 'INV-001'}</td>
+                        <td style="font-weight:500">${inv.description}</td>
+                        <td style="font-weight:700">₦${(inv.amount / 100).toLocaleString()}</td>
+                        <td><span class="status-pill status-success">${inv.status}</span></td>
+                        <td><a href="#" style="color:var(--primary); font-size:12px; text-decoration:none; font-weight:600;">PDF</a></td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="py-12 text-center text-muted">No transactions found.</div>';
+            }
+        } catch(e) {
+            container.innerHTML = '<div class="py-12 text-center text-red-500">Could not load billing data.</div>';
+        }
+    }
+
+    loadBillingHistory();
+
+    // 3. Simple Toast Function for Save Feedback
+    function showToast(msg, type) {
+        alert(msg); // Replace with your actual toast component
+    }
+
+    // Connect Paystack Logic
+    document.getElementById('connectPaystackBtn').addEventListener('click', async () => {
+        const response = await fetch('/api/tenant/settings/paystack/connect-url', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await response.json();
+        if (result.success && result.data) window.location.href = result.data;
+    });
+
+    // Auto-renew toggle
+    document.getElementById('autoRenew').addEventListener('change', async (e) => {
+        await fetch('/api/tenant/settings', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ autoRenew: e.target.checked })
+        });
+    });
+</script>
+</body>
+</html>

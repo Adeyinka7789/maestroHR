@@ -26,21 +26,28 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // ── Public API endpoints ──────────────────────────────────────
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/login",
-                                "/register",
-                                "/",
+                                "/api/pricing/public",          // ← public pricing for plans page
                                 "/actuator/health",
-                                "/actuator/info",
-                                "/css/**",
-                                "/js/**",
-                                "/images/**"
+                                "/actuator/info"
                         ).permitAll()
+
+                        // ── Actuator (super admin only) ───────────────────────────────
                         .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
+
+                        // ── Thymeleaf UI pages (auth handled client-side via JWT) ─────
+                        .requestMatchers(
+                                "/employees/**", "/departments/**", "/pay-grades/**",
+                                "/payroll/**", "/leave/**", "/attendance/**", "/reports/**",
+                                "/subscription/**",
+                                "/dashboard", "/", "/login", "/register",
+                                "/css/**", "/js/**", "/images/**"
+                        ).permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

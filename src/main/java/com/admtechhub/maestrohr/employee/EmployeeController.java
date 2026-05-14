@@ -25,12 +25,13 @@ public class EmployeeController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
-    public ResponseEntity<ApiResponse<Employee>> createEmployee(@Valid @RequestBody Employee employee) {
-        Employee created = employeeService.createEmployee(employee);
+    public ResponseEntity<ApiResponse<Employee>> createEmployee(@Valid @RequestBody EmployeeRequest request) {
+        Employee created = employeeService.createEmployee(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Employee created successfully", created));
     }
 
+    // The rest of your endpoints remain the same...
     @GetMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
     public ResponseEntity<ApiResponse<Page<Employee>>> getAllEmployees(
@@ -50,8 +51,8 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
     public ResponseEntity<ApiResponse<Employee>> updateEmployee(
             @PathVariable UUID id,
-            @Valid @RequestBody Employee employee) {
-        Employee updated = employeeService.updateEmployee(id, employee);
+            @Valid @RequestBody EmployeeRequest request) {
+        Employee updated = employeeService.updateEmployee(id, request);
         return ResponseEntity.ok(ApiResponse.success("Employee updated successfully", updated));
     }
 

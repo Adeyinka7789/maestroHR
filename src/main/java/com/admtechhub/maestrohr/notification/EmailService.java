@@ -10,7 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-//@Service
+@Service  // Uncomment this
 @ConditionalOnProperty(name = "spring.mail.host", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
@@ -38,5 +38,10 @@ public class EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
         }
+    }
+
+    // Simple email without attachment
+    public void sendSimpleEmail(String to, String subject, String body) {
+        sendEmailWithAttachment(to, subject, body, null, null);
     }
 }

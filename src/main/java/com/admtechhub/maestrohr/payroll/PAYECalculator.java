@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component;
 public class PAYECalculator {
 
     // Tax bands for ANNUAL income in kobo (1 NGN = 100 kobo)
-    private static final long BAND_1_LIMIT = 300_00000L;      // NGN 300,000 = 30,000,000 kobo
-    private static final long BAND_2_LIMIT = 300_00000L;      // Next NGN 300,000
-    private static final long BAND_3_LIMIT = 500_00000L;      // Next NGN 500,000
-    private static final long BAND_4_LIMIT = 500_00000L;      // Next NGN 500,000
-    private static final long BAND_5_LIMIT = 1_600_00000L;     // Next NGN 1,600,000
+    private static final long BAND_1_LIMIT = 30_000_000L;      // NGN 300,000 = 30,000,000 kobo
+    private static final long BAND_2_LIMIT = 30_000_000L;      // Next NGN 300,000
+    private static final long BAND_3_LIMIT = 50_000_000L;      // Next NGN 500,000
+    private static final long BAND_4_LIMIT = 50_000_000L;      // Next NGN 500,000
+    private static final long BAND_5_LIMIT = 160_000_000L;     // Next NGN 1,600,000
 
     private static final double BAND_1_RATE = 0.07;   // 7%
     private static final double BAND_2_RATE = 0.11;   // 11%
@@ -21,15 +21,10 @@ public class PAYECalculator {
     private static final double BAND_5_RATE = 0.21;   // 21%
     private static final double BAND_6_RATE = 0.24;   // 24%
 
-    private static final long CRA_MINIMUM = 200_00000L;  // NGN 200,000 = 20,000,000 kobo
+    private static final long CRA_MINIMUM = 20_000_000L;  // NGN 200,000 = 20,000,000 kobo
 
     /**
      * Calculate PAYE tax for an employee
-     * @param grossSalary Monthly gross in kobo
-     * @param pensionEmployee Monthly employee pension in kobo
-     * @param nhfDeduction Monthly NHF in kobo
-     * @param basicSalary Monthly basic in kobo (for CRA calculation)
-     * @return PAYEResult containing monthly PAYE and calculation details
      */
     public PAYEResult calculate(Long grossSalary, Long pensionEmployee, Long nhfDeduction, Long basicSalary) {
         // Step 1: Annualize values
@@ -49,15 +44,25 @@ public class PAYECalculator {
 
         // Step 4: Taxable Income = Gross Taxable - CRA
         long annualTaxableIncome = annualGrossTaxable - annualCRA;
-        if (annualTaxableIncome < 0) {
-            annualTaxableIncome = 0;
+
+        // If taxable income is zero or negative, no tax
+        if (annualTaxableIncome <= 0) {
+            log.debug("No tax payable: AnnualTaxableIncome={}", annualTaxableIncome);
+            return PAYEResult.builder()
+                    .annualGross(annualGross)
+                    .annualGrossTaxable(annualGrossTaxable)
+                    .annualCRA(annualCRA)
+                    .annualTaxableIncome(0L)
+                    .annualPAYE(0L)
+                    .monthlyPAYE(0L)
+                    .build();
         }
 
         // Step 5: Calculate PAYE on annual taxable income
         long annualPAYE = calculateProgressiveTax(annualTaxableIncome);
 
-        // Step 6: Monthly PAYE
-        long monthlyPAYE = Math.round(annualPAYE / 12.0);
+        // Step 6: Monthly PAYE (integer division)
+        long monthlyPAYE = annualPAYE / 12;
 
         log.debug("PAYE Calculation: AnnualGross={}, AnnualTaxable={}, AnnualPAYE={}, MonthlyPAYE={}",
                 annualGross, annualTaxableIncome, annualPAYE, monthlyPAYE);
