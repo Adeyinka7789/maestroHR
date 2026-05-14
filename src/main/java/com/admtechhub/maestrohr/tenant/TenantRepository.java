@@ -12,4 +12,8 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
     Optional<Tenant> findByRcNumber(String rcNumber);
     boolean existsByRcNumber(String rcNumber);
     List<Tenant> findAllByOrderByCreatedAtDesc();
+
+    // New methods for webhook handling
+    Optional<Tenant> findByPaystackCustomerCode(String paystackCustomerCode);
+    Optional<Tenant> findByPaystackSubscriptionCode(String paystackSubscriptionCode);
 }

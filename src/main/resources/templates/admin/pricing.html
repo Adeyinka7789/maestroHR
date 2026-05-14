@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout}">
+<head>
+    <title>Admin - Pricing Management</title>
+    <style>
+        .price-input {
+            width: 150px;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: right;
+        }
+        .price-input:focus {
+            outline: none;
+            border-color: #2563eb;
+            ring: 2px solid #2563eb;
+        }
+        .save-btn {
+            background: #2563eb;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+        }
+        .save-btn:hover {
+            background: #1d4ed8;
+        }
+        .reset-btn {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+            margin-right: 12px;
+        }
+        .success-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #10b981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+<div layout:fragment="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Pricing Management</h1>
+            <p class="page-subtitle">Configure subscription prices for all plans</p>
+        </div>
+        <div>
+            <button id="resetBtn" class="reset-btn">Reset to Default</button>
+            <button id="saveBtn" class="save-btn">Save Changes</button>
+        </div>
+    </div>
+
+    <div class="card" style="padding: 24px;">
+        <div class="overflow-x-auto">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0;">
+                    <th style="text-align: left; padding: 12px;">Plan</th>
+                    <th style="text-align: left; padding: 12px;">Monthly (₦)</th>
+                    <th style="text-align: left; padding: 12px;">Quarterly (₦)</th>
+                    <th style="text-align: left; padding: 12px;">Annually (₦)</th>
+                </tr>
+                </thead>
+                <tbody id="pricing-table">
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 16px 12px;">Loading...</td>
+                    <td style="padding: 16px 12px;">-</td>
+                    <td style="padding: 16px 12px;">-</td>
+                    <td style="padding: 16px 12px;">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 text-sm text-gray-500">
+            <p>* Prices are in Nigerian Naira (₦)</p>
+            <p>* Free Trial is always ₦0</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('maestrohr_token');
+    let currentPrices = {};
+
+    // Default prices in NGN
+    const defaultPrices = {
+        'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 },
+        'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 },
+        'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 },
+        'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 }
+    };
+
+    async function loadPricing() {
+        try {
+            const response = await fetch('/api/admin/pricing', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+
+            if (result.success && result.data && result.data.prices) {
+                const apiPrices = result.data.prices;
+                const converted = {};
+                for (const plan in apiPrices) {
+                    converted[plan] = {
+                        monthly: (apiPrices[plan].MONTHLY || 0) / 100,
+                        quarterly: (apiPrices[plan].QUARTERLY || 0) / 100,
+                        annually: (apiPrices[plan].ANNUALLY || 0) / 100
+                    };
+                }
+                currentPrices = converted;
+            } else {
+                currentPrices = defaultPrices;
+            }
+            renderPricingTable();
+        } catch (error) {
+            console.error('Failed to load pricing:', error);
+            currentPrices = defaultPrices;
+            renderPricingTable();
+        }
+    }
+
+    function renderPricingTable() {
+        const tbody = document.getElementById('pricing-table');
+        const plans = ['FREE_TRIAL', 'BASIC', 'PROFESSIONAL', 'ENTERPRISE'];
+
+        tbody.innerHTML = '';
+        for (const plan of plans) {
+            const planPrices = currentPrices[plan] || { monthly: 0, quarterly: 0, annually: 0 };
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid #e2e8f0';
+            row.innerHTML = `
+                <td style="padding: 16px 12px; font-weight: 600;">${plan.replace('_', ' ')}</td>
+                <td style="padding: 16px 12px;">
+                    <input type="number" class="price-input" data-plan="${plan}" data-period="MONTHLY" value="${planPrices.monthly}" step="1000" min="0">
+                </td>
+                <td style="padding: 16px 12px;">
+                    <input type="number" class="price-input" data-plan="${plan}" data-period="QUARTERLY" value="${planPrices.quarterly}" step="1000" min="0">
+                </td>
+                <td style="padding: 16px 12px;">
+                    <input type="number" class="price-input" data-plan="${plan}" data-period="ANNUALLY" value="${planPrices.annually}" step="1000" min="0">
+                </td>
+            `;
+            tbody.appendChild(row);
+        }
+    }
+
+    function collectPrices() {
+        const inputs = document.querySelectorAll('.price-input');
+        const prices = {};
+        inputs.forEach(input => {
+            const plan = input.dataset.plan;
+            const period = input.dataset.period;
+            const value = parseInt(input.value) || 0;
+            if (!prices[plan]) prices[plan] = {};
+            // Store in kobo with uppercase period
+            prices[plan][period] = value * 100;
+        });
+        return prices;
+    }
+
+    async function savePrices() {
+        const prices = collectPrices();
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            const response = await fetch('/api/admin/pricing', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ prices })
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('Prices saved successfully!', 'success');
+                loadPricing(); // Reload to refresh
+            } else {
+                showToast('Failed to save prices', 'error');
+            }
+        } catch (error) {
+            console.error('Save failed:', error);
+            showToast('An error occurred', 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Changes';
+        }
+    }
+
+    async function resetToDefault() {
+        if (!confirm('Reset all prices to default values? This cannot be undone.')) return;
+
+        const resetBtn = document.getElementById('resetBtn');
+        resetBtn.disabled = true;
+        resetBtn.textContent = 'Resetting...';
+
+        // Convert defaultPrices to API format (NGN to kobo, uppercase periods)
+        const defaultInKobo = {};
+        for (const plan in defaultPrices) {
+            defaultInKobo[plan] = {
+                MONTHLY: defaultPrices[plan].monthly * 100,
+                QUARTERLY: defaultPrices[plan].quarterly * 100,
+                ANNUALLY: defaultPrices[plan].annually * 100
+            };
+        }
+
+        try {
+            const response = await fetch('/api/admin/pricing', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ prices: defaultInKobo })
+            });
+            const result = await response.json();
+            if (result.success) {
+                showToast('Prices reset to default!', 'success');
+                loadPricing();
+            } else {
+                showToast('Failed to reset prices', 'error');
+            }
+        } catch (error) {
+            console.error('Reset failed:', error);
+            showToast('An error occurred', 'error');
+        } finally {
+            resetBtn.disabled = false;
+            resetBtn.textContent = 'Reset to Default';
+        }
+    }
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `<span>${message}</span>`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', savePrices);
+    document.getElementById('resetBtn').addEventListener('click', resetToDefault);
+    loadPricing();
+</script>
+</body>
+</html>

@@ -1,6 +1,10 @@
 package com.admtechhub.maestrohr.employee;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.auth.User;
+import com.admtechhub.maestrohr.auth.UserRepository;
+import com.admtechhub.maestrohr.auth.UserRole;
+import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.paystack.PaystackClient;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
@@ -9,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +32,10 @@ public class EmployeeService {
     private final DepartmentRepository departmentRepository;
     private final PayGradeRepository payGradeRepository;
     private final PaystackClient paystackClient;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
+
     private static final String EMPLOYEE_NUMBER_PREFIX = "EMP";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -48,7 +57,7 @@ public class EmployeeService {
     }
 
     @Transactional
-    public Employee createEmployee(Employee request) {
+    public Employee createEmployee(EmployeeRequest request) {
         // Get tenantId from TenantContext (returns String, convert to UUID)
         String tenantIdStr = TenantContext.getCurrentTenant();
         UUID tenantId = UUID.fromString(tenantIdStr);
@@ -58,23 +67,43 @@ public class EmployeeService {
                 .orElseThrow(() -> new TenantNotFoundException("Tenant not found: " + tenantId));
 
         // Validate department exists
-        Department department = departmentRepository.findById(request.getDepartment().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Department not found: " + request.getDepartment().getId()));
+        Department department = departmentRepository.findById(request.getDepartmentId())
+                .orElseThrow(() -> new IllegalArgumentException("Department not found: " + request.getDepartmentId()));
 
         // Validate pay grade exists
-        PayGrade payGrade = payGradeRepository.findById(request.getPayGrade().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Pay grade not found: " + request.getPayGrade().getId()));
+        PayGrade payGrade = payGradeRepository.findById(request.getPayGradeId())
+                .orElseThrow(() -> new IllegalArgumentException("Pay grade not found: " + request.getPayGradeId()));
 
-        // Check if email already exists for this tenant
+        // Check if employee email already exists for this tenant
         if (employeeRepository.existsByEmail(request.getEmail(), tenantId)) {
             throw new IllegalArgumentException("Employee with email " + request.getEmail() + " already exists");
+        }
+
+        // Check if user account already exists with this email
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("User with email " + request.getEmail() + " already exists");
         }
 
         // Generate employee number
         String employeeNumber = generateEmployeeNumber(tenantId);
 
+        // FIRST: Create User account for employee
+        User user = User.builder()
+                .tenantId(tenantId)
+                .email(request.getEmail())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(UserRole.EMPLOYEE)
+                .isActive(true)
+                .failedLoginAttempts(0)
+                .build();
+
+        User savedUser = userRepository.save(user);
+        log.info("Created user account for employee: {}", savedUser.getEmail());
+
+        // SECOND: Create Employee linked to the user
         Employee employee = Employee.builder()
                 .tenant(tenant)
+                .user(savedUser)
                 .employeeNumber(employeeNumber)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -84,8 +113,8 @@ public class EmployeeService {
                 .gender(request.getGender())
                 .maritalStatus(request.getMaritalStatus())
                 .address(request.getAddress())
-                .ninEncrypted(request.getNinEncrypted())
-                .bvnEncrypted(request.getBvnEncrypted())
+                .ninEncrypted(request.getNin())
+                .bvnEncrypted(request.getBvn())
                 .department(department)
                 .payGrade(payGrade)
                 .jobTitle(request.getJobTitle())
@@ -95,9 +124,7 @@ public class EmployeeService {
                 .bankName(request.getBankName())
                 .bankAccountNumber(request.getBankAccountNumber())
                 .bankAccountName(request.getBankAccountName())
-                .paystackRecipientCode(request.getPaystackRecipientCode())
-                .status(request.getStatus() != null ? request.getStatus() : EmployeeStatus.ACTIVE)
-                .terminationDate(request.getTerminationDate())
+                .status(EmployeeStatus.ACTIVE)
                 .build();
 
         Employee savedEmployee = employeeRepository.save(employee);
@@ -127,6 +154,13 @@ public class EmployeeService {
         } catch (Exception e) {
             log.error("Failed to verify bank account for employee {}: {}",
                     savedEmployee.getEmployeeNumber(), e.getMessage());
+        }
+
+        // After creating the employee, send welcome notification
+        try {
+            notificationService.sendWelcomeNotification(savedEmployee, request.getPassword());
+        } catch (Exception e) {
+            log.error("Failed to send welcome notification: {}", e.getMessage());
         }
 
         return savedEmployee;
@@ -159,7 +193,7 @@ public class EmployeeService {
     }
 
     @Transactional
-    public Employee updateEmployee(UUID id, Employee request) {
+    public Employee updateEmployee(UUID id, EmployeeRequest request) {
         // Get tenantId for validation
         String tenantIdStr = TenantContext.getCurrentTenant();
         UUID tenantId = UUID.fromString(tenantIdStr);
@@ -168,17 +202,24 @@ public class EmployeeService {
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
 
         // Validate department exists
-        Department department = departmentRepository.findById(request.getDepartment().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Department not found: " + request.getDepartment().getId()));
+        Department department = departmentRepository.findById(request.getDepartmentId())
+                .orElseThrow(() -> new IllegalArgumentException("Department not found: " + request.getDepartmentId()));
 
         // Validate pay grade exists
-        PayGrade payGrade = payGradeRepository.findById(request.getPayGrade().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Pay grade not found: " + request.getPayGrade().getId()));
+        PayGrade payGrade = payGradeRepository.findById(request.getPayGradeId())
+                .orElseThrow(() -> new IllegalArgumentException("Pay grade not found: " + request.getPayGradeId()));
 
         // Check if email already exists for this tenant (excluding current employee)
         if (!employee.getEmail().equals(request.getEmail()) &&
                 employeeRepository.existsByEmail(request.getEmail(), tenantId)) {
             throw new IllegalArgumentException("Employee with email " + request.getEmail() + " already exists");
+        }
+
+        // Update user email if changed
+        if (employee.getUser() != null && !employee.getEmail().equals(request.getEmail())) {
+            User user = employee.getUser();
+            user.setEmail(request.getEmail());
+            userRepository.save(user);
         }
 
         // Update fields
@@ -190,11 +231,11 @@ public class EmployeeService {
         employee.setGender(request.getGender());
         employee.setMaritalStatus(request.getMaritalStatus());
         employee.setAddress(request.getAddress());
-        if (request.getNinEncrypted() != null) {
-            employee.setNinEncrypted(request.getNinEncrypted());
+        if (request.getNin() != null) {
+            employee.setNinEncrypted(request.getNin());
         }
-        if (request.getBvnEncrypted() != null) {
-            employee.setBvnEncrypted(request.getBvnEncrypted());
+        if (request.getBvn() != null) {
+            employee.setBvnEncrypted(request.getBvn());
         }
         employee.setDepartment(department);
         employee.setPayGrade(payGrade);
@@ -219,6 +260,12 @@ public class EmployeeService {
 
         employee.setStatus(EmployeeStatus.TERMINATED);
         employee.setTerminationDate(terminationDate);
+
+        // Also deactivate the user account
+        if (employee.getUser() != null) {
+            employee.getUser().setActive(false);
+            userRepository.save(employee.getUser());
+        }
 
         employeeRepository.save(employee);
         log.info("Terminated employee: {} on {}", id, terminationDate);
@@ -302,4 +349,9 @@ public class EmployeeService {
         return employee;
     }
 
+    @Transactional(readOnly = true)
+    public Employee findByEmail(String email) {
+        return employeeRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found with email: " + email));
+    }
 }

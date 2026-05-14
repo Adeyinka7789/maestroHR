@@ -3,131 +3,906 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MaestroHR</title>
+    <title>MaestroHR | HR & Payroll for Nigerian SMEs</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/logo-sq.png">
+    <link rel="apple-touch-icon" href="/images/logo-sq.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
-        body { margin: 0; font-family: 'DM Sans', sans-serif; color: #eff6ff; background:
-            radial-gradient(circle at 15% 20%, rgba(37,99,235,0.35), transparent 25%),
-            radial-gradient(circle at 80% 15%, rgba(14,165,233,0.22), transparent 22%),
-            linear-gradient(135deg, #04101d 0%, #081528 38%, #10274b 100%); }
-        .shell { min-height: 100vh; padding: 28px; }
-        .nav { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:48px; }
-        .logo { display:flex; align-items:center; gap:12px; }
-        .logo-mark { width:42px; height:42px; border-radius:13px; background:linear-gradient(135deg,#2563eb,#38bdf8); display:flex; align-items:center; justify-content:center; box-shadow:0 18px 40px rgba(37,99,235,0.25); }
-        .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; border-radius:999px; padding:12px 18px; font-weight:600; }
-        .btn-primary { background:#f8fafc; color:#06111f; }
-        .btn-secondary { color:#e2e8f0; border:1px solid rgba(226,232,240,0.16); background:rgba(255,255,255,0.03); }
-        .hero { display:grid; grid-template-columns:1.15fr 0.85fr; gap:24px; align-items:stretch; }
-        .headline { padding:22px 0; }
-        .headline h1 { font-family:'Space Grotesk', sans-serif; font-size:clamp(52px,8vw,96px); line-height:0.95; margin:0 0 20px; max-width:760px; letter-spacing:-0.04em; }
-        .headline p { max-width:620px; font-size:18px; line-height:1.75; color:#cbd5e1; margin:0 0 26px; }
-        .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:28px; }
-        .stat { padding:18px; border-radius:22px; background:rgba(255,255,255,0.05); border:1px solid rgba(148,163,184,0.12); backdrop-filter: blur(10px); }
-        .stat strong { display:block; font-size:28px; margin-bottom:4px; font-family:'Space Grotesk', sans-serif; }
-        .showcase { position:relative; padding:20px; border-radius:30px; background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)); border:1px solid rgba(148,163,184,0.16); overflow:hidden; min-height:520px; }
-        .orb { position:absolute; width:260px; height:260px; border-radius:999px; filter:blur(24px); opacity:0.6; }
-        .orb-a { top:-50px; right:-50px; background:rgba(56,189,248,0.28); }
-        .orb-b { bottom:-40px; left:-30px; background:rgba(59,130,246,0.22); }
-        .panel { position:relative; z-index:1; border-radius:24px; background:#08111f; border:1px solid rgba(148,163,184,0.14); padding:18px; box-shadow:0 24px 60px rgba(2,6,23,0.32); }
-        .mini-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:14px; }
-        .mini { border-radius:18px; padding:16px; background:#0b1830; border:1px solid rgba(59,130,246,0.12); }
-        .chips { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
-        .chip { padding:8px 12px; border-radius:999px; background:rgba(8,145,178,0.13); color:#bae6fd; font-size:13px; border:1px solid rgba(125,211,252,0.12); }
-        .band { margin-top:36px; padding:22px 24px; border-radius:26px; background:rgba(255,255,255,0.04); border:1px solid rgba(148,163,184,0.12); display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-        .band h3 { margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:#7dd3fc; }
-        .band p { margin:0; color:#cbd5e1; font-size:14px; line-height:1.6; }
-        @media (max-width: 980px) { .hero, .band { grid-template-columns:1fr; } .stats { grid-template-columns:1fr; } .shell { padding:18px; } .headline h1 { font-size:52px; } }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --navy: #060d1f;
+            --navy-2: #0a1628;
+            --navy-3: #0f2040;
+            --brand: #2563eb;
+            --brand-2: #1d4ed8;
+            --brand-light: #3b82f6;
+            --brand-glow: rgba(37,99,235,0.15);
+            --text: #0f172a;
+            --text-2: #475569;
+            --text-3: #94a3b8;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --border: #e2e8f0;
+            --border-2: #cbd5e1;
+            --radius: 10px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'DM Sans', sans-serif; color: var(--text); background: #fff; line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+        /* ── Typography ── */
+        h1,h2,h3,h4 { line-height: 1.15; }
+        .mono { font-family: 'DM Mono', monospace; }
+
+        /* ── Layout ── */
+        .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── Animations ── */
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes shimmer { from { background-position: -200% center; } to { background-position: 200% center; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+
+        .anim-fadeup { animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) both; }
+        .anim-fadein { animation: fadeIn 0.6s ease both; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.35s; }
+        .delay-4 { animation-delay: 0.5s; }
+
+        /* ── Header ── */
+        header {
+            position: sticky; top: 0; z-index: 200;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            transition: box-shadow 0.3s;
+        }
+        header.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+        .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+        .logo-box { width: 34px; height: 34px; background: var(--brand); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .logo-name { font-size: 19px; font-weight: 600; letter-spacing: -0.3px; }
+        .nav-links { display: flex; align-items: center; gap: 4px; }
+        .nav-links a { color: var(--text-2); font-size: 14px; font-weight: 500; text-decoration: none; padding: 7px 14px; border-radius: var(--radius); transition: background 0.15s, color 0.15s; }
+        .nav-links a:hover { background: var(--surface-2); color: var(--text); }
+        .nav-actions { display: flex; align-items: center; gap: 8px; }
+        .hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; color: var(--text); }
+        .mobile-menu { display: none; position: fixed; inset: 62px 0 0; background: white; z-index: 150; padding: 16px; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); }
+        .mobile-menu.open { display: flex; }
+        .mobile-menu a { padding: 12px 16px; border-radius: var(--radius); font-size: 15px; font-weight: 500; color: var(--text); text-decoration: none; transition: background 0.15s; }
+        .mobile-menu a:hover { background: var(--surface-2); }
+
+        /* ── Buttons ── */
+        .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--radius); font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; text-decoration: none; cursor: pointer; border: none; transition: background 0.15s, box-shadow 0.15s, transform 0.1s, border-color 0.15s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--brand); color: white; }
+        .btn-primary:hover { background: var(--brand-2); box-shadow: 0 4px 16px rgba(37,99,235,0.3); }
+        .btn-outline { background: white; color: var(--text); border: 1px solid var(--border-2); }
+        .btn-outline:hover { border-color: var(--brand-light); color: var(--brand); background: #f0f6ff; }
+        .btn-ghost { background: transparent; color: var(--text-2); }
+        .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+        .btn-lg { padding: 13px 26px; font-size: 15px; border-radius: 11px; }
+        .btn-navy { background: var(--navy); color: white; }
+        .btn-navy:hover { background: var(--navy-2); box-shadow: 0 4px 16px rgba(6,13,31,0.25); }
+
+        /* ── Hero ── */
+        .hero { padding: 100px 0 80px; text-align: center; background: radial-gradient(ellipse 80% 60% at 50% -10%, #dbeafe 0%, transparent 60%); position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 80%, rgba(37,99,235,0.04) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(124,58,237,0.04) 0%, transparent 50%); pointer-events: none; }
+        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 99px; padding: 5px 14px 5px 10px; font-size: 12.5px; font-weight: 500; color: var(--brand); margin-bottom: 28px; }
+        .hero-badge-dot { width: 6px; height: 6px; background: var(--brand); border-radius: 50%; animation: pulse 2s ease infinite; }
+        .hero h1 { font-size: clamp(36px, 6vw, 62px); font-weight: 600; color: var(--navy); letter-spacing: -1.5px; margin-bottom: 22px; max-width: 820px; margin-left: auto; margin-right: auto; }
+        .hero h1 .gradient-text { background: linear-gradient(135deg, var(--brand) 0%, #7c3aed 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero-sub { font-size: 18px; color: var(--text-2); max-width: 560px; margin: 0 auto 40px; line-height: 1.7; }
+        .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 64px; }
+        .hero-proof { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
+        .proof-item { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-2); }
+        .proof-icon { color: #10b981; }
+        .proof-divider { width: 1px; height: 16px; background: var(--border); }
+
+        /* ── Dashboard Preview ── */
+        .preview-wrap { position: relative; max-width: 960px; margin: 0 auto; }
+        .preview-frame { border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border); box-shadow: 0 40px 80px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04); background: #060d1f; }
+        .preview-bar { height: 40px; background: #0a1628; display: flex; align-items: center; padding: 0 16px; gap: 8px; border-bottom: 1px solid #162b55; }
+        .preview-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .preview-url { flex: 1; background: #0f2040; height: 22px; border-radius: 6px; margin: 0 40px; display: flex; align-items: center; justify-content: center; }
+        .preview-url span { font-size: 11px; color: #475569; font-family: 'DM Mono', monospace; }
+        .preview-img { display: block; width: 100%; height: auto; }
+        .preview-img-placeholder { width: 100%; aspect-ratio: 16/9; background: #0f2040; display: flex; align-items: center; justify-content: center; }
+        .preview-badge { position: absolute; bottom: -16px; right: 32px; background: white; border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        .preview-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse 1.5s ease infinite; }
+
+        /* ── Stats bar ── */
+        .stats-bar { padding: 56px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-2); }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+        .stat-item { text-align: center; padding: 0 24px; border-right: 1px solid var(--border); }
+        .stat-item:last-child { border-right: none; }
+        .stat-num { font-size: 36px; font-weight: 600; color: var(--navy); letter-spacing: -1px; font-family: 'DM Mono', monospace; }
+        .stat-label { font-size: 13.5px; color: var(--text-2); margin-top: 4px; }
+
+        /* ── Section layout ── */
+        .section { padding: 96px 0; }
+        .section-alt { background: var(--surface-2); }
+        .section-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand); background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 99px; padding: 4px 12px; margin-bottom: 16px; }
+        .section-title { font-size: clamp(28px, 4vw, 42px); font-weight: 600; color: var(--navy); letter-spacing: -0.8px; margin-bottom: 16px; }
+        .section-sub { font-size: 17px; color: var(--text-2); line-height: 1.7; max-width: 540px; }
+        .section-header { margin-bottom: 56px; }
+        .section-header.center { text-align: center; }
+        .section-header.center .section-sub { margin: 0 auto; }
+
+        /* ── Feature cards ── */
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .feat-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; cursor: default; }
+        .feat-card:hover { border-color: #93c5fd; box-shadow: 0 8px 32px rgba(37,99,235,0.08); transform: translateY(-2px); }
+        .feat-icon { width: 44px; height: 44px; border-radius: var(--radius); background: #eff6ff; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+        .feat-card h3 { font-size: 15.5px; font-weight: 600; color: var(--navy); margin-bottom: 10px; }
+        .feat-card p { font-size: 14px; color: var(--text-2); line-height: 1.65; }
+
+        /* ── How it works ── */
+        .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+        .step { position: relative; }
+        .step-num { width: 36px; height: 36px; background: var(--navy); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13.5px; font-weight: 600; margin-bottom: 18px; font-family: 'DM Mono', monospace; }
+        .step h3 { font-size: 17px; font-weight: 600; color: var(--navy); margin-bottom: 10px; }
+        .step p { font-size: 14px; color: var(--text-2); line-height: 1.65; }
+        .step-line { position: absolute; top: 18px; left: 36px; right: -32px; height: 1px; background: var(--border); z-index: 0; }
+        .step:last-child .step-line { display: none; }
+
+        /* ── Payroll preview card ── */
+        .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+        .split-grid.reverse { direction: rtl; }
+        .split-grid.reverse > * { direction: ltr; }
+        .payroll-card { background: var(--navy); border-radius: var(--radius-xl); padding: 28px; }
+        .payroll-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .payroll-badge { background: #0f2040; border: 1px solid #162b55; border-radius: 6px; padding: 5px 12px; font-size: 12px; color: #93c5fd; font-family: 'DM Mono', monospace; }
+        .payroll-amount { font-size: 34px; font-weight: 600; color: white; font-family: 'DM Mono', monospace; margin-bottom: 6px; }
+        .payroll-label { font-size: 12.5px; color: #475569; margin-bottom: 24px; }
+        .payroll-breakdown { display: flex; flex-direction: column; gap: 10px; }
+        .breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f2040; border-radius: 8px; }
+        .breakdown-name { font-size: 13px; color: #94a3b8; }
+        .breakdown-val { font-size: 13px; font-family: 'DM Mono', monospace; }
+        .breakdown-val.pos { color: #86efac; }
+        .breakdown-val.neg { color: #fca5a5; }
+        .payroll-footer { margin-top: 16px; padding-top: 16px; border-top: 1px solid #162b55; display: flex; justify-content: space-between; align-items: center; }
+        .payroll-net { font-size: 15px; font-weight: 600; color: #86efac; font-family: 'DM Mono', monospace; }
+
+        /* ── Pricing ── */
+        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .price-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; transition: box-shadow 0.2s, transform 0.2s; }
+        .price-card.featured { border: 2px solid var(--brand); position: relative; transform: translateY(-4px); box-shadow: 0 12px 40px rgba(37,99,235,0.12); }
+        .price-card:not(.featured):hover { box-shadow: 0 8px 32px rgba(0,0,0,0.07); transform: translateY(-2px); }
+        .price-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--brand); color: white; font-size: 11px; font-weight: 600; padding: 4px 14px; border-radius: 99px; white-space: nowrap; }
+        .price-tier { font-size: 13.5px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
+        .price-amount { font-size: 38px; font-weight: 600; color: var(--navy); letter-spacing: -1px; font-family: 'DM Mono', monospace; line-height: 1; margin-bottom: 4px; }
+        .price-period { font-size: 13px; color: var(--text-3); margin-bottom: 14px; }
+        .price-desc { font-size: 13.5px; color: var(--text-2); margin-bottom: 24px; line-height: 1.5; }
+        .price-divider { height: 1px; background: var(--border); margin-bottom: 20px; }
+        .price-list { list-style: none; display: flex; flex-direction: column; gap: 10px; flex: 1; margin-bottom: 28px; }
+        .price-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; color: var(--text-2); }
+        .check-icon { color: #10b981; margin-top: 2px; flex-shrink: 0; }
+        .price-cta { width: 100%; text-align: center; justify-content: center; }
+
+        /* ── Testimonials ── */
+        .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .testi-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; transition: box-shadow 0.2s; }
+        .testi-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.07); }
+        .testi-stars { display: flex; gap: 3px; margin-bottom: 16px; }
+        .star { color: #f59e0b; font-size: 14px; }
+        .testi-quote { font-size: 14.5px; color: var(--text); line-height: 1.7; margin-bottom: 20px; font-style: italic; }
+        .testi-author { display: flex; align-items: center; gap: 12px; }
+        .testi-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+        .testi-name { font-size: 13.5px; font-weight: 600; color: var(--navy); }
+        .testi-role { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+
+        /* ── CTA ── */
+        .cta-section { background: var(--navy); padding: 96px 0; text-align: center; position: relative; overflow: hidden; }
+        .cta-section::before { content: ''; position: absolute; top: -60%; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, rgba(37,99,235,0.25) 0%, transparent 70%); pointer-events: none; }
+        .cta-section h2 { font-size: clamp(28px, 4vw, 44px); font-weight: 600; color: white; letter-spacing: -0.8px; margin-bottom: 16px; position: relative; }
+        .cta-section p { font-size: 17px; color: #64748b; margin-bottom: 40px; position: relative; }
+        .cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; }
+
+        /* ── Footer ── */
+        footer {
+            background: #0f172a; /* Deep Slate - more professional than pure black */
+            color: #f8fafc;
+            padding: 80px 0 40px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2.5fr 1fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .footer-brand p {
+            font-size: 14px;
+            color: #94a3b8; /* Muted slate for better readability */
+            line-height: 1.6;
+            margin-top: 16px;
+            max-width: 300px;
+        }
+
+        .footer-col h5 {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #f1f5f9; /* Bright for section clarity */
+            margin-bottom: 24px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 0;
+            margin: 0;
+        }
+
+        .footer-col ul li a {
+            font-size: 14px;
+            color: #cbd5e1; /* Clear link color */
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .footer-col ul li a:hover {
+            color: #3b82f6; /* MaestroHR Primary Blue on hover */
+            padding-left: 4px; /* Subtle interaction hint */
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #1e293b;
+            padding-top: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .footer-bottom a {
+            color: #64748b;
+            text-decoration: none;
+            margin-left: 20px;
+            transition: color 0.2s;
+        }
+
+        .footer-bottom a:hover {
+            color: #f8fafc;
+        }
+
+        @media (max-width: 968px) {
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            .features-grid, .pricing-grid, .testimonials-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid .stat-item:nth-child(2) { border-right: none; }
+            .stats-grid .stat-item:nth-child(3) { border-top: 1px solid var(--border); }
+            .stats-grid .stat-item:nth-child(4) { border-top: 1px solid var(--border); border-right: none; }
+            .split-grid { grid-template-columns: 1fr; gap: 40px; }
+            .split-grid.reverse { direction: ltr; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+            .footer-brand { grid-column: span 2; }
+        }
+        @media (max-width: 768px) {
+            .hero { padding: 72px 0 60px; }
+            .hero h1 { font-size: 36px; letter-spacing: -0.8px; }
+            .section { padding: 72px 0; }
+            .features-grid, .testimonials-grid { grid-template-columns: 1fr; }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .price-card.featured { transform: none; }
+            .steps { grid-template-columns: 1fr; }
+            .step-line { display: none; }
+            .nav-links, .nav-actions .btn-ghost { display: none; }
+            .hamburger { display: flex; }
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer-brand { grid-column: auto; }
+            .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+        }
+
+        /* ── Scroll reveal ── */
+        .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1); }
+        .reveal.visible { opacity: 1; transform: none; }
+        .reveal-2 { transition-delay: 0.12s; }
+        .reveal-3 { transition-delay: 0.22s; }
+        .reveal-4 { transition-delay: 0.32s; }
+
+
     </style>
 </head>
 <body>
-<div class="shell">
-    <div class="nav">
-        <div class="logo">
-            <div class="logo-mark">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+
+<!-- ─── HEADER ──────────────────────────────────────────── -->
+<header id="header">
+    <div class="container">
+        <nav class="nav">
+            <a href="/" class="logo">
+                <div class="logo-box">
+                    <img src="/images/logo-sq.png" alt="MaestroHR Logo" style="width: 24px; height: 24px; object-fit: contain;">
+                </div>
+                <span class="logo-text">MaestroHR</span>
+            </a>
+
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How it works</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#testimonials">Reviews</a>
             </div>
-            <div>
-                <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;">MaestroHR</div>
-                <div style="font-size:12px;color:#93c5fd;">HR operations tuned for payroll velocity</div>
+
+            <div class="nav-actions">
+                <a href="/login" class="btn btn-ghost" style="font-size:14px;">Sign in</a>
+                <a href="/register" class="btn btn-primary">Start free trial</a>
             </div>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <a href="/login" class="btn btn-secondary">Sign In</a>
-            <a href="/register" class="btn btn-primary">Create Workspace</a>
-        </div>
+
+            <button class="hamburger" id="hamburger" aria-label="Open menu">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+        </nav>
     </div>
+</header>
 
-    <section class="hero">
-        <div class="headline">
-            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(125,211,252,0.08);border:1px solid rgba(125,211,252,0.14);margin-bottom:18px;font-size:13px;color:#bae6fd;">Multi-tenant HR, leave, and payroll in one workspace</div>
-            <h1>Run people operations with less drag and more signal.</h1>
-            <p>MaestroHR gives you a clean control surface for employee records, payroll approvals, leave workflows, attendance snapshots, and admin oversight without burying core actions under boilerplate.</p>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                <a href="/register" class="btn btn-primary">Launch Your Workspace</a>
-                <a href="/dashboard" class="btn btn-secondary" id="open-app-link">Open App</a>
-                <a href="/admin" class="btn btn-secondary" id="open-admin-link">Admin View</a>
-            </div>
-            <div class="stats">
-                <div class="stat"><strong>Payroll</strong><span>Monthly run initiation, approval, and disbursement flow.</span></div>
-                <div class="stat"><strong>Leave</strong><span>Request, review, and approve with one manager surface.</span></div>
-                <div class="stat"><strong>Admin</strong><span>Tenant, user, and operational health in one page.</span></div>
-            </div>
-        </div>
-
-        <div class="showcase">
-            <div class="orb orb-a"></div>
-            <div class="orb orb-b"></div>
-            <div class="panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-size:12px;color:#7dd3fc;text-transform:uppercase;letter-spacing:0.08em;">Workspace Preview</div>
-                        <div style="font-size:24px;font-family:'Space Grotesk',sans-serif;font-weight:700;margin-top:6px;">Operations Cockpit</div>
-                    </div>
-                    <div style="padding:8px 12px;border-radius:999px;background:rgba(16,185,129,0.12);color:#86efac;font-size:12px;">Live workflow</div>
-                </div>
-                <div class="mini-grid">
-                    <div class="mini">
-                        <div style="font-size:12px;color:#64748b;">Payroll Queue</div>
-                        <div style="font-size:30px;font-weight:700;margin:10px 0 6px;">04</div>
-                        <div style="font-size:13px;color:#cbd5e1;">Pending approvals and payouts.</div>
-                    </div>
-                    <div class="mini">
-                        <div style="font-size:12px;color:#64748b;">Active Headcount</div>
-                        <div style="font-size:30px;font-weight:700;margin:10px 0 6px;">128</div>
-                        <div style="font-size:13px;color:#cbd5e1;">Tracked across departments.</div>
-                    </div>
-                    <div class="mini" style="grid-column:1 / -1;">
-                        <div style="font-size:12px;color:#64748b;">Admin Surface</div>
-                        <div style="font-size:18px;font-weight:600;margin:10px 0;">Users, tenants, locks, subscriptions, and payroll bottlenecks on one screen.</div>
-                        <div class="chips">
-                            <span class="chip">Tenant snapshot</span>
-                            <span class="chip">Role overview</span>
-                            <span class="chip">Pending payroll</span>
-                            <span class="chip">Locked users</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="band">
-        <div><h3>Employee Core</h3><p>Directory, departments, pay grades, onboarding records, and banking data in one flow.</p></div>
-        <div><h3>Leave Flow</h3><p>Apply, approve, reject, and review current request pressure without leaving the app shell.</p></div>
-        <div><h3>Payroll Control</h3><p>Draft runs, compute salaries, submit for approval, and open run-level detail views.</p></div>
-        <div><h3>Admin Oversight</h3><p>Get the page you asked for: a single place to inspect tenants, users, locks, and workspace posture.</p></div>
-    </section>
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobileMenu">
+    <a href="#features" onclick="closeMobile()">Features</a>
+    <a href="#how-it-works" onclick="closeMobile()">How it works</a>
+    <a href="#pricing" onclick="closeMobile()">Pricing</a>
+    <a href="#testimonials" onclick="closeMobile()">Reviews</a>
+    <a href="/login">Sign in</a>
+    <a href="/register" style="background:var(--brand);color:white;margin-top:8px;">Start free trial</a>
 </div>
 
+<!-- ─── HERO ──────────────────────────────────────────────── -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-badge anim-fadeup">
+            <div class="hero-badge-dot"></div>
+            Version 1.0 — Live &amp; compliant
+        </div>
+        <h1 class="anim-fadeup delay-1">
+            Run People Operations<br><span class="gradient-text">without the friction.</span>
+        </h1>
+        <p class="hero-sub anim-fadeup delay-2">
+            Automated payroll, statutory compliance, and leave management — unified in one platform built for Nigerian SMEs.
+        </p>
+        <div class="hero-actions anim-fadeup delay-3">
+            <a href="/register" class="btn btn-primary btn-lg">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Create your workspace
+            </a>
+            <a href="/dashboard" class="btn btn-outline btn-lg" id="open-app-btn">
+                Launch dashboard →
+            </a>
+        </div>
+        <div class="hero-proof anim-fadeup delay-4">
+            <div class="proof-item">
+                <svg class="proof-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                PAYE &amp; Pension compliant
+            </div>
+            <div class="proof-divider"></div>
+            <div class="proof-item">
+                <svg class="proof-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Paystack disbursement
+            </div>
+            <div class="proof-divider"></div>
+            <div class="proof-item">
+                <svg class="proof-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Multi-tenant &amp; secure
+            </div>
+        </div>
+
+        <!-- Dashboard preview -->
+        <div class="preview-wrap" style="margin-top:56px;" id="dashboard-preview">
+            <div class="preview-frame">
+                <div class="preview-bar">
+                    <div class="preview-dot" style="background:#ef4444;"></div>
+                    <div class="preview-dot" style="background:#f59e0b;margin-left:6px;"></div>
+                    <div class="preview-dot" style="background:#10b981;margin-left:6px;"></div>
+                    <div class="preview-url">
+                        <span>maestrohr.admtechhub.com/dashboard</span>
+                    </div>
+                </div>
+                <div class="preview-img-placeholder" id="preview-placeholder">
+                    <div style="text-align:center;">
+                        <div style="width:64px;height:64px;background:#162b55;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                        </div>
+                        <p style="font-size:13px;color:#475569;">Dashboard preview</p>
+                        <p style="font-size:11px;color:#334155;margin-top:4px;">Screenshots appear here</p>
+                    </div>
+                </div>
+                <img src="/images/HR1.png" alt="MaestroHR Dashboard" class="preview-img" style="display:none;" id="preview-img" onerror="this.style.display='none';document.getElementById('preview-placeholder').style.display='flex';" onload="this.style.display='block';document.getElementById('preview-placeholder').style.display='none';">
+            </div>
+            <div class="preview-badge">
+                <div class="preview-badge-dot"></div>
+                <span style="font-size:13px;font-weight:500;color:#111827;">System online</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── STATS ─────────────────────────────────────────────── -->
+<div class="stats-bar">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item reveal">
+                <div class="stat-num" data-target="500">0</div>
+                <div class="stat-label">Companies onboarded</div>
+            </div>
+            <div class="stat-item reveal reveal-2">
+                <div class="stat-num" data-target="12000">0</div>
+                <div class="stat-label">Employees managed</div>
+            </div>
+            <div class="stat-item reveal reveal-3">
+                <div class="stat-num" data-prefix="₦" data-target="2.4" data-suffix="B+">₦0</div>
+                <div class="stat-label">Payroll disbursed</div>
+            </div>
+            <div class="stat-item reveal reveal-4">
+                <div class="stat-num" data-target="99.9" data-suffix="%">0%</div>
+                <div class="stat-label">Uptime reliability</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── FEATURES ─────────────────────────────────────────── -->
+<section class="section" id="features">
+    <div class="container">
+        <div class="section-header center">
+            <div class="section-tag reveal">HR Platform</div>
+            <h2 class="section-title reveal reveal-2">Everything you need to manage people.</h2>
+            <p class="section-sub reveal reveal-3">Six production-ready modules, working together from day one.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feat-card reveal">
+                <div class="feat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <h3>Nigerian Statutory Engine</h3>
+                <p>PAYE across all 6 tax bands, 8% employee pension, 10% employer, NHF, and NSITF — computed to the exact kobo every run.</p>
+            </div>
+            <div class="feat-card reveal reveal-2">
+                <div class="feat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </div>
+                <h3>Bulk Paystack Disbursement</h3>
+                <p>One-click salary transfers via Paystack Transfer API. Pay your entire team in minutes with full audit trail and webhook receipts.</p>
+            </div>
+            <div class="feat-card reveal reveal-3">
+                <div class="feat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <h3>Smart Payslips &amp; Reports</h3>
+                <p>PDF payslips auto-generated post-approval and delivered via email + Termii SMS. Pension schedules and PAYE Form A in Excel.</p>
+            </div>
+            <div class="feat-card reveal">
+                <div class="feat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+                <h3>Leave Management</h3>
+                <p>Annual, sick, and maternity leave with configurable accruals, manager approval flows, and real-time balance tracking per employee.</p>
+            </div>
+            <div class="feat-card reveal reveal-2">
+                <div class="feat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h3>Employee Records</h3>
+                <p>Full employee profiles with NIN/BVN encryption, department hierarchy, pay grades, and a complete employment lifecycle log.</p>
+            </div>
+            <div class="feat-card reveal reveal-3">
+                <div class="feat-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Multi-Tenant Security</h3>
+                <p>PostgreSQL Row Level Security ensures absolute data isolation between tenants. Every query is scoped by RLS policy — no leakage possible.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── HOW IT WORKS ──────────────────────────────────────── -->
+<section class="section section-alt" id="how-it-works">
+    <div class="container">
+        <div class="section-header center">
+            <div class="section-tag reveal">Simple process</div>
+            <h2 class="section-title reveal reveal-2">From onboarding to payday in 3 steps.</h2>
+        </div>
+        <div class="steps">
+            <div class="step reveal">
+                <div class="step-line"></div>
+                <div class="step-num">01</div>
+                <h3>Register your workspace</h3>
+                <p>Create your tenant workspace. Invite HR admins, configure your pay grades, departments, and statutory settings. Takes under 10 minutes.</p>
+            </div>
+            <div class="step reveal reveal-2">
+                <div class="step-line"></div>
+                <div class="step-num">02</div>
+                <h3>Add employees</h3>
+                <p>Import or manually add employee records with bank details for Paystack linkage, pay grades, and department assignments.</p>
+            </div>
+            <div class="step reveal reveal-3">
+                <div class="step-num">03</div>
+                <h3>Run payroll &amp; disburse</h3>
+                <p>Initiate a payroll run. The engine computes every statutory deduction. Finance approves. One click sends salary to every bank account.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── PAYROLL PREVIEW ────────────────────────────────────── -->
+<section class="section">
+    <div class="container">
+        <div class="split-grid">
+            <div>
+                <div class="section-tag reveal">Payroll engine</div>
+                <h2 class="section-title reveal reveal-2" style="max-width:420px;">Statutory-accurate.<br>Every single month.</h2>
+                <p class="section-sub reveal reveal-3" style="margin-bottom:28px;">Every PAYE band, every PenCom schedule, every NHF deduction — calculated to the kobo automatically. No spreadsheets, no manual checks.</p>
+                <ul style="list-style:none;display:flex;flex-direction:column;gap:12px;" class="reveal reveal-3">
+                    <li style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--text-2);">
+                        <svg style="color:#10b981;margin-top:2px;flex-shrink:0;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        PAYE: 7% – 24% progressive bands per FIRS guidelines
+                    </li>
+                    <li style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--text-2);">
+                        <svg style="color:#10b981;margin-top:2px;flex-shrink:0;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Pension: 8% employee + 10% employer (PenCom-compliant)
+                    </li>
+                    <li style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--text-2);">
+                        <svg style="color:#10b981;margin-top:2px;flex-shrink:0;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        NHF: 2.5% of basic salary — auto-deducted per employee
+                    </li>
+                    <li style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--text-2);">
+                        <svg style="color:#10b981;margin-top:2px;flex-shrink:0;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        All values stored in kobo — zero floating-point errors
+                    </li>
+                </ul>
+            </div>
+            <div class="payroll-card reveal reveal-2" style="animation:floatY 4s ease-in-out infinite;">
+                <div class="payroll-header">
+                    <span style="font-size:13px;color:#475569;">May 2025 Payroll</span>
+                    <span class="payroll-badge">APPROVED</span>
+                </div>
+                <div class="payroll-amount">₦150,000</div>
+                <div class="payroll-label">Gross basic salary</div>
+                <div class="payroll-breakdown">
+                    <div class="breakdown-row">
+                        <span class="breakdown-name">Basic + Housing + Transport</span>
+                        <span class="breakdown-val pos">+₦150,000</span>
+                    </div>
+                    <div class="breakdown-row">
+                        <span class="breakdown-name">PAYE tax</span>
+                        <span class="breakdown-val neg">−₦17,500</span>
+                    </div>
+                    <div class="breakdown-row">
+                        <span class="breakdown-name">Pension (8%)</span>
+                        <span class="breakdown-val neg">−₦12,000</span>
+                    </div>
+                    <div class="breakdown-row">
+                        <span class="breakdown-name">NHF (2.5%)</span>
+                        <span class="breakdown-val neg">−₦3,750</span>
+                    </div>
+                </div>
+                <div class="payroll-footer">
+                    <span style="font-size:13px;color:#475569;">Net payable</span>
+                    <span class="payroll-net">₦116,750</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── PRICING ───────────────────────────────────────────── -->
+<section class="section section-alt" id="pricing">
+    <div class="container">
+        <div class="section-header center">
+            <div class="section-tag reveal">Pricing</div>
+            <h2 class="section-title reveal reveal-2">Scale as your team grows.</h2>
+            <p class="section-sub reveal reveal-3">Simple, transparent pricing. No setup fees. Cancel anytime.</p>
+        </div>
+        <div class="pricing-grid">
+            <div class="price-card reveal">
+                <div class="price-tier">Starter</div>
+                <div class="price-amount">₦0</div>
+                <div class="price-period">forever free</div>
+                <div class="price-desc">Perfect for very small teams just getting started with digital HR.</div>
+                <div class="price-divider"></div>
+                <ul class="price-list">
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Up to 5 employees</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Basic payroll computation</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Standard PDF payslips</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Email support</li>
+                </ul>
+                <a href="/register" class="btn btn-outline price-cta">Get started free</a>
+            </div>
+
+            <div class="price-card featured reveal reveal-2">
+                <div class="price-badge">Most popular</div>
+                <div class="price-tier">Business</div>
+                <div class="price-amount">₦15,000</div>
+                <div class="price-period">per month · billed monthly</div>
+                <div class="price-desc">Complete HR for growing Nigerian SMEs with full disbursement and compliance.</div>
+                <div class="price-divider"></div>
+                <ul class="price-list">
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Up to 50 employees</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Paystack bulk disbursement</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Statutory Excel schedules</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SMS payslip alerts (Termii)</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Full leave management</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Priority support</li>
+                </ul>
+                <a href="/register" class="btn btn-primary price-cta">Start 14-day trial</a>
+            </div>
+
+            <div class="price-card reveal reveal-3">
+                <div class="price-tier">Enterprise</div>
+                <div class="price-amount" style="font-size:28px;letter-spacing:-0.5px;">Custom</div>
+                <div class="price-period">contact sales for pricing</div>
+                <div class="price-desc">Bespoke solutions for large organisations with dedicated support and API access.</div>
+                <div class="price-divider"></div>
+                <ul class="price-list">
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Unlimited employees</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Dedicated account manager</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Custom API access</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Advanced reporting dashboard</li>
+                    <li><svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SLA &amp; uptime guarantee</li>
+                </ul>
+                <a href="mailto:sales@maestrohr.com" class="btn btn-navy price-cta">Contact sales</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── TESTIMONIALS ──────────────────────────────────────── -->
+<section class="section" id="testimonials">
+    <div class="container">
+        <div class="section-header center">
+            <div class="section-tag reveal">Testimonials</div>
+            <h2 class="section-title reveal reveal-2">Trusted by Nigerian businesses.</h2>
+            <p class="section-sub reveal reveal-3">Real feedback from HR managers and founders who've moved their payroll to MaestroHR.</p>
+        </div>
+        <div class="testimonials-grid">
+            <div class="testi-card reveal">
+                <div class="testi-stars">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="testi-quote">"We used to spend 3 days every month reconciling PAYE manually. MaestroHR now handles the entire computation in seconds. The statutory accuracy alone is worth every kobo."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:#dbeafe;color:#1d4ed8;">AO</div>
+                    <div>
+                        <div class="testi-name">Amaka Okafor</div>
+                        <div class="testi-role">HR Manager · Logistics SME, Lagos</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="testi-card reveal reveal-2">
+                <div class="testi-stars">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="testi-quote">"The Paystack integration changed everything for us. I click one button and 47 employees are paid. The payslips go out automatically via SMS. Our staff trust the process now."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:#dcfce7;color:#166534;">CI</div>
+                    <div>
+                        <div class="testi-name">Chukwudi Ike</div>
+                        <div class="testi-role">Founder · Tech Startup, Abuja</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="testi-card reveal reveal-3">
+                <div class="testi-stars">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star" style="color:#d1d5db;">★</span>
+                </div>
+                <p class="testi-quote">"Finally a Nigerian HR platform that doesn't feel like it was built in 2010. The UI is clean, the leave approval flow is smooth, and support actually responds fast."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:#fef3c7;color:#92400e;">FK</div>
+                    <div>
+                        <div class="testi-name">Fatima Kwari</div>
+                        <div class="testi-role">Operations Lead · Retail Chain, Kano</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="testi-card reveal">
+                <div class="testi-stars">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="testi-quote">"The multi-tenant architecture means my four business units each have their own isolated payroll. One login, four views. That's exactly what we needed."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:#fae8ff;color:#7e22ce;">TE</div>
+                    <div>
+                        <div class="testi-name">Tunde Elegushi</div>
+                        <div class="testi-role">Group CFO · Diversified Holdings, Lagos</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="testi-card reveal reveal-2">
+                <div class="testi-stars">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="testi-quote">"We switched from Excel to MaestroHR in one afternoon. The onboarding was quick, the data migration was painless, and we ran our first payroll the same week."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:#ffedd5;color:#9a3412;">NB</div>
+                    <div>
+                        <div class="testi-name">Ngozi Badmus</div>
+                        <div class="testi-role">Finance Director · Healthcare SME, Port Harcourt</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="testi-card reveal reveal-3">
+                <div class="testi-stars">
+                    <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+                </div>
+                <p class="testi-quote">"As someone who came from an engineering background, I appreciate that MaestroHR is genuinely well-built. The data isolation, the audit trails — it's enterprise-grade for SME pricing."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:#e0f2fe;color:#0369a1;">SM</div>
+                    <div>
+                        <div class="testi-name">Seun Martins</div>
+                        <div class="testi-role">CTO · Fintech Startup, Lagos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ─── CTA ───────────────────────────────────────────────── -->
+<section class="cta-section">
+    <div class="container">
+        <div class="section-tag reveal" style="background:rgba(37,99,235,0.15);border-color:rgba(59,130,246,0.3);color:#93c5fd;">Start today</div>
+        <h2 class="reveal reveal-2">Ready to modernise your payroll?</h2>
+        <p class="reveal reveal-3">Join hundreds of Nigerian businesses running compliant, automated payroll on MaestroHR.</p>
+        <div class="cta-btns reveal reveal-3">
+            <a href="/register" class="btn btn-primary btn-lg">
+                Create your workspace — it's free
+            </a>
+            <a href="/login" class="btn btn-lg" style="background:rgba(255,255,255,0.07);color:#94a3b8;border:1px solid rgba(255,255,255,0.1);">
+                Already have an account →
+            </a>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand footer-col">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                    <div style="width:34px;height:34px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    </div>
+                    <span style="font-size:22px;font-weight:700;color:#ffffff;font-family:'Outfit',sans-serif;">MaestroHR</span>
+                </div>
+                <p>Automating HR and payroll for the next generation of Nigerian businesses. Accurate, compliant, and built for your growth[cite: 9, 22].</p>
+                <p style="margin-top:20px;font-size:12px;color:#64748b;">
+                    Built by <strong style="color:#94a3b8;">ADM Tech Hub</strong> · Lagos, Nigeria [cite: 4]
+                </p>
+            </div>
+            <div class="footer-col">
+                <h5>Product</h5>
+                <ul>
+                    <li><a href="#features">Payroll Engine</a></li>
+                    <li><a href="#features">Bulk Disbursement</a></li>
+                    <li><a href="#features">Leave Management</a></li>
+                    <li><a href="#features">Compliance Reports</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Company</h5>
+                <ul>
+                    <li><a href="#">About Us</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Security</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Support</h5>
+                <ul>
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">API Docs</a></li>
+                    <li><a href="#">System Status</a></li>
+                    <li><a href="mailto:hello@maestrohr.com">Contact us</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2025 MaestroHR Technologies. All rights reserved.</span>
+            <div style="display:flex;gap:20px;">
+                <a href="#">LinkedIn</a>
+                <a href="#">Twitter</a>
+            </div>
+        </div>
+    </div>
+</footer>
 <script>
+    // ── Header scroll effect ──────────────────────────────────────────────────
+    const header = document.getElementById('header');
+    window.addEventListener('scroll', () => {
+        header.classList.toggle('scrolled', window.scrollY > 20);
+    }, { passive: true });
+
+    // ── Mobile menu ───────────────────────────────────────────────────────────
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobileMenu');
+    hamburger.addEventListener('click', () => {
+        mobileMenu.classList.toggle('open');
+        hamburger.innerHTML = mobileMenu.classList.contains('open')
+            ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+            : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+    });
+    function closeMobile() { mobileMenu.classList.remove('open'); }
+
+    // ── Auth-aware dashboard button ───────────────────────────────────────────
     const token = localStorage.getItem('maestrohr_token');
-    if (token) {
-        document.getElementById('open-app-link').textContent = 'Go To Dashboard';
-        document.getElementById('open-admin-link').textContent = 'Go To Admin';
+    const appBtn = document.getElementById('open-app-btn');
+    if (token && appBtn) appBtn.textContent = 'Go to dashboard →';
+
+    // ── Scroll reveal ──────────────────────────────────────────────────────────
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.12 });
+    revealEls.forEach(el => observer.observe(el));
+
+    // ── Animated counters ──────────────────────────────────────────────────────
+    function animateCounter(el) {
+        const target   = parseFloat(el.dataset.target);
+        const prefix   = el.dataset.prefix || '';
+        const suffix   = el.dataset.suffix || '';
+        const duration = 1800;
+        const steps    = 60;
+        const stepTime = duration / steps;
+        let current    = 0;
+        const increment = target / steps;
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) { current = target; clearInterval(timer); }
+            const display = Number.isInteger(target) ? Math.round(current).toLocaleString() : current.toFixed(1);
+            el.textContent = prefix + display + suffix;
+        }, stepTime);
     }
+
+    const statEls = document.querySelectorAll('.stat-num[data-target]');
+    const statObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateCounter(entry.target);
+                statObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.5 });
+    statEls.forEach(el => statObserver.observe(el));
+
+    // ── Load preview image ────────────────────────────────────────────────────
+    const previewImg = document.getElementById('preview-img');
+    if (previewImg) previewImg.src = '/images/HR1.png';
 </script>
 </body>
 </html>

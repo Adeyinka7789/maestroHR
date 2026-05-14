@@ -80,4 +80,9 @@ public class EmployeeRequest {
     @NotBlank(message = "Bank account name is required")
     @Size(max = 200)
     private String bankAccountName;
+
+    // New field: Employee's login password
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, message = "Password must be at least 6 characters")
+    private String password;
 }

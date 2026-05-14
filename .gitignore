@@ -1,10 +1,29 @@
-HELP.md
+# --- MaestroHR Core Exclusions ---
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+Thumbs.db
+
+# --- Maven & Build ---
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
+build/
+bin/
+out/
+
+# --- IntelliJ IDEA ---
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+# --- Spring Boot & STS ---
+HELP.md
 .apt_generated
 .classpath
 .factorypath
@@ -13,21 +32,11 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
+# --- VS Code ---
 .vscode/
+*.code-workspace
+.history/
+
+# --- System & Temp ---
+tmp/
+temp/

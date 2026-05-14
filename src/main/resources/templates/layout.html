@@ -48,7 +48,7 @@
 
         body { font-family: 'DM Sans', sans-serif; }
         body.sidebar-collapsed aside { width: var(--sidebar-collapsed-w) !important; }
-        body.sidebar-collapsed .nav-item { justify-content:center; padding-left:12px; padding-right:12px; }
+        body.sidebar-collapsed .nav-item { justify-content:center; padding-left:12px; padding-right:12px; position: relative; }
         body.sidebar-collapsed .nav-item.active { padding-left:10px; }
         body.sidebar-collapsed .nav-item svg { margin:0; }
         body.sidebar-collapsed .nav-item, body.sidebar-collapsed .nav-section, body.sidebar-collapsed #sidebar-email, body.sidebar-collapsed #sidebar-role, body.sidebar-collapsed #sidebar-tenant, body.sidebar-collapsed .sidebar-text { font-size:0 !important; }
@@ -57,6 +57,34 @@
         body.sidebar-collapsed .sidebar-brand { display:none; }
         body.sidebar-collapsed .sidebar-footer-meta { display:none; }
         body.sidebar-collapsed .top-search { width: 260px; }
+
+        /* Tooltip on hover for collapsed sidebar */
+        body.sidebar-collapsed .nav-item:hover::before {
+            content: attr(data-label);
+            position: absolute;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        /* Toggle arrow rotation */
+        body.sidebar-collapsed .sidebar-toggle svg {
+            transform: rotate(180deg);
+            transition: transform 0.3s ease;
+        }
+        .sidebar-toggle svg {
+            transition: transform 0.3s ease;
+        }
 
         /* Sidebar nav items */
         .nav-item {
@@ -71,11 +99,12 @@
             text-decoration: none;
             transition: background 0.15s, color 0.15s;
             margin-bottom: 2px;
+            position: relative;
         }
         .nav-item svg { flex-shrink: 0; opacity: 0.7; transition: opacity 0.15s; }
-        .nav-item:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+        .nav-item:hover { background: rgba(148, 163, 184, 0.1); color: #e2e8f0; }
         .nav-item:hover svg { opacity: 1; }
-        .nav-item.active { background: rgba(37,99,235,0.2); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
+        .nav-item.active { background: rgba(37,99,235,0.15); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
         .nav-item.active svg { opacity: 1; color: #3b82f6; }
 
         /* Nav section label */
@@ -84,7 +113,7 @@
             font-weight: 600;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: #475569;
+            color: #64748b;
             padding: 16px 12px 6px;
         }
 
@@ -148,7 +177,7 @@
         .notification-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
         .notification-item.unread { background: #eff6ff; }
         .sidebar-toggle { background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center; }
-        .sidebar-toggle:hover { background: rgba(255,255,255,0.06); color:#e2e8f0; }
+        .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
@@ -157,23 +186,23 @@
 <div class="flex h-screen overflow-hidden">
 
     <!-- ─── SIDEBAR ─────────────────────────────────────────────────── -->
-    <aside style="width:var(--sidebar-w); background:#060d1f; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto;">
+    <aside style="width:var(--sidebar-w); background:#1e293b; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; border-right: 1px solid #334155;">
 
         <!-- Logo -->
-        <div style="padding:20px 16px 16px; border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div style="padding:20px 16px 16px; border-bottom:1px solid #334155;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-            <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                    <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="sidebar-brand">
+                        <p style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1;">MaestroHR</p>
+                        <p style="font-size:10.5px;color:#94a3b8;margin-top:1px;" id="sidebar-tenant">HR &amp; Payroll</p>
+                    </div>
                 </div>
-                <div class="sidebar-brand">
-                    <p style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1;">MaestroHR</p>
-                    <p style="font-size:10.5px;color:#475569;margin-top:1px;" id="sidebar-tenant">HR &amp; Payroll</p>
-                </div>
-            </div>
-            <button id="sidebar-toggle" class="sidebar-toggle" title="Toggle sidebar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-            </button>
+                <button id="sidebar-toggle" class="sidebar-toggle" title="Toggle sidebar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
             </div>
         </div>
 
@@ -212,7 +241,7 @@
 
             <div class="nav-section">HR</div>
 
-            <a href="/leave" class="nav-item" data-route="leave" data-label="Leave">
+            <a href="/leave" class="nav-item" data-route="leave" data-label="Leave Management">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Leave Management
             </a>
@@ -223,26 +252,47 @@
 
             <div class="nav-section">System</div>
 
-            <a href="/subscribers" class="nav-item" data-route="subscribers" data-label="Subscribers">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
-                Subscribers
+            <a href="/settings" class="nav-item" data-route="settings" data-label="Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
             </a>
 
-            <a href="/admin" class="nav-item" data-route="admin" data-label="Admin">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><circle cx="12" cy="12" r="10" opacity="0.18"/></svg>
-                Admin
-            </a>
+            <!-- Admin Section - Only visible to SUPER_ADMIN -->
+            <div id="admin-section" style="display: none;">
+                <div class="nav-section">Admin</div>
+
+                <!-- Admin Dashboard Link -->
+                <a href="/admin" class="nav-item" data-route="admin" data-label="Admin Dashboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1v22"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    Admin Dashboard
+                </a>
+
+                <!-- Pricing Management Link -->
+                <a href="/admin/pricing" class="nav-item" data-route="admin-pricing" data-label="Pricing">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    Pricing
+                </a>
+            </div>
         </nav>
 
         <!-- User footer -->
-        <div style="padding:12px 8px;border-top:1px solid rgba(255,255,255,0.06);">
+        <div style="padding:12px 8px;border-top:1px solid #334155;">
             <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer;" class="hover:bg-white/5">
                 <div id="sidebar-avatar" style="width:30px;height:30px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;flex-shrink:0;">A</div>
                 <div class="sidebar-footer-meta" style="flex:1;min-width:0;">
                     <p id="sidebar-email" style="font-size:12.5px;font-weight:500;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">User</p>
-                    <p id="sidebar-role" style="font-size:11px;color:#475569;margin-top:1px;">—</p>
+                    <p id="sidebar-role" style="font-size:11px;color:#94a3b8;margin-top:1px;">—</p>
                 </div>
-                <button id="logout-btn" title="Sign out" style="background:none;border:none;cursor:pointer;color:#475569;padding:4px;border-radius:4px;flex-shrink:0;" class="hover:text-red-400">
+                <button id="logout-btn" title="Sign out" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:4px;flex-shrink:0;" class="hover:text-red-400">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </button>
             </div>
@@ -265,17 +315,17 @@
                 </div>
                 <!-- Notification bell -->
                 <div style="position:relative;">
-                <button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;position:relative;padding:4px;" title="Notifications">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                    <span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;line-height:16px;text-align:center;"></span>
-                </button>
-                <div id="notification-panel" class="notification-panel">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
-                        <strong style="font-size:13px;">Notifications</strong>
-                        <button id="mark-all-read-btn" style="background:none;border:none;color:#2563eb;font-size:12px;cursor:pointer;">Mark all read</button>
+                    <button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;position:relative;padding:4px;" title="Notifications">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;line-height:16px;text-align:center;"></span>
+                    </button>
+                    <div id="notification-panel" class="notification-panel">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+                            <strong style="font-size:13px;">Notifications</strong>
+                            <button id="mark-all-read-btn" style="background:none;border:none;color:#2563eb;font-size:12px;cursor:pointer;">Mark all read</button>
+                        </div>
+                        <div id="notification-list"></div>
                     </div>
-                    <div id="notification-list"></div>
-                </div>
                 </div>
                 <!-- Date -->
                 <span style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;" th:text="${#temporals.format(T(java.time.LocalDate).now(), 'dd MMM yyyy')}"></span>
@@ -316,6 +366,12 @@
                 ...(options.headers || {})
             }
         });
+    }
+
+    // Show admin section only for SUPER_ADMIN
+    if (userRole === 'SUPER_ADMIN') {
+        const adminSection = document.getElementById('admin-section');
+        if (adminSection) adminSection.style.display = 'block';
     }
 
     function clearAuthCookie() {

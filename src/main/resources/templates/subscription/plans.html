@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Plans — MaestroHR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 48px 20px;
+        }
+
+        .plan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .plan-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 24px;
+            padding: 40px 32px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.1);
+            border-color: #2563eb;
+        }
+
+        .plan-card.popular {
+            background: #0f172a;
+            border-color: #0f172a;
+            color: white;
+        }
+
+        .plan-card.popular .text-muted {
+            color: #94a3b8;
+        }
+
+        .plan-card.popular .btn-upgrade {
+            background: #2563eb;
+            color: white;
+            border: none;
+        }
+
+        .plan-card.popular .btn-upgrade:hover {
+            background: #1d4ed8;
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: 16px;
+            right: -35px;
+            background: #2563eb;
+            color: white;
+            padding: 8px 40px;
+            font-size: 11px;
+            font-weight: 700;
+            transform: rotate(45deg);
+            letter-spacing: 1px;
+        }
+
+        .price-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .currency {
+            font-size: 20px;
+            vertical-align: super;
+            margin-right: 2px;
+            color: #64748b;
+        }
+
+        .period {
+            font-size: 15px;
+            font-weight: 400;
+            color: #64748b;
+            margin-left: 4px;
+        }
+
+        .plan-card.popular .currency,
+        .plan-card.popular .period {
+            color: #94a3b8;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .feature-check {
+            color: #10b981;
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+        }
+
+        .btn-upgrade {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #0f172a;
+            margin-top: 24px;
+            display: block;
+            transition: all 0.2s;
+        }
+
+        .btn-upgrade:hover {
+            background: #eff6ff;
+            border-color: #2563eb;
+            color: #2563eb;
+        }
+
+        .btn-upgrade.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .toggle-container {
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 14px;
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .toggle-btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #64748b;
+            background: transparent;
+        }
+
+        .toggle-btn.active {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .discount-tag {
+            font-size: 11px;
+            color: #10b981;
+            background: #ecfdf5;
+            padding: 2px 8px;
+            border-radius: 99px;
+            margin-left: 6px;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 60px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="text-center">
+        <h1 style="font-family:'Outfit'; font-size: 48px; font-weight: 700; color: #0f172a; margin-bottom: 16px;">Simple, Transparent Pricing</h1>
+        <p style="font-size: 18px; color: #64748b; max-width: 600px; margin: 0 auto;">
+            Deploy MaestroHR across your organization today. No hidden setup fees, just pure HR automation.
+        </p>
+
+        <div class="mt-10 flex flex-col items-center">
+            <div class="toggle-container">
+                <button class="toggle-btn active" data-period="MONTHLY">Monthly</button>
+                <button class="toggle-btn" data-period="QUARTERLY">Quarterly</button>
+                <button class="toggle-btn" data-period="ANNUALLY">
+                    Annually <span class="discount-tag">Save 10%</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="plans-container" class="plan-grid">
+        <div class="loading-spinner">Loading plans...</div>
+    </div>
+</div>
+
+<script>
+    // Plan metadata (features don't change)
+    const planMetadata = {
+        'FREE_TRIAL': {
+            displayName: 'Free Trial',
+            description: 'Perfect for testing',
+            features: ['Up to 20 employees', 'Basic payroll', 'Email support'],
+            isPopular: false
+        },
+        'BASIC': {
+            displayName: 'Basic',
+            description: 'For small businesses',
+            features: ['Up to 50 employees', 'Basic payroll', 'Email support', 'SMS notifications'],
+            isPopular: false
+        },
+        'PROFESSIONAL': {
+            displayName: 'Professional',
+            description: 'For growing companies',
+            features: ['Up to 200 employees', 'Advanced payroll', 'API access', 'Email support', 'SMS notifications', 'Leave management'],
+            isPopular: true
+        },
+        'ENTERPRISE': {
+            displayName: 'Enterprise',
+            description: 'For large organizations',
+            features: ['Unlimited employees', 'Advanced payroll', 'API access', 'Priority support', 'Custom reporting', 'SMS notifications', 'Leave management', 'Attendance tracking'],
+            isPopular: false
+        }
+    };
+
+    let priceData = {};
+    let currentPeriod = 'MONTHLY';
+
+    async function fetchPrices() {
+        try {
+            const response = await fetch('/api/admin/pricing');
+            const result = await response.json();
+
+            console.log('Fetched prices:', result);
+
+            if (result.success && result.data) {
+                // Handle both response structures
+                const prices = result.data.prices || result.data;
+
+                for (const plan in prices) {
+                    if (prices[plan] && typeof prices[plan] === 'object') {
+                        priceData[plan] = {
+                            monthly: (prices[plan].MONTHLY || 0) / 100,
+                            quarterly: (prices[plan].QUARTERLY || 0) / 100,
+                            annually: (prices[plan].ANNUALLY || 0) / 100
+                        };
+                    }
+                }
+            }
+
+            renderPlans();
+        } catch (error) {
+            console.error('Failed to fetch prices:', error);
+            // Use fallback prices
+            priceData = {
+                'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 },
+                'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 },
+                'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 },
+                'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 }
+            };
+            renderPlans();
+        }
+    }
+
+    function renderPlans() {
+        const container = document.getElementById('plans-container');
+        const plans = ['FREE_TRIAL', 'BASIC', 'PROFESSIONAL', 'ENTERPRISE'];
+
+        const periodKey = currentPeriod === 'MONTHLY' ? 'monthly' :
+                         (currentPeriod === 'QUARTERLY' ? 'quarterly' : 'annually');
+        const periodLabel = currentPeriod === 'MONTHLY' ? '/mo' :
+                           (currentPeriod === 'QUARTERLY' ? '/qt' : '/yr');
+
+        container.innerHTML = plans.map(planKey => {
+            const plan = planMetadata[planKey];
+            const price = priceData[planKey] ? priceData[planKey][periodKey] : 0;
+            const isCurrentPlan = false; // You can implement current plan check
+
+            return `
+                <div class="plan-card ${plan.isPopular ? 'popular' : ''}">
+                    ${plan.isPopular ? '<div class="popular-badge">MOST POPULAR</div>' : ''}
+
+                    <div class="mb-8">
+                        <h3 style="font-family: Outfit; font-size: 20px; font-weight: 600; margin-bottom: 8px;">${plan.displayName}</h3>
+                        <p style="font-size: 14px; color: #64748b;">${plan.description}</p>
+                    </div>
+
+                    <div class="mb-10">
+                        <span class="currency">₦</span>
+                        <span class="price-text">${price.toLocaleString()}</span>
+                        <span class="period">${periodLabel}</span>
+                    </div>
+
+                    <div style="flex: 1;">
+                        <p style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 20px;">Features included:</p>
+                        <ul style="list-style: none;">
+                            ${plan.features.map(feature => `
+                                <li class="feature-item">
+                                    <svg class="feature-check" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <span>${feature}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    ${isCurrentPlan ?
+                        '<button disabled class="btn-upgrade disabled">Current Plan</button>' :
+                        `<a href="/subscription/checkout?plan=${planKey}&period=${currentPeriod}" class="btn-upgrade">Get Started</a>`
+                    }
+                </div>
+            `;
+        }).join('');
+    }
+
+    function setPeriod(period) {
+        currentPeriod = period;
+
+        // Update active toggle button
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        const activeBtn = document.querySelector(`.toggle-btn[data-period="${period}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Re-render with new period
+        renderPlans();
+    }
+
+    // Set up event listeners
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const period = btn.getAttribute('data-period');
+            if (period) setPeriod(period);
+        });
+    });
+
+    // Load prices and render
+    fetchPrices();
+</script>
+</body>
+</html>

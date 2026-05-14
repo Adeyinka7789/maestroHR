@@ -38,4 +38,23 @@ public class Tenant extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean isActive = true;
+
+    // New fields for payment
+    @Column(name = "paystack_subscription_code")
+    private String paystackSubscriptionCode;
+
+    @Column(name = "paystack_customer_code")
+    private String paystackCustomerCode;
+
+    @Column(name = "payment_period")
+    @Enumerated(EnumType.STRING)
+    private PaymentPeriod paymentPeriod;
+
+    @Column(name = "auto_renew", nullable = false)
+    @Builder.Default
+    private boolean autoRenew = true;
+
+    @Column(name = "disbursement_provider", nullable = false, length = 50)
+    @Builder.Default
+    private String disbursementProvider = "CSV";
 }

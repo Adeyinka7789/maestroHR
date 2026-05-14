@@ -103,4 +103,64 @@ public class NotificationService {
     public void markAllAsRead(String recipientEmail) {
         inAppNotificationRepository.markAllAsRead(recipientEmail);
     }
+
+    @Async
+    public void sendWelcomeNotification(Employee employee, String password) {
+        log.info("Sending welcome notification to employee: {}", employee.getEmail());
+
+        String welcomeMessage = String.format(
+                "Welcome to MaestroHR! Your account has been created.\n\n" +
+                        "Login Email: %s\n" +
+                        "Temporary Password: %s\n\n" +
+                        "Please login at: http://localhost:8080/login\n\n" +
+                        "You will be prompted to change your password on first login.",
+                employee.getEmail(), password
+        );
+
+        // Send SMS if phone number exists
+        if (employee.getPhone() != null && !employee.getPhone().isEmpty()) {
+            String smsMessage = String.format(
+                    "MaestroHR: Your account has been created. Login with Email: %s, Password: %s",
+                    employee.getEmail(), password
+            );
+            termiiClient.sendSms(employee.getPhone(), smsMessage);
+        }
+
+        // Send email if email service is available
+        if (emailService != null) {
+            String subject = "Welcome to MaestroHR - Your Account Has Been Created";
+            String htmlBody = String.format(
+                    "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>" +
+                            "<div style='background: #2563eb; padding: 20px; text-align: center;'>" +
+                            "<h1 style='color: white; margin: 0;'>Welcome to MaestroHR</h1>" +
+                            "</div>" +
+                            "<div style='padding: 20px; border: 1px solid #e2e8f0;'>" +
+                            "<p>Dear %s,</p>" +
+                            "<p>Your account has been created in the MaestroHR system.</p>" +
+                            "<div style='background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 20px 0;'>" +
+                            "<p><strong>Login Credentials:</strong></p>" +
+                            "<p><strong>Email:</strong> %s</p>" +
+                            "<p><strong>Temporary Password:</strong> %s</p>" +
+                            "</div>" +
+                            "<p><a href='http://localhost:8080/login' style='background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;'>Login to Your Account</a></p>" +
+                            "<p>For security reasons, please change your password after your first login.</p>" +
+                            "<p>Best regards,<br>MaestroHR Team</p>" +
+                            "</div>" +
+                            "</div>",
+                    employee.getFullName(), employee.getEmail(), password
+            );
+            emailService.sendSimpleEmail(employee.getEmail(), subject, htmlBody);
+        }
+
+        // Create in-app notification
+        createInAppNotification(
+                employee.getEmail(),
+                "WELCOME",
+                "Welcome to MaestroHR!",
+                String.format("Your account has been created. Welcome %s!", employee.getFirstName()),
+                "/dashboard"
+        );
+
+        log.info("Welcome notification sent to employee: {}", employee.getEmail());
+    }
 }
