@@ -10,6 +10,149 @@
 
 **MaestroHR** is a cloud-based, multi-tenant HR and Payroll SaaS platform designed specifically for **Nigerian Small and Medium Enterprises (SMEs)**. It automates the complete employee lifecycle—from onboarding and attendance tracking to statutory deductions and bulk salary disbursement via Paystack—while enforcing strict tenant data isolation using PostgreSQL Row Level Security (RLS).
 
+
+## 🏗️ System Architecture
+
+### High-Level Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                    CLIENT LAYER                                      │
+├─────────────────────────────┬─────────────────────────────┬─────────────────────────┤
+│      Web Browser (UI)       │      Mobile Browser         │      API Client         │
+│     /dashboard, /login      │    Responsive Design        │    Postman / cURL       │
+└─────────────┬───────────────┴───────────────┬─────────────┴───────────┬─────────────┘
+              │                               │                         │
+              │  HTTPS / WSS                  │  HTTPS                  │  HTTPS
+              ▼                               ▼                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              REVERSE PROXY / LOAD BALANCER                           │
+│                                   Nginx (Port 80/443)                                │
+│                              SSL Termination / Rate Limiting                         │
+└─────────────────────────────────────────┬───────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              APPLICATION LAYER (Port 8080)                          │
+│                              Spring Boot 3.4.5 / Java 17                            │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
+│  │   AUTH      │ │  EMPLOYEE   │ │  PAYROLL    │ │   LEAVE     │ │ ATTENDANCE  │   │
+│  │  MODULE     │ │   MODULE    │ │   MODULE    │ │   MODULE    │ │   MODULE    │   │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘   │
+│         │               │               │               │               │          │
+│  ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴──────┐ ┌──────┴──────┐   │
+│  │ NOTIFICA-   │ │  PAYSTACK   │ │  REPORTING  │ │    AUDIT    │ │  WEBHOOK    │   │
+│  │   TION      │ │   CLIENT    │ │   MODULE    │ │   MODULE    │ │  HANDLER    │   │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘   │
+│         │               │               │               │               │          │
+│         └───────────────┴───────────────┴───────────────┴───────────────┘          │
+│                                    │                                               │
+│                          ┌─────────┴─────────┐                                     │
+│                    JWT    │                   │    Session                         │
+│                    Filter │                   │    Management                      │
+│                          └─────────┬─────────┘                                     │
+└────────────────────────────────────┼────────────────────────────────────────────────┘
+                                     │
+          ┌──────────────────────────┼──────────────────────────┐
+          │                          │                          │
+          ▼                          ▼                          ▼
+┌─────────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
+│    CACHE LAYER  │    │      DATABASE LAYER     │    │    MESSAGE QUEUE LAYER   │
+│                 │    │                         │    │                         │
+│   Redis (Port 6379)  │   PostgreSQL 16         │    │   Kafka (Port 9092)      │
+│                 │    │   (Port 5432)           │    │                         │
+│ ┌─────────────┐ │    │ ┌─────────────────────┐ │    │ ┌─────────────────────┐ │
+│ │ JWT         │ │    │ │   Tenants Table     │ │    │ │ payroll.payslip.    │ │
+│ │ Blacklist   │ │    │ │   (Global)          │ │    │ │   generate          │ │
+│ └─────────────┘ │    │ └─────────────────────┘ │    │ └─────────────────────┘ │
+│ ┌─────────────┐ │    │ ┌─────────────────────┐ │    │ ┌─────────────────────┐ │
+│ │ Pay Grade   │ │    │ │   Users Table       │ │    │ │ payroll.email.      │ │
+│ │ Cache       │ │    │ │   (RLS enforced)    │ │    │ │   dispatch          │ │
+│ └─────────────┘ │    │ └─────────────────────┘ │    │ └─────────────────────┘ │
+│ ┌─────────────┐ │    │ ┌─────────────────────┐ │    │ ┌─────────────────────┐ │
+│ │ Tax Config  │ │    │ │   Employees Table   │ │    │ │ payroll.sms.        │ │
+│ │ Cache       │ │    │ │   (RLS enforced)    │ │    │ │   dispatch          │ │
+│ └─────────────┘ │    │ └─────────────────────┘ │    │ └─────────────────────┘ │
+│ ┌─────────────┐ │    │ ┌─────────────────────┐ │    │                         │
+│ │ Session     │ │    │ │   Payroll Tables    │ │    │                         │
+│ │ Data        │ │    │ │   (RLS enforced)    │ │    │                         │
+│ └─────────────┘ │    │ └─────────────────────┘ │    │                         │
+└─────────────────┘    └───────────┬─────────────┘    └─────────────────────────┘
+                                   │
+                                   │  RLS Enforcement
+                                   │  SET app.current_tenant = '<uuid>'
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              EXTERNAL SERVICES                                      │
+├─────────────────────────┬─────────────────────────┬─────────────────────────────────┤
+│                         │                         │                                 │
+│    Paystack API         │    Termii API           │    SMTP Server                  │
+│    (Bulk Transfers)     │    (SMS Gateway)        │    (Email Delivery)              │
+│                         │                         │                                 │
+└─────────────────────────┴─────────────────────────┴─────────────────────────────────┘
+```
+
+### Request Lifecycle Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              COMPLETE REQUEST LIFECYCLE                                 │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+Client                    Nginx                    Spring Boot                PostgreSQL
+  │                         │                         │                          │
+  │  1. POST /api/payroll   │                         │                          │
+  │────────────────────────>│                         │                          │
+  │                         │  2. Proxy to :8080      │                          │
+  │                         │────────────────────────>│                          │
+  │                         │                         │                          │
+  │                         │                         │  3. JwtAuthFilter        │
+  │                         │                         │  Validate Bearer Token   │
+  │                         │                         │  Extract email/role      │
+  │                         │                         │                          │
+  │                         │                         │  4. TenantFilter         │
+  │                         │                         │  Extract tenantId from   │
+  │                         │                         │  JWT claims              │
+  │                         │                         │  TenantContext.set()     │
+  │                         │                         │                          │
+  │                         │                         │  5. SecurityContext      │
+  │                         │                         │  Set Authentication      │
+  │                         │                         │                          │
+  │                         │                         │  6. Controller           │
+  │                         │                         │  @PreAuthorize check     │
+  │                         │                         │                          │
+  │                         │                         │  7. Service Layer        │
+  │                         │                         │  @Transactional starts   │
+  │                         │                         │                          │
+  │                         │                         │  8. Repository Query     │
+  │                         │                         │─────────────────────────>│
+  │                         │                         │                          │
+  │                         │                         │  9. HibernateRLSInterceptor
+  │                         │                         │  fires before query:     │
+  │                         │                         │  SET app.current_tenant  │
+  │                         │                         │  = '<uuid>'              │
+  │                         │                         │                         │
+  │                         │                         │  10. SELECT * FROM       │
+  │                         │                         │      employees WHERE    │
+  │                         │                         │      tenant_id =        │
+  │                         │                         │      current_setting()  │
+  │                         │                         │─────────────────────────>│
+  │                         │                         │                         │
+  │                         │                         │  11. Rows filtered      │
+  │                         │                         │      by RLS policy      │
+  │                         │                         │<─────────────────────────│
+  │                         │                         │                         │
+  │                         │  12. JSON Response      │                         │
+  │                         │<────────────────────────│                         │
+  │  13. HTTP Response      │                         │                         │
+  │<────────────────────────│                         │                         │
+  │                         │                         │  14. TenantContext.clear()│
+  │                         │                         │  (finally block)        │
+  │                         │                         │                         │
+```
+
+
 ### 🎯 Target Audience
 - Nigerian SMEs with 5 to 500 employees
 - Companies currently managing payroll manually via spreadsheets or informal bookkeeping
