@@ -194,6 +194,11 @@
                     <h1 class="page-title">Employees</h1>
                     <p id="record-count" class="page-subtitle">Loading…</p>
                 </div>
+
+                <button id="export-excel-btn" class="btn-secondary" style="margin-left:10px;">
+                    📊 Export to Excel
+                </button>
+
                 <a href="/employees/create" class="btn-primary">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Add Employee
@@ -438,6 +443,48 @@
                         '<div style="padding:14px;font-size:13px;color:#64748b;">Could not load notifications.</div>';
                 });
         }
+
+        //export excel
+        document.getElementById('export-excel-btn')?.addEventListener('click', () => {
+            window.location.href = '/api/employees/export/excel';
+        });
+
+
+        //import employee CSV
+        document.getElementById('import-csv-btn')?.addEventListener('click', () => {
+                document.getElementById('csvFileInput').click();
+            });
+
+        document.getElementById('csvFileInput')?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showToast('Importing employees...', 'info');
+
+            try {
+                const response = await fetch('/api/employees/import/csv', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`✅ Imported ${result.data.successCount} employees, ${result.data.errorCount} errors`, 'success');
+                    loadEmployees(currentPage); // Refresh table
+                } else {
+                    showToast(result.message || 'Import failed', 'error');
+                }
+            } catch (error) {
+                showToast('Import failed', 'error');
+            }
+
+            e.target.value = '';
+        });
+
 
         document.getElementById('notif-btn').addEventListener('click', function (e) {
             e.stopPropagation();

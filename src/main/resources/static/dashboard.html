@@ -248,6 +248,21 @@
                         </div>
                         <canvas id="deptChart" height="180"></canvas>
                     </div>
+
+                    <!-- Charts Row -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Payroll Trend Chart -->
+                        <div class="card" style="padding:20px;">
+                            <h3 class="font-semibold text-gray-800 mb-4">Payroll Trend (Last 6 Months)</h3>
+                            <canvas id="payrollTrendChart" height="200"></canvas>
+                        </div>
+
+                        <!-- Department Headcount Chart -->
+                        <div class="card" style="padding:20px;">
+                            <h3 class="font-semibold text-gray-800 mb-4">Department Headcount</h3>
+                            <canvas id="deptHeadcountChart" height="200"></canvas>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Pending Approvals -->
@@ -445,6 +460,79 @@
     }
 
     loadDashboardData();
+
+
+    async function loadCharts() {
+        try {
+            // Load payroll trend
+            const trendRes = await fetch('/api/dashboard/payroll-trend', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const trendResult = await trendRes.json();
+
+            if (trendResult.success && trendResult.data) {
+                const months = Object.keys(trendResult.data);
+                const amounts = Object.values(trendResult.data);
+
+                new Chart(document.getElementById('payrollTrendChart'), {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Net Payroll (₦)',
+                            data: amounts,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { position: 'top' },
+                            tooltip: { callbacks: { label: (ctx) => '₦' + ctx.raw.toLocaleString() } }
+                        }
+                    }
+                });
+            }
+
+            // Load department headcounts
+            const deptRes = await fetch('/api/dashboard/department-headcounts', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const deptResult = await deptRes.json();
+
+            if (deptResult.success && deptResult.data) {
+                const depts = Object.keys(deptResult.data);
+                const counts = Object.values(deptResult.data);
+
+                new Chart(document.getElementById('deptHeadcountChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: depts,
+                        datasets: [{
+                            label: 'Employees',
+                            data: counts,
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { position: 'top' } }
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Failed to load charts:', error);
+        }
+    }
+
+    // Call this after loading dashboard stats
+    loadCharts();
 
     // ==================== NOTIFICATIONS ====================
     async function fetchNotifications() {
