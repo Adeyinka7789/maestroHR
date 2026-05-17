@@ -11,8 +11,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -77,12 +80,34 @@ public class ReportingController {
     }
 
     @GetMapping("/payslip")
-    public ResponseEntity<byte[]> payslip(@RequestParam UUID employeeId,
-                                          @RequestParam(required = false) UUID payrollRunId) {
-        ReportFile file = payrollRunId != null
-                ? reportingService.generatePayslip(employeeId, payrollRunId)
-                : reportingService.generateLatestPayslip(employeeId);
-        return download(file);
+    public ResponseEntity<?> payslip(@RequestParam UUID employeeId,
+                                     @RequestParam(required = false) UUID payrollRunId) {
+        try {
+            ReportFile file = payrollRunId != null
+                    ? reportingService.generatePayslip(employeeId, payrollRunId)
+                    : reportingService.generateLatestPayslip(employeeId);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(file.contentType()));
+            headers.setContentDisposition(ContentDisposition.attachment().filename(file.filename()).build());
+            return ResponseEntity.ok().headers(headers).body(file.content());
+
+        } catch (IllegalArgumentException e) {
+            // Catch "No payroll history found" error
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("message", "No payroll records found for this employee. Please process payroll first.");
+            return ResponseEntity.status(404).body(errorResponse);
+
+        } catch (Exception e) {
+            // Catch any other errors
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("message", "Failed to generate payslip. Please try again.");
+            return ResponseEntity.status(500).body(errorResponse);
+        }
     }
 
     private ResponseEntity<byte[]> download(ReportFile file) {

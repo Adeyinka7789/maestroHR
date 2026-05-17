@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subscribers — MaestroHR</title>
+    <title>Admin — MaestroHR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -69,14 +69,14 @@
         .btn-secondary:hover { background: #f9fafb; }
         .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
         .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .form-label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
         .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 500; }
         .badge-green { background: #dcfce7; color: #166534; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
         .badge-gray { background: #f1f5f9; color: #475569; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
         .data-table tbody tr { transition: background 0.1s; }
         .data-table tbody tr:hover { background: #f8fafc; }
-        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-        .page-title { font-size: 19px; font-weight: 600; color: #111827; }
-        .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
         .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
         .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
@@ -138,7 +138,7 @@
 
             <div id="admin-section" style="display: none;">
                 <div class="nav-section">Admin</div>
-                <a href="/admin.html" class="nav-item" data-route="admin" data-label="Admin Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Admin Dashboard</a>
+                <a href="/admin.html" class="nav-item active" data-route="admin" data-label="Admin Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Admin Dashboard</a>
                 <a href="/plans.html" class="nav-item" data-route="plans" data-label="Pricing"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Pricing</a>
             </div>
         </nav>
@@ -158,7 +158,7 @@
     <!-- MAIN CONTENT -->
     <div class="flex flex-col flex-1 overflow-hidden">
         <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
-            <div><span style="font-size:15px;font-weight:600;color:#111827;">Subscribers</span></div>
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Admin Dashboard</span></div>
             <div style="display:flex;align-items:center;gap:16px;">
                 <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
                 <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
@@ -167,78 +167,126 @@
         </header>
 
         <main class="flex-1 overflow-y-auto" style="padding:24px;">
-            <!-- SUBSCRIBERS CONTENT START -->
-            <div id="subscribers-content">
-                <div class="page-header">
-                    <div>
-                        <h1 class="page-title">Subscribers</h1>
-                        <p class="page-subtitle">Tenant portfolio, subscription plans, and account posture.</p>
-                    </div>
-                    <a href="/admin.html" class="btn-secondary">Open Admin Console</a>
-                </div>
-
-                <!-- Filter Bar -->
-                <div class="card" style="padding:16px;margin-bottom:16px;">
-                    <div style="display:grid;grid-template-columns:1fr 180px 180px;gap:10px;">
-                        <input class="form-input" id="subscriber-filter" placeholder="Filter by company, industry, RC, or plan">
-                        <select class="form-input" id="subscriber-status-filter">
-                            <option value="">All statuses</option>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
-                        <select class="form-input" id="subscriber-plan-filter">
-                            <option value="">All plans</option>
-                            <option value="FREE_TRIAL">FREE_TRIAL</option>
-                            <option value="BASIC">BASIC</option>
-                            <option value="PROFESSIONAL">PROFESSIONAL</option>
-                            <option value="ENTERPRISE">ENTERPRISE</option>
-                        </select>
-                    </div>
-                </div>
-
+            <!-- ADMIN CONTENT START -->
+            <div id="admin-content">
                 <!-- Stats Cards -->
-                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px;">
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:18px;">
                     <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Subscribers</div>
-                        <div id="stat-subscribers" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
+                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Tenants</div>
+                        <div id="stat-tenants" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
                     </div>
                     <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Active</div>
-                        <div id="stat-active" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Trials</div>
-                        <div id="stat-trials" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
+                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Active Tenants</div>
+                        <div id="stat-active-tenants" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
                     </div>
                     <div class="stat-card">
                         <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Users</div>
                         <div id="stat-users" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
                     </div>
+                    <div class="stat-card">
+                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Locked Users</div>
+                        <div id="stat-locked-users" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
+                    </div>
                 </div>
 
-                <!-- Subscribers Table -->
-                <div class="card" style="overflow:hidden;">
-                    <div class="overflow-x-auto">
-                        <table class="data-table" style="width:100%;border-collapse:collapse;">
-                            <thead>
-                            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                                <th style="padding:12px 16px;text-align:left;">Company</th>
-                                <th style="padding:12px 16px;text-align:left;">Industry</th>
-                                <th style="padding:12px 16px;text-align:left;">Plan</th>
-                                <th style="padding:12px 16px;text-align:left;">Status</th>
-                                <th style="padding:12px 16px;text-align:left;">Expires</th>
-                                <th style="padding:12px 16px;text-align:left;">RC</th>
-                            </tr>
-                            </thead>
-                            <tbody id="subscribers-table-body">
-                            <tr><td colspan="6" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading subscribers...<\/td></tr>
-                            </tbody>
-                        </table>
+                <div style="display:grid;grid-template-columns:1.15fr 0.85fr;gap:16px;">
+                    <!-- Tenant Admin Section -->
+                    <div class="card" style="overflow:hidden;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #e2e8f0;">
+                            <div>
+                                <div style="font-size:18px;font-weight:600;">Tenant Admin</div>
+                                <div style="font-size:13px;color:#64748b;">Create, update, activate, and manage subscriber workspaces.</div>
+                            </div>
+                            <button class="btn-primary" onclick="openTenantModal()">New Tenant</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="data-table" style="width:100%;border-collapse:collapse;">
+                                <thead>
+                                <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                                    <th style="padding:12px 16px;text-align:left;">Company</th>
+                                    <th style="padding:12px 16px;text-align:left;">Plan</th>
+                                    <th style="padding:12px 16px;text-align:left;">Status</th>
+                                    <th style="padding:12px 16px;text-align:left;">Expires</th>
+                                    <th style="padding:12px 16px;text-align:right;"></th>
+                                </tr>
+                                </thead>
+                                <tbody id="tenants-table-body">
+                                <tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading tenants...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- User Admin Section -->
+                    <div class="card" style="overflow:hidden;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #e2e8f0;">
+                            <div>
+                                <div style="font-size:18px;font-weight:600;">User Admin</div>
+                                <div style="font-size:13px;color:#64748b;">Manage roles, access, status, and unlock accounts.</div>
+                            </div>
+                            <button class="btn-primary" onclick="openUserModal()">New User</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="data-table" style="width:100%;border-collapse:collapse;">
+                                <thead>
+                                <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                                    <th style="padding:12px 16px;text-align:left;">Email</th>
+                                    <th style="padding:12px 16px;text-align:left;">Role</th>
+                                    <th style="padding:12px 16px;text-align:left;">State</th>
+                                    <th style="padding:12px 16px;text-align:right;"></th>
+                                </tr>
+                                </thead>
+                                <tbody id="users-table-body">
+                                <tr><td colspan="4" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading users...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-            <!-- SUBSCRIBERS CONTENT END -->
+            <!-- ADMIN CONTENT END -->
         </main>
+    </div>
+</div>
+
+<!-- Tenant Modal -->
+<div id="tenant-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:200;align-items:center;justify-content:center;">
+    <div class="card" style="width:min(720px,92vw);padding:24px;">
+        <h2 style="margin:0 0 16px;font-size:20px;">Tenant</h2>
+        <input type="hidden" id="tenantId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="grid-column:1 / -1;"><label class="form-label">Company Name</label><input class="form-input" id="tenantCompanyName"></div>
+            <div><label class="form-label">RC Number</label><input class="form-input" id="tenantRcNumber"></div>
+            <div><label class="form-label">Industry</label><input class="form-input" id="tenantIndustry"></div>
+            <div><label class="form-label">Company Size</label><input class="form-input" id="tenantCompanySize"></div>
+            <div><label class="form-label">Subscription Plan</label><select class="form-input" id="tenantPlan"><option value="FREE_TRIAL">FREE_TRIAL</option><option value="BASIC">BASIC</option><option value="PROFESSIONAL">PROFESSIONAL</option><option value="ENTERPRISE">ENTERPRISE</option></select></div>
+            <div><label class="form-label">Subscription Expires</label><input class="form-input" type="datetime-local" id="tenantExpiresAt"></div>
+            <div><label class="form-label">Status</label><select class="form-input" id="tenantActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+            <button class="btn-secondary" onclick="closeTenantModal()">Cancel</button>
+            <button class="btn-primary" id="save-tenant-btn">Save Tenant</button>
+        </div>
+    </div>
+</div>
+
+<!-- User Modal -->
+<div id="user-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:200;align-items:center;justify-content:center;">
+    <div class="card" style="width:min(720px,92vw);padding:24px;">
+        <h2 style="margin:0 0 16px;font-size:20px;">User</h2>
+        <input type="hidden" id="userId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="grid-column:1 / -1;"><label class="form-label">Email</label><input class="form-input" id="userEmail"></div>
+            <div><label class="form-label">Tenant</label><select class="form-input" id="userTenantId"><option value="">Select Tenant</option></select></div>
+            <div><label class="form-label">Role</label><select class="form-input" id="userRole"><option value="HR_ADMIN">HR_ADMIN</option><option value="FINANCE_OFFICER">FINANCE_OFFICER</option><option value="DEPT_MANAGER">DEPT_MANAGER</option><option value="EMPLOYEE">EMPLOYEE</option></select></div>
+            <div><label class="form-label">Password</label><input class="form-input" id="userPassword" type="password" placeholder="Leave blank to keep unchanged"></div>
+            <div><label class="form-label">Status</label><select class="form-input" id="userActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+            <div><label class="form-label">Unlock Account</label><select class="form-input" id="userUnlock"><option value="false">No</option><option value="true">Yes</option></select></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+            <button class="btn-secondary" onclick="closeUserModal()">Cancel</button>
+            <button class="btn-primary" id="save-user-btn">Save User</button>
+        </div>
     </div>
 </div>
 
@@ -297,88 +345,227 @@
         }
     }
 
-    // ==================== SUBSCRIBERS DATA LOADING ====================
-    let allTenants = [];
-
-    async function loadSubscribersData() {
+    // ==================== ADMIN DATA LOADING ====================
+    async function loadAdminData() {
         try {
-            const response = await fetch('/api/admin/tenants', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                allTenants = result.data;
-                renderSubscribersTable(allTenants);
-                updateStats(allTenants);
+            // Load stats
+            const statsRes = await fetch('/api/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } });
+            const stats = await statsRes.json();
+            if (stats.success) {
+                document.getElementById('stat-tenants').textContent = stats.data.tenants || 0;
+                document.getElementById('stat-active-tenants').textContent = stats.data.activeTenants || 0;
+                document.getElementById('stat-users').textContent = stats.data.users || 0;
+                document.getElementById('stat-locked-users').textContent = stats.data.lockedUsers || 0;
             }
+
+            // Load tenants
+            const tenantsRes = await fetch('/api/admin/tenants', { headers: { 'Authorization': `Bearer ${token}` } });
+            const tenants = await tenantsRes.json();
+            if (tenants.success && tenants.data) {
+                const tbody = document.getElementById('tenants-table-body');
+                if (tenants.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No tenants found.</td></tr>';
+                } else {
+                    tbody.innerHTML = tenants.data.map(tenant => `
+                        <tr style="border-bottom:1px solid #f8fafc;">
+                            <td style="padding:14px 16px;">
+                                <div style="font-weight:600;">${escapeHtml(tenant.companyName)}</div>
+                                <div style="font-size:12px;color:#64748b;">${escapeHtml(tenant.industry)} · ${escapeHtml(tenant.companySize)}</div>
+                            </td>
+                            <td style="padding:14px 16px;">${escapeHtml(tenant.subscriptionPlan)}</td>
+                            <td style="padding:14px 16px;"><span class="badge ${tenant.active ? 'badge-green' : 'badge-gray'}">${tenant.active ? 'Active' : 'Inactive'}</span></td>
+                            <td style="padding:14px 16px;">${formatDate(tenant.subscriptionExpiresAt)}</td>
+                            <td style="padding:14px 16px;text-align:right;">
+                                <button class="btn-secondary tenant-edit-btn" data-id="${tenant.id}" data-name="${escapeHtml(tenant.companyName)}" data-rc="${tenant.rcNumber || ''}" data-industry="${tenant.industry}" data-size="${tenant.companySize}" data-plan="${tenant.subscriptionPlan}" data-expires="${tenant.subscriptionExpiresAt || ''}" data-active="${tenant.active}" style="font-size:12px;padding:5px 10px;">Edit</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            }
+
+            // Load users
+            const usersRes = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+            const users = await usersRes.json();
+            if (users.success && users.data) {
+                const tbody = document.getElementById('users-table-body');
+                if (users.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding:48px 16px;text-align:center;color:#94a3b8;">No users found.</td></tr>';
+                } else {
+                    tbody.innerHTML = users.data.map(user => {
+                        let badgeClass = 'badge-gray';
+                        let badgeText = 'Inactive';
+                        if (user.locked) { badgeClass = 'badge-red'; badgeText = 'Locked'; }
+                        else if (user.active) { badgeClass = 'badge-green'; badgeText = 'Active'; }
+                        return `
+                            <tr style="border-bottom:1px solid #f8fafc;">
+                                <td style="padding:14px 16px;">
+                                    <div style="font-weight:600;">${escapeHtml(user.email)}</div>
+                                    <div style="font-size:12px;color:#64748b;">${escapeHtml(user.tenantId)}</div>
+                                </td>
+                                <td style="padding:14px 16px;">${escapeHtml(user.role)}</td>
+                                <td style="padding:14px 16px;"><span class="badge ${badgeClass}">${badgeText}</span></td>
+                                <td style="padding:14px 16px;text-align:right;">
+                                    <button class="btn-secondary user-edit-btn" data-id="${user.id}" data-email="${escapeHtml(user.email)}" data-tenant="${user.tenantId}" data-role="${user.role}" data-active="${user.active}" data-locked="${user.locked}" style="font-size:12px;padding:5px 10px;">Edit</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Load tenants for user modal dropdown
+            const tenantsForDropdown = await fetch('/api/admin/tenants', { headers: { 'Authorization': `Bearer ${token}` } });
+            const tenantsData = await tenantsForDropdown.json();
+            if (tenantsData.success && tenantsData.data) {
+                const tenantSelect = document.getElementById('userTenantId');
+                tenantSelect.innerHTML = '<option value="">Select Tenant</option>' + tenantsData.data.map(t => `<option value="${t.id}">${escapeHtml(t.companyName)}</option>`).join('');
+            }
+
+            // Attach edit button event listeners
+            attachTenantEditListeners();
+            attachUserEditListeners();
         } catch (error) {
-            console.error('Failed to load subscribers:', error);
-            document.getElementById('subscribers-table-body').innerHTML = '<tr><td colspan="6" style="padding:48px 16px;text-align:center;color:#94a3b8;">Failed to load subscribers.<\/td></tr>';
+            console.error('Failed to load admin data:', error);
         }
     }
 
-    function updateStats(tenants) {
-        const total = tenants.length;
-        const active = tenants.filter(t => t.active).length;
-        const trials = tenants.filter(t => t.subscriptionPlan === 'FREE_TRIAL').length;
-        // User count would need a separate API call; for now placeholder
-        document.getElementById('stat-subscribers').textContent = total;
-        document.getElementById('stat-active').textContent = active;
-        document.getElementById('stat-trials').textContent = trials;
-        document.getElementById('stat-users').textContent = '—';
-    }
-
-    function renderSubscribersTable(tenants) {
-        const tbody = document.getElementById('subscribers-table-body');
-
-        if (tenants.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="padding:48px 16px;text-align:center;color:#94a3b8;">No subscribers found.<\/td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = tenants.map(tenant => `
-            <tr class="subscriber-row" style="border-bottom:1px solid #f8fafc;"
-                data-search="${(tenant.companyName + ' ' + tenant.industry + ' ' + (tenant.rcNumber || '') + ' ' + tenant.subscriptionPlan).toLowerCase()}"
-                data-status="${tenant.active ? 'Active' : 'Inactive'}"
-                data-plan="${tenant.subscriptionPlan}">
-                <td style="padding:14px 16px;font-weight:600;">${escapeHtml(tenant.companyName)}</td>
-                <td style="padding:14px 16px;">${escapeHtml(tenant.industry)} · ${escapeHtml(tenant.companySize)}</td>
-                <td style="padding:14px 16px;">${escapeHtml(tenant.subscriptionPlan)}</td>
-                <td style="padding:14px 16px;"><span class="badge ${tenant.active ? 'badge-green' : 'badge-gray'}">${tenant.active ? 'Active' : 'Inactive'}</span></td>
-                <td style="padding:14px 16px;">${formatDate(tenant.subscriptionExpiresAt)}</td>
-                <td style="padding:14px 16px;">${tenant.rcNumber || '—'}</td>
-            </table>
-        `).join('');
-
-        // Re-apply current filters after rendering
-        applyFilters();
-    }
-
-    function applyFilters() {
-        const query = document.getElementById('subscriber-filter').value.trim().toLowerCase();
-        const status = document.getElementById('subscriber-status-filter').value;
-        const plan = document.getElementById('subscriber-plan-filter').value;
-
-        const rows = document.querySelectorAll('.subscriber-row');
-        rows.forEach(row => {
-            const matchesQuery = !query || row.dataset.search.includes(query);
-            const matchesStatus = !status || row.dataset.status === status;
-            const matchesPlan = !plan || row.dataset.plan === plan;
-            row.style.display = matchesQuery && matchesStatus && matchesPlan ? '' : 'none';
+    function attachTenantEditListeners() {
+        document.querySelectorAll('.tenant-edit-btn').forEach(button => {
+            button.removeEventListener('click', handleTenantEdit);
+            button.addEventListener('click', handleTenantEdit);
         });
     }
 
-    // Filter event listeners
-    const subscriberFilter = document.getElementById('subscriber-filter');
-    const subscriberStatusFilter = document.getElementById('subscriber-status-filter');
-    const subscriberPlanFilter = document.getElementById('subscriber-plan-filter');
+    function handleTenantEdit(e) {
+        const btn = e.currentTarget;
+        document.getElementById('tenantId').value = btn.dataset.id;
+        document.getElementById('tenantCompanyName').value = btn.dataset.name || '';
+        document.getElementById('tenantRcNumber').value = btn.dataset.rc || '';
+        document.getElementById('tenantIndustry').value = btn.dataset.industry || '';
+        document.getElementById('tenantCompanySize').value = btn.dataset.size || '';
+        document.getElementById('tenantPlan').value = btn.dataset.plan || 'FREE_TRIAL';
+        document.getElementById('tenantExpiresAt').value = btn.dataset.expires ? new Date(btn.dataset.expires).toISOString().slice(0, 16) : '';
+        document.getElementById('tenantActive').value = btn.dataset.active === 'true' ? 'true' : 'false';
+        document.getElementById('tenant-modal').style.display = 'flex';
+    }
 
-    subscriberFilter.addEventListener('input', applyFilters);
-    subscriberStatusFilter.addEventListener('change', applyFilters);
-    subscriberPlanFilter.addEventListener('change', applyFilters);
+    function attachUserEditListeners() {
+        document.querySelectorAll('.user-edit-btn').forEach(button => {
+            button.removeEventListener('click', handleUserEdit);
+            button.addEventListener('click', handleUserEdit);
+        });
+    }
 
-    loadSubscribersData();
+    function handleUserEdit(e) {
+        const btn = e.currentTarget;
+        document.getElementById('userId').value = btn.dataset.id;
+        document.getElementById('userEmail').value = btn.dataset.email || '';
+        document.getElementById('userTenantId').value = btn.dataset.tenant || '';
+        document.getElementById('userRole').value = btn.dataset.role || 'HR_ADMIN';
+        document.getElementById('userActive').value = btn.dataset.active === 'true' ? 'true' : 'false';
+        document.getElementById('userUnlock').value = btn.dataset.locked === 'true' ? 'true' : 'false';
+        document.getElementById('userPassword').value = '';
+        document.getElementById('user-modal').style.display = 'flex';
+    }
+
+    // Modal functions
+    function openTenantModal() {
+        document.getElementById('tenantId').value = '';
+        document.getElementById('tenantCompanyName').value = '';
+        document.getElementById('tenantRcNumber').value = '';
+        document.getElementById('tenantIndustry').value = '';
+        document.getElementById('tenantCompanySize').value = '';
+        document.getElementById('tenantPlan').value = 'FREE_TRIAL';
+        document.getElementById('tenantExpiresAt').value = '';
+        document.getElementById('tenantActive').value = 'true';
+        document.getElementById('tenant-modal').style.display = 'flex';
+    }
+
+    function closeTenantModal() {
+        document.getElementById('tenant-modal').style.display = 'none';
+    }
+
+    function openUserModal() {
+        document.getElementById('userId').value = '';
+        document.getElementById('userEmail').value = '';
+        document.getElementById('userTenantId').value = '';
+        document.getElementById('userRole').value = 'HR_ADMIN';
+        document.getElementById('userActive').value = 'true';
+        document.getElementById('userUnlock').value = 'false';
+        document.getElementById('userPassword').value = '';
+        document.getElementById('user-modal').style.display = 'flex';
+    }
+
+    function closeUserModal() {
+        document.getElementById('user-modal').style.display = 'none';
+    }
+
+    // Save tenant
+    document.getElementById('save-tenant-btn').addEventListener('click', async () => {
+        const id = document.getElementById('tenantId').value;
+        const payload = {
+            companyName: document.getElementById('tenantCompanyName').value.trim(),
+            rcNumber: document.getElementById('tenantRcNumber').value.trim(),
+            industry: document.getElementById('tenantIndustry').value.trim(),
+            companySize: document.getElementById('tenantCompanySize').value.trim(),
+            subscriptionPlan: document.getElementById('tenantPlan').value,
+            subscriptionExpiresAt: document.getElementById('tenantExpiresAt').value ? new Date(document.getElementById('tenantExpiresAt').value).toISOString() : null,
+            active: document.getElementById('tenantActive').value === 'true'
+        };
+
+        try {
+            const url = id ? `/api/admin/tenants/${id}` : '/api/admin/tenants';
+            const method = id ? 'PUT' : 'POST';
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) { showToast(data.error || data.message || 'Failed to save tenant.', 'error'); return; }
+            showToast('Tenant saved.', 'success');
+            closeTenantModal();
+            loadAdminData();
+        } catch (error) {
+            showToast('Failed to save tenant.', 'error');
+        }
+    });
+
+    // Save user
+    document.getElementById('save-user-btn').addEventListener('click', async () => {
+        const id = document.getElementById('userId').value;
+        const payload = {
+            email: document.getElementById('userEmail').value.trim(),
+            tenantId: document.getElementById('userTenantId').value,
+            role: document.getElementById('userRole').value,
+            password: document.getElementById('userPassword').value,
+            active: document.getElementById('userActive').value === 'true',
+            unlockAccount: document.getElementById('userUnlock').value === 'true'
+        };
+
+        try {
+            const url = id ? `/api/admin/users/${id}` : '/api/admin/users';
+            const method = id ? 'PUT' : 'POST';
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) { showToast(data.error || data.message || 'Failed to save user.', 'error'); return; }
+            showToast('User saved.', 'success');
+            closeUserModal();
+            loadAdminData();
+        } catch (error) {
+            showToast('Failed to save user.', 'error');
+        }
+    });
+
+    // Close modals when clicking outside
+    document.getElementById('tenant-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('tenant-modal')) closeTenantModal(); });
+    document.getElementById('user-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('user-modal')) closeUserModal(); });
+
+    loadAdminData();
 
     // ==================== NOTIFICATIONS ====================
     async function fetchNotifications() {

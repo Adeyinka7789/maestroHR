@@ -4,10 +4,7 @@ import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "leave_balances")
@@ -15,6 +12,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
 public class LeaveBalance extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,16 +1,18 @@
 package com.admtechhub.maestrohr.web;
 
-import com.admtechhub.maestrohr.employee.*;
+import com.admtechhub.maestrohr.auth.JwtService;
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.*;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Slf4j
 @Controller
 @RequestMapping("/employees")
 @RequiredArgsConstructor
@@ -19,70 +21,57 @@ public class EmployeeWebController {
     private final EmployeeService employeeService;
     private final DepartmentRepository departmentRepository;
     private final PayGradeRepository payGradeRepository;
+    private final JwtService jwtService;
 
     @GetMapping
-    public String listEmployees(Model model,
-                                @RequestParam(defaultValue = "0") int page,
-                                @RequestParam(defaultValue = "10") int size) {
-        try {
-            Page<Employee> employees = employeeService.getAllEmployees(PageRequest.of(page, size));
-
-            model.addAttribute("pageTitle", "Employees");
-            model.addAttribute("employees", employees);
-            model.addAttribute("currentPage", page);
-            model.addAttribute("totalPages", employees.getTotalPages());
-            model.addAttribute("totalEmployees", employees.getTotalElements());  // Add this line
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            model.addAttribute("error", e.getMessage());
-            model.addAttribute("employees", Page.empty());
-        }
-
-        return "employees/list";
+    public String listEmployees(HttpServletRequest request) {
+        if (!setTenant(request)) return "redirect:/login";
+        TenantContext.clear();
+        return "redirect:/employees.html";
     }
 
     @GetMapping("/create")
-    public String showCreateForm(Model model) {
-        model.addAttribute("pageTitle", "Create Employee");
-        model.addAttribute("employee", new Employee());
-        model.addAttribute("departments", departmentRepository.findAll());
-        model.addAttribute("payGrades", payGradeRepository.findAll());
-        model.addAttribute("genders", Gender.values());
-        model.addAttribute("maritalStatuses", MaritalStatus.values());
-        model.addAttribute("employmentTypes", EmploymentType.values());
-
-        return "employees/create";
+    public String showCreateForm(HttpServletRequest request) {
+        if (!setTenant(request)) return "redirect:/login";
+        TenantContext.clear();
+        return "redirect:/employee-create.html";
     }
 
     @GetMapping("/{id}")
-    public String viewEmployee(@PathVariable UUID id, Model model) {
-        try {
-            Employee employee = employeeService.getEmployeeByIdWithDetails(id);
-            model.addAttribute("pageTitle", "Employee Details");
-            model.addAttribute("employee", employee);
-        } catch (Exception e) {
-            model.addAttribute("error", e.getMessage());
-        }
-
-        return "employees/view";
+    public String viewEmployee(@PathVariable UUID id, HttpServletRequest request) {
+        if (!setTenant(request)) return "redirect:/login";
+        TenantContext.clear();
+        return "redirect:/employee-view.html?id=" + id;
     }
 
     @GetMapping("/{id}/edit")
-    public String showEditForm(@PathVariable UUID id, Model model) {
-        try {
-            Employee employee = employeeService.getEmployeeById(id);
-            model.addAttribute("pageTitle", "Edit Employee");
-            model.addAttribute("employee", employee);
-            model.addAttribute("departments", departmentRepository.findAll());
-            model.addAttribute("payGrades", payGradeRepository.findAll());
-            model.addAttribute("genders", Gender.values());
-            model.addAttribute("maritalStatuses", MaritalStatus.values());
-            model.addAttribute("employmentTypes", EmploymentType.values());
-        } catch (Exception e) {
-            model.addAttribute("error", e.getMessage());
-        }
+    public String showEditForm(@PathVariable UUID id, HttpServletRequest request) {
+        if (!setTenant(request)) return "redirect:/login";
+        TenantContext.clear();
+        return "redirect:/employee-edit.html?id=" + id;
+    }
 
-        return "employees/edit";
+    private boolean setTenant(HttpServletRequest request) {
+        String token = extractToken(request);
+        if (token == null) return false;
+        try {
+            if (!jwtService.isTokenValid(token)) return false;
+            TenantContext.setCurrentTenant(jwtService.extractTenantId(token));
+            return true;
+        } catch (Exception e) {
+            log.error("JWT validation error: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String h = request.getHeader("Authorization");
+        if (h != null && h.startsWith("Bearer ")) return h.substring(7);
+        if (request.getCookies() != null) {
+            for (Cookie c : request.getCookies()) {
+                if ("maestrohr_token".equals(c.getName())) return c.getValue();
+            }
+        }
+        return null;
     }
 }

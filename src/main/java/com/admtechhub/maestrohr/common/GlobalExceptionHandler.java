@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.common;
 
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -57,8 +59,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
-        log.error("Unhandled exception: ", ex);
+    public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception for request {}: {}", request.getRequestURI(), ex.getMessage(), ex);
         // This sends the full stack trace and request context to Sentry
         io.sentry.Sentry.captureException(ex);
         return ResponseEntity

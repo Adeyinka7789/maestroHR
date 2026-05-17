@@ -1,19 +1,24 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="UTF-8"/>
-    <title>Payslip - [[${period}]]</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payslip — MaestroHR</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
+            background: #f5f5f5;
         }
         .container {
             max-width: 800px;
             margin: 0 auto;
             border: 1px solid #ddd;
             padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .header {
             text-align: center;
@@ -82,91 +87,78 @@
         .amount {
             text-align: right;
         }
+        .print-btn {
+            display: block;
+            width: 150px;
+            margin: 20px auto;
+            padding: 10px;
+            background: #2563eb;
+            color: white;
+            text-align: center;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .print-btn:hover {
+            background: #1d4ed8;
+        }
+        @media print {
+            .print-btn {
+                display: none;
+            }
+            body {
+                padding: 0;
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+                padding: 0;
+            }
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <div class="company-name">MaestroHR</div>
-        <div class="payslip-title">Salary Payslip for [[${period}]]</div>
+        <div class="payslip-title" id="period-title">Salary Payslip</div>
     </div>
 
     <div class="employee-info">
-        <table>
-            <tr>
-                <td><strong>Employee Name:</strong></td>
-                <td>[[${employee.fullName}]]</td>
-                <td><strong>Employee Number:</strong></td>
-                <td>[[${employee.employeeNumber}]]</td>
-            </tr>
-            <tr>
-                <td><strong>Department:</strong></td>
-                <td>[[${employee.department.name}]]</td>
-                <td><strong>Job Title:</strong></td>
-                <td>[[${employee.jobTitle}]]</td>
-            </tr>
-            <tr>
-                <td><strong>Bank:</strong></td>
-                <td>[[${employee.bankName}]]</td>
-                <td><strong>Account Number:</strong></td>
-                <td>[[${employee.bankAccountNumber}]]</td>
-            </tr>
+        <table id="employee-details">
+            <tbody>
+            <tr><td><strong>Employee Name:</strong></td><td id="emp-name">-</td><td><strong>Employee Number:</strong></td><td id="emp-number">-</td></tr>
+            <tr><td><strong>Department:</strong></td><td id="emp-dept">-</td><td><strong>Job Title:</strong></td><td id="emp-title">-</td></tr>
+            <tr><td><strong>Bank:</strong></td><td id="emp-bank">-</td><td><strong>Account Number:</strong></td><td id="emp-account">-</td></tr>
+            </tbody>
         </table>
     </div>
 
     <div class="earnings">
         <h3>Earnings</h3>
-        <table>
-            <tr>
-                <th>Description</th>
-                <th class="amount">Amount (NGN)</th>
-            </tr>
-            <tr>
-                <td>Basic Salary</td>
-                <td class="amount">[[${#numbers.formatDecimal(entry.basicSalary / 100, 1, 2)}]]</td>
-            </tr>
-            <tr>
-                <td>Housing Allowance</td>
-                <td class="amount">[[${#numbers.formatDecimal(entry.housingAllowance / 100, 1, 2)}]]</td>
-            </tr>
-            <tr>
-                <td>Transport Allowance</td>
-                <td class="amount">[[${#numbers.formatDecimal(entry.transportAllowance / 100, 1, 2)}]]</td>
-            </tr>
-            <tr>
-                <td>Other Allowances</td>
-                <td class="amount">[[${#numbers.formatDecimal(entry.otherAllowances / 100, 1, 2)}]]</td>
-            </tr>
-            <tr class="total-row">
-                <td>Gross Salary</td>
-                <td class="amount">[[${#numbers.formatDecimal(grossSalary, 1, 2)}]]</td>
-            </tr>
+        <table id="earnings-table">
+            <thead><tr><th>Description</th><th class="amount">Amount (NGN)</th></tr></thead>
+            <tbody>
+            <tr><td>Basic Salary</td><td class="amount" id="basic-salary">₦0</td></tr>
+            <tr><td>Housing Allowance</td><td class="amount" id="housing-allowance">₦0</td></tr>
+            <tr><td>Transport Allowance</td><td class="amount" id="transport-allowance">₦0</td></tr>
+            <tr><td>Other Allowances</td><td class="amount" id="other-allowances">₦0</td></tr>
+            <tr class="total-row"><td>Gross Salary</td><td class="amount" id="gross-salary">₦0</td></tr>
+            </tbody>
         </table>
     </div>
 
     <div class="deductions">
         <h3>Deductions</h3>
-        <table>
-            <tr>
-                <th>Description</th>
-                <th class="amount">Amount (NGN)</th>
-            </tr>
-            <tr>
-                <td>PAYE Tax</td>
-                <td class="amount">[[${#numbers.formatDecimal(payeTax, 1, 2)}]]</td>
-            </tr>
-            <tr>
-                <td>Pension (Employee - 8%)</td>
-                <td class="amount">[[${#numbers.formatDecimal(pensionEmployee, 1, 2)}]]</td>
-            </tr>
-            <tr>
-                <td>NHF (2.5% of Basic)</td>
-                <td class="amount">[[${#numbers.formatDecimal(nhfDeduction, 1, 2)}]]</td>
-            </tr>
-            <tr class="total-row">
-                <td>Net Salary</td>
-                <td class="amount">[[${#numbers.formatDecimal(netSalary, 1, 2)}]]</td>
-            </tr>
+        <table id="deductions-table">
+            <thead><tr><th>Description</th><th class="amount">Amount (NGN)</th></tr></thead>
+            <tbody>
+            <tr><td>PAYE Tax</td><td class="amount" id="paye-tax">₦0</td></tr>
+            <tr><td>Pension (Employee - 8%)</td><td class="amount" id="pension">₦0</td></tr>
+            <tr><td>NHF (2.5% of Basic)</td><td class="amount" id="nhf">₦0</td></tr>
+            <tr class="total-row"><td>Net Salary</td><td class="amount" id="net-salary">₦0</td></tr>
+            </tbody>
         </table>
     </div>
 
@@ -177,5 +169,75 @@
         <p>For inquiries, please contact HR department.</p>
     </div>
 </div>
+<button class="print-btn" onclick="window.print()">🖨️ Print Payslip</button>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const employeeId = urlParams.get('employeeId');
+    const payrollRunId = urlParams.get('payrollRunId');
+    const token = localStorage.getItem('maestrohr_token');
+
+    async function loadPayslip() {
+        if (!employeeId) {
+            document.getElementById('emp-name').textContent = 'No employee selected';
+            return;
+        }
+
+        try {
+            const empRes = await fetch(`/api/employees/${employeeId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const empResult = await empRes.json();
+
+            let payrollEntry = null;
+            if (payrollRunId) {
+                const entryRes = await fetch(`/api/payroll/${payrollRunId}/entries/${employeeId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const entryResult = await entryRes.json();
+                if (entryResult.success) payrollEntry = entryResult.data;
+            } else {
+                const entryRes = await fetch(`/api/payroll/employee/${employeeId}/latest`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const entryResult = await entryRes.json();
+                if (entryResult.success) payrollEntry = entryResult.data;
+            }
+
+            if (empResult.success &amp;&amp; empResult.data) {
+                const emp = empResult.data;
+                document.getElementById('emp-name').textContent = emp.fullName || (emp.firstName + ' ' + emp.lastName);
+                document.getElementById('emp-number').textContent = emp.employeeNumber;
+                document.getElementById('emp-dept').textContent = emp.department?.name || '-';
+                document.getElementById('emp-title').textContent = emp.jobTitle || '-';
+                document.getElementById('emp-bank').textContent = emp.bankName || '-';
+                document.getElementById('emp-account').textContent = emp.bankAccountNumber || '-';
+            }
+
+            if (payrollEntry) {
+                document.getElementById('period-title').textContent = 'Salary Payslip for ' + (payrollEntry.period || 'Period');
+                document.getElementById('basic-salary').textContent = formatCurrency(payrollEntry.basicSalary);
+                document.getElementById('housing-allowance').textContent = formatCurrency(payrollEntry.housingAllowance);
+                document.getElementById('transport-allowance').textContent = formatCurrency(payrollEntry.transportAllowance);
+                document.getElementById('other-allowances').textContent = formatCurrency(payrollEntry.otherAllowances);
+                document.getElementById('gross-salary').textContent = formatCurrency(payrollEntry.grossSalary);
+                document.getElementById('paye-tax').textContent = formatCurrency(payrollEntry.payeTax);
+                document.getElementById('pension').textContent = formatCurrency(payrollEntry.pensionEmployee);
+                document.getElementById('nhf').textContent = formatCurrency(payrollEntry.nhfDeduction);
+                document.getElementById('net-salary').textContent = formatCurrency(payrollEntry.netSalary);
+            }
+        } catch (error) {
+            console.error('Failed to load payslip:', error);
+            document.getElementById('emp-name').textContent = 'Error loading data';
+        }
+    }
+
+    function formatCurrency(amountKobo) {
+        const naira = (amountKobo || 0) / 100;
+        return '₦' + naira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    if (token) loadPayslip();
+</script>
 </body>
 </html>

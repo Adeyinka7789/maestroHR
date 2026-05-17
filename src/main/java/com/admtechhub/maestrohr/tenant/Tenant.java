@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.tenant;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +14,7 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Tenant extends BaseEntity {
 
     @Column(name = "company_name", nullable = false, length = 200)

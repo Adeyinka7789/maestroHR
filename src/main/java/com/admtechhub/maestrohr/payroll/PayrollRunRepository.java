@@ -22,6 +22,10 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
     List<PayrollRun> findByStatus(PayrollStatus status);
     List<PayrollRun> findByTenant_IdAndStatus(UUID tenantId, PayrollStatus status);
 
+    // Count by tenant and status - ADD THIS
+    @Query("SELECT COUNT(p) FROM PayrollRun p WHERE p.tenant.id = :tenantId AND p.status = :status")
+    long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") PayrollStatus status);
+
     Page<PayrollRun> findByStatus(PayrollStatus status, Pageable pageable);
 
     // Find pending approvals

@@ -39,4 +39,12 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
     Integer getTotalDaysTakenInYear(@Param("employeeId") UUID employeeId,
                                     @Param("leaveTypeId") UUID leaveTypeId,
                                     @Param("year") Integer year);
+
+    // Add these methods to LeaveRequestRepository interface
+
+    @Query("SELECT COUNT(l) FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId AND l.status = :status")
+    long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") LeaveStatus status);
+
+    @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId AND l.status = :status")
+    List<LeaveRequest> findByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") LeaveStatus status);
 }
