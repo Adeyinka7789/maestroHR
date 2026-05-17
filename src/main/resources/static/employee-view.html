@@ -373,6 +373,42 @@
         }
     }
 
+    async function downloadPayslip(employeeId) {
+        showToast('Generating payslip...', 'info');
+        try {
+            const response = await fetch(`/api/reports/payslip?employeeId=${employeeId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const text = await response.text();
+            try {
+                const errorData = JSON.parse(text);
+                if (errorData.error || errorData.message) {
+                    const message = errorData.message || errorData.error || 'No payroll records found.';
+                    showToast(message, 'error');
+                    return;
+                }
+            } catch (e) {
+                // It's PDF data
+                if (!response.ok) {
+                    showToast(`Error: ${response.status}`, 'error');
+                    return;
+                }
+                const blob = new Blob([text], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `payslip-${employeeId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                showToast('Payslip downloaded', 'success');
+            }
+        } catch (error) {
+            showToast('Network error', 'error');
+        }
+    }
+
     function displayEmployeeData(emp) {
         // Header
         document.getElementById('employee-name').textContent = `${emp.firstName || ''} ${emp.lastName || ''}`;
@@ -397,8 +433,15 @@
         else terminateBtn.style.display = 'inline-flex';
         terminateBtn.dataset.id = emp.id;
 
-        // Download payslip link
-        document.getElementById('download-payslip-link').href = `/reports/payslip?employeeId=${emp.id}`;
+        // ========== FIXED PAYSLIP DOWNLOAD ==========
+        const downloadLink = document.getElementById('download-payslip-link');
+        // Remove href to prevent direct navigation
+        downloadLink.removeAttribute('href');
+        // Add click handler
+        downloadLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await downloadPayslip(emp.id);
+        });
 
         // Personal info
         document.getElementById('emp-email').textContent = emp.email || '-';
