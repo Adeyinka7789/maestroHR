@@ -164,9 +164,9 @@
             <div id="reports-content">
                 <!-- Stats Cards -->
                 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px;">
-                    <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Employees</div><div style="font-size:30px;font-weight:600;margin-top:8px;">—</div></div>
-                    <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Departments</div><div style="font-size:30px;font-weight:600;margin-top:8px;">—</div></div>
-                    <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Leave</div><div style="font-size:30px;font-weight:600;margin-top:8px;">—</div></div>
+                    <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Employees</div><div id="stats-employees" style="font-size:30px;font-weight:600;margin-top:8px;">—</div></div>
+                    <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Departments</div><div id="stats-departments" style="font-size:30px;font-weight:600;margin-top:8px;">—</div></div>
+                    <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Leave</div><div id="stats-pending-leave" style="font-size:30px;font-weight:600;margin-top:8px;">—</div></div>
                 </div>
 
                 <!-- Recent Payroll Runs & Payslip Download -->
@@ -206,6 +206,9 @@
                             <button class="btn-secondary report-btn" data-report="paye-schedule">PAYE Schedule (Form A)</button>
                             <button class="btn-secondary report-btn" data-report="pension-schedule">Pension Schedule</button>
                             <button class="btn-secondary report-btn" data-report="nhf-schedule">NHF Schedule</button>
+                            <button id="pencom-report-btn" class="btn-secondary" style="margin-top:10px;">
+                                📄 PenCom Pension Report (RSA)
+                            </button>
                         </div>
                     </div>
 
@@ -276,24 +279,80 @@
         localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
     });
 
+    // ==================== STATS & EMPLOYEE DROPDOWNS ====================
     async function loadReportsStats() {
-    try {
-        const response = await fetch('/api/reports/stats', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const result = await response.json();
-        if (result.success && result.data) {
-            document.getElementById('stats-employees').textContent = result.data.employees || 0;
-            document.getElementById('stats-departments').textContent = result.data.departments || 0;
-            document.getElementById('stats-pending-leave').textContent = result.data.pendingLeave || 0;
+        try {
+            const response = await fetch('/api/reports/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (result.success && result.data) {
+                document.getElementById('stats-employees').textContent = result.data.employees || 0;
+                document.getElementById('stats-departments').textContent = result.data.departments || 0;
+                document.getElementById('stats-pending-leave').textContent = result.data.pendingLeave || 0;
+            }
+        } catch (error) {
+            console.error('Failed to load reports stats:', error);
         }
-    } catch (error) {
-        console.error('Failed to load reports stats:', error);
     }
-}
 
-// Call this after loadReportsData() or in the initialization
-loadReportsStats();
+    async function loadEmployeeDropdowns() {
+        try {
+            const response = await fetch('/api/employees?size=100', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            const employees = result.data?.content || [];
+
+            const payslipSelect = document.getElementById('payslipEmployeeId');
+            const salarySelect = document.getElementById('salaryHistoryEmployeeId');
+
+            const options = employees.map(emp =>
+                `<option value="${emp.id}">${escapeHtml(emp.fullName || emp.firstName + ' ' + emp.lastName)} (${emp.employeeNumber})</option>`
+            ).join('');
+
+            if (payslipSelect) payslipSelect.innerHTML = '<option value="">Select employee</option>' + options;
+            if (salarySelect) salarySelect.innerHTML = '<option value="">Select employee</option>' + options;
+        } catch (error) {
+            console.error('Failed to load employees:', error);
+        }
+    }
+
+    async function loadRecentPayrollRuns() {
+        const container = document.getElementById('recent-payroll-runs');
+        if (!container) return;
+
+        container.innerHTML = '<div class="text-center py-4 text-gray-500">Loading...</div>';
+
+        try {
+            const response = await fetch('/api/payroll', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+
+            if (!result.success || !result.data || result.data.length === 0) {
+                container.innerHTML = '<div class="text-center py-4 text-gray-500">No payroll runs found.</div>';
+                return;
+            }
+
+            // Take only the 3 most recent runs
+            const recentRuns = result.data.slice(0, 3);
+
+            container.innerHTML = recentRuns.map(run => `
+                <div class="border rounded-lg p-3 flex justify-between items-center">
+                    <div>
+                        <p class="font-medium">${escapeHtml(run.period)}</p>
+                        <p class="text-sm text-gray-500">Net: ${formatCurrency(run.totalNet)}</p>
+                    </div>
+                    <a href="/payroll-detail.html?id=${run.id}" class="btn-secondary text-sm">Open</a>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Failed to load recent payroll runs:', error);
+            container.innerHTML = '<div class="text-center py-4 text-red-500">Failed to load.</div>';
+        }
+    }
 
     function showToast(message, type) {
         const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' };
@@ -379,6 +438,18 @@ loadReportsStats();
         downloadReport(`/api/reports/leave-balance?year=${year}&format=${format}`);
     });
 
+   // PenCom Pension Report (XML only – no format parameter)
+    document.getElementById('pencom-report-btn')?.addEventListener('click', () => {
+        const month = document.getElementById('reportMonth').value;
+        const year = document.getElementById('reportYear').value;
+        if (!month || !year) {
+            showToast('Please select month and year', 'error');
+            return;
+        }
+        // Download XML file directly
+        window.location.href = `/api/reports/pencom-report?month=${month}&year=${year}`;
+    });
+
     // Salary history report
     document.getElementById('salary-history-report-btn').addEventListener('click', () => {
         const employeeId = document.getElementById('salaryHistoryEmployeeId').value;
@@ -414,7 +485,10 @@ loadReportsStats();
         window.location.href = `/api/reports/payslip?employeeId=${employeeId}`;
     });
 
-    loadReportsData();
+    // ==================== INITIALIZE ====================
+    loadReportsStats();
+    loadEmployeeDropdowns();
+    loadRecentPayrollRuns();
 
     // ==================== NOTIFICATIONS ====================
     async function fetchNotifications() {

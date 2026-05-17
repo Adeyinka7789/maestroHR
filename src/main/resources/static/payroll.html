@@ -266,42 +266,75 @@
         return 'badge-gray';
     }
 
+    // ==================== ROLE CHECK ====================
+    function hasPayrollAccess() {
+        return userRole === 'HR_ADMIN' || userRole === 'FINANCE_OFFICER' || userRole === 'SUPER_ADMIN';
+    }
+
     // ==================== PAYROLL LOGIC ====================
     async function loadPayrollData() {
+        const tbody = document.getElementById('payroll-runs-table-body');
+
+        if (!hasPayrollAccess()) {
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">You do not have permission to view payroll runs. Only HR Admins, Finance Officers, and Super Admins can access this page.<tr></tr>';
+            document.getElementById('pending-approvals-count').textContent = '—';
+            document.getElementById('initiate-payroll-btn').disabled = true;
+            return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading...</td></tr>';
+
         try {
             // Load pending approvals count
-            const pendingRes = await fetch('/api/payroll/pending-count', { headers: { 'Authorization': `Bearer ${token}` } });
-            const pending = await pendingRes.json();
-            if (pending.success) {
-                document.getElementById('pending-approvals-count').textContent = pending.data?.count || 0;
+            try {
+                const pendingRes = await fetch('/api/payroll/pending-count', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (pendingRes.ok) {
+                    const pending = await pendingRes.json();
+                    document.getElementById('pending-approvals-count').textContent = pending.data?.count || 0;
+                } else {
+                    document.getElementById('pending-approvals-count').textContent = '0';
+                }
+            } catch (e) {
+                document.getElementById('pending-approvals-count').textContent = '0';
             }
 
             // Load all payroll runs
-            const runsRes = await fetch('/api/payroll', { headers: { 'Authorization': `Bearer ${token}` } });
-            const runs = await runsRes.json();
+            const runsRes = await fetch('/api/payroll', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-            if (runs.success && runs.data) {
-                const tbody = document.getElementById('payroll-runs-table-body');
-
-                if (runs.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No payroll runs yet. Start by initiating a new run above.</td></tr>';
+            if (!runsRes.ok) {
+                if (runsRes.status === 403) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Access denied. Your role "' + userRole + '" does not have permission to view payroll. Please contact your administrator to add HR_ADMIN or FINANCE_OFFICER role.</td></tr>';
                 } else {
-                    tbody.innerHTML = runs.data.map(run => `
-                        <tr style="border-bottom:1px solid #f8fafc;">
-                            <td style="padding:14px 16px;font-weight:500;">${escapeHtml(run.period || 'N/A')}</td>
-                            <td style="padding:14px 16px;"><span class="badge ${getBadgeClass(run.status)}">${escapeHtml(run.status || 'DRAFT')}</span></td>
-                            <td style="padding:14px 16px;">${formatCurrency(run.totalNet)}</td>
-                            <td style="padding:14px 16px;">${escapeHtml(run.initiatedBy?.email || '-')}</td>
-                            <td style="padding:14px 16px;text-align:right;">
-                                <a href="/payroll-detail.html?id=${run.id}" class="btn-secondary" style="font-size:12px;padding:5px 10px;text-decoration:none;">Open</a>
-                            </td>
-                        </tr>
-                    `).join('');
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Please try again.</td></tr>';
                 }
+                return;
+            }
+
+            const runs = await runsRes.json();
+            let runsData = runs.data || (Array.isArray(runs) ? runs : []);
+
+            if (runsData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No payroll runs yet. Start by initiating a new run above.</td></tr>';
+            } else {
+                tbody.innerHTML = runsData.map(run => `
+                    <tr style="border-bottom:1px solid #f8fafc;">
+                        <td style="padding:14px 16px;font-weight:500;">${escapeHtml(run.period || 'N/A')}</td>
+                        <td style="padding:14px 16px;"><span class="badge ${getBadgeClass(run.status)}">${escapeHtml(run.status || 'DRAFT')}</span></td>
+                        <td style="padding:14px 16px;">${formatCurrency(run.totalNet)}</td>
+                        <td style="padding:14px 16px;">${escapeHtml(run.initiatedBy?.email || '-')}</td>
+                        <td style="padding:14px 16px;text-align:right;">
+                            <a href="/payroll-detail.html?id=${run.id}" class="btn-secondary" style="font-size:12px;padding:5px 10px;text-decoration:none;">Open</a>
+                        </td>
+                    </tr>
+                `).join('');
             }
         } catch (error) {
             console.error('Failed to load payroll data:', error);
-            document.getElementById('payroll-runs-table-body').innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Failed to load payroll runs.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Check console for details.</td></tr>';
         }
     }
 
@@ -312,6 +345,10 @@
 
     // Initiate Payroll
     document.getElementById('initiate-payroll-btn').addEventListener('click', async () => {
+        if (!hasPayrollAccess()) {
+            showToast('You do not have permission to initiate payroll.', 'error');
+            return;
+        }
         const month = document.getElementById('payrollMonth').value;
         const year = document.getElementById('payrollYear').value;
 
@@ -335,10 +372,12 @@
             showToast('Payroll initiated successfully.', 'success');
             loadPayrollData(); // Refresh the list
         } catch (error) {
+            console.error(error);
             showToast('Failed to initiate payroll', 'error');
         }
     });
 
+    // Load data on page load
     loadPayrollData();
 
     // ==================== NOTIFICATIONS ====================

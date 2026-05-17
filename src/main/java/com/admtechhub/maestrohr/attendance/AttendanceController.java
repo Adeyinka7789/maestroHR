@@ -27,7 +27,7 @@ public class AttendanceController {
      * GET /api/attendance/today
      */
     @GetMapping("/today")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getTodayAttendance() {
         LocalDate today = LocalDate.now();
         List<AttendanceRecord> records = attendanceService.getAttendanceByDate(today);
@@ -38,7 +38,6 @@ public class AttendanceController {
 
         List<Map<String, Object>> recordList = records.stream().map(record -> {
             Map<String, Object> map = new HashMap<>();
-            // Safe access - use getFullName() which doesn't trigger lazy loading
             map.put("employeeName", record.getEmployee().getFullName());
             map.put("clockInTime", record.getClockInTime() != null ? record.getClockInTime().toString() : null);
             map.put("clockOutTime", record.getClockOutTime() != null ? record.getClockOutTime().toString() : null);
@@ -61,7 +60,7 @@ public class AttendanceController {
      * GET /api/attendance?date=2026-05-15
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<AttendanceRecord>>> getAttendanceByDate(@RequestParam LocalDate date) {
         List<AttendanceRecord> records = attendanceService.getAttendanceByDate(date);
         return ResponseEntity.ok(ApiResponse.success("Attendance records retrieved", records));
@@ -72,7 +71,7 @@ public class AttendanceController {
      * GET /api/attendance/employee/{employeeId}
      */
     @GetMapping("/employee/{employeeId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<AttendanceRecord>>> getEmployeeAttendance(
             @PathVariable UUID employeeId,
             @RequestParam(required = false) LocalDate startDate,
@@ -87,7 +86,7 @@ public class AttendanceController {
      * GET /api/attendance/employee/{employeeId}/date?date=2026-05-15
      */
     @GetMapping("/employee/{employeeId}/date")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecord>> getEmployeeAttendanceByDate(
             @PathVariable UUID employeeId,
             @RequestParam LocalDate date) {
@@ -104,7 +103,7 @@ public class AttendanceController {
      * POST /api/attendance/mark
      */
     @PostMapping("/mark")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecord>> markAttendance(
             @RequestParam UUID employeeId,
             @RequestParam LocalDate date,
@@ -121,7 +120,7 @@ public class AttendanceController {
      * PUT /api/attendance/{recordId}
      */
     @PutMapping("/{recordId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecord>> updateAttendance(
             @PathVariable UUID recordId,
             @RequestParam AttendanceStatus status,
@@ -137,7 +136,7 @@ public class AttendanceController {
      * GET /api/attendance/summary/{employeeId}?year=2026&month=5
      */
     @GetMapping("/summary/{employeeId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getMonthlySummary(
             @PathVariable UUID employeeId,
             @RequestParam int year,
@@ -159,7 +158,7 @@ public class AttendanceController {
      * POST /api/attendance/check-in
      */
     @PostMapping("/check-in")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecord>> selfCheckIn(
             @RequestParam UUID employeeId,
             @RequestParam(required = false) String notes) {
@@ -167,7 +166,6 @@ public class AttendanceController {
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
 
-        // Check if already checked in today
         AttendanceRecord existing = attendanceService.getAttendanceByEmployeeAndDate(employeeId, today);
         if (existing != null && existing.getClockInTime() != null) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Already checked in today"));
@@ -191,7 +189,7 @@ public class AttendanceController {
      * POST /api/attendance/check-out
      */
     @PostMapping("/check-out")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecord>> selfCheckOut(
             @RequestParam UUID employeeId,
             @RequestParam(required = false) String notes) {
@@ -209,7 +207,6 @@ public class AttendanceController {
         }
 
         record.setClockOutTime(now);
-        // Calculate hours worked
         if (record.getClockInTime() != null) {
             long minutes = java.time.temporal.ChronoUnit.MINUTES.between(record.getClockInTime(), now);
             record.setHoursWorked(java.math.BigDecimal.valueOf(minutes / 60.0).setScale(2, java.math.RoundingMode.HALF_UP));
@@ -231,7 +228,7 @@ public class AttendanceController {
      * GET /api/attendance/calendar/{employeeId}?year=2026&month=5
      */
     @GetMapping("/calendar/{employeeId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getMonthlyCalendar(
             @PathVariable UUID employeeId,
             @RequestParam int year,
@@ -242,20 +239,17 @@ public class AttendanceController {
 
         List<AttendanceRecord> records = attendanceService.getEmployeeAttendance(employeeId, startDate, endDate);
 
-        // Build calendar data
         Map<String, Object> calendar = new HashMap<>();
         calendar.put("year", year);
         calendar.put("month", month);
         calendar.put("employeeId", employeeId);
 
-        // Map date -> attendance status
         Map<String, String> attendanceMap = new HashMap<>();
         for (AttendanceRecord record : records) {
             attendanceMap.put(record.getAttendanceDate().toString(), record.getStatus().name());
         }
         calendar.put("attendance", attendanceMap);
 
-        // Get monthly summary
         long presentDays = attendanceService.getPresentDaysInMonth(employeeId, year, month);
         calendar.put("presentDays", presentDays);
         calendar.put("totalDays", endDate.getDayOfMonth());

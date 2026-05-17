@@ -374,16 +374,30 @@
         function loadTodayAttendance() {
             document.getElementById('today-date').textContent =
                 new Date().toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+            var tbody = document.getElementById('attendance-table-body');
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading...</td></tr>';
 
             apiCall('/api/attendance/today')
-                .then(function(r) { return r.json(); })
+                .then(function(response) {
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Access denied. You need HR Admin or Manager privileges to view today\'s attendance. If you are an employee, use the "Self Check-in/out" tab.</td></tr>';
+                        } else {
+                            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load attendance. Please try again.</td></tr>';
+                        }
+                        document.getElementById('present-count').textContent = '—';
+                        document.getElementById('late-count').textContent = '—';
+                        document.getElementById('absent-count').textContent = '—';
+                        return;
+                    }
+                    return response.json();
+                })
                 .then(function(result) {
-                    if (result.success && result.data) {
+                    if (result && result.success && result.data) {
                         document.getElementById('present-count').textContent = result.data.presentCount || 0;
                         document.getElementById('late-count').textContent    = result.data.lateCount    || 0;
                         document.getElementById('absent-count').textContent  = result.data.absentCount  || 0;
 
-                        var tbody = document.getElementById('attendance-table-body');
                         var records = result.data.records || [];
                         if (records.length === 0) {
                             tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No attendance records for today.</td></tr>';
@@ -401,7 +415,10 @@
                         }
                     }
                 })
-                .catch(function(e) { console.error('Attendance load error:', e); });
+                .catch(function(e) {
+                    console.error('Attendance load error:', e);
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Network error. Please check your connection.</td></tr>';
+                });
         }
 
         // ── CALENDAR ──────────────────────────────────────────────────────────────

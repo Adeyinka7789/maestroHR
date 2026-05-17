@@ -35,14 +35,14 @@ public class PayrollController {
 
     // SPECIFIC ENDPOINTS FIRST (before path variables)
     @GetMapping("/pending-count")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getPendingApprovalsCount() {
         long count = payrollRunService.getPendingApprovalsCount();
         return ResponseEntity.ok(ApiResponse.success("Pending count retrieved", Map.of("count", count)));
     }
 
     @PostMapping("/initiate")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> initiatePayroll(
             @RequestParam Integer month,
             @RequestParam Integer year) {
@@ -53,21 +53,21 @@ public class PayrollController {
     }
 
     @PostMapping("/{payrollRunId}/compute")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> computePayroll(@PathVariable UUID payrollRunId) {
         PayrollRunResponse response = payrollRunService.computePayroll(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Payroll computed successfully", response));
     }
 
     @PostMapping("/{payrollRunId}/submit")
-    @PreAuthorize("hasRole('HR_ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> submitForApproval(@PathVariable UUID payrollRunId) {
         PayrollRunResponse response = payrollRunService.submitForApproval(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Payroll submitted for approval", response));
     }
 
     @PostMapping("/{payrollRunId}/approve")
-    @PreAuthorize("hasRole('FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> approvePayroll(@PathVariable UUID payrollRunId) {
         UUID approvedByUserId = getCurrentUserId();
         PayrollRunResponse response = payrollRunService.approvePayroll(payrollRunId, approvedByUserId);
@@ -75,7 +75,7 @@ public class PayrollController {
     }
 
     @PostMapping("/{payrollRunId}/reject")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> rejectPayroll(
             @PathVariable UUID payrollRunId,
             @RequestParam String reason) {
@@ -84,28 +84,28 @@ public class PayrollController {
     }
 
     @GetMapping("/{payrollRunId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> getPayrollRun(@PathVariable UUID payrollRunId) {
         PayrollRunResponse response = payrollRunService.getPayrollRunResponse(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Payroll run retrieved", response));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<PayrollRunResponse>>> getAllPayrollRuns() {
         List<PayrollRunResponse> responses = payrollRunService.getAllPayrollRunResponses();
         return ResponseEntity.ok(ApiResponse.success("Payroll runs retrieved", responses));
     }
 
     @GetMapping("/{payrollRunId}/entries")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<PayrollRunResponse.PayrollEntryResponse>>> getPayrollEntries(@PathVariable UUID payrollRunId) {
         List<PayrollRunResponse.PayrollEntryResponse> entries = payrollRunService.getPayrollEntryResponses(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Payroll entries retrieved", entries));
     }
 
     @GetMapping("/{payrollRunId}/summary")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getPayrollSummary(@PathVariable UUID payrollRunId) {
         PayrollRunResponse payrollRun = payrollRunService.getPayrollRunResponse(payrollRunId);
 
@@ -128,19 +128,15 @@ public class PayrollController {
     }
 
     @PostMapping("/{payrollRunId}/disburse")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> disburseSalaries(@PathVariable UUID payrollRunId) {
         PayrollRun payrollRun = disbursementService.disburseSalaries(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Salary disbursement initiated",
                 payrollRunService.getPayrollRunResponse(payrollRunId)));
     }
 
-    /**
-     * Get pending approvals count
-     * GET /api/payroll/pending-approvals
-     */
     @GetMapping("/pending-approvals")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<PayrollRunResponse>>> getPendingApprovals() {
         List<PayrollRunResponse> responses = payrollRunService.getPendingApprovals();
         return ResponseEntity.ok(ApiResponse.success("Pending approvals retrieved", responses));
