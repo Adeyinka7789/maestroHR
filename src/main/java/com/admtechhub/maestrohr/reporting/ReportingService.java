@@ -482,4 +482,8 @@ public class ReportingService {
         }
         return UUID.fromString(tenantId);
     }
+
+    public byte[] generatePdfFromData(String title, String subtitle, List<String> headers, List<List<String>> rows) {
+        return toPdf(title, subtitle, headers, rows);
+    }
 }

@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,6 +30,7 @@ public class ReportingController {
 
     private final ReportingService reportingService;
     private final PenComReportService penComReportService;
+    private final NsitfReportService nsitfReportService;
 
     @GetMapping("/monthly-payroll-summary")
     public ResponseEntity<byte[]> monthlyPayrollSummary(@RequestParam Integer month,
@@ -151,6 +153,34 @@ public class ReportingController {
         }
     }
 
+    @GetMapping("/nsitf-report")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> generateNsitfReport(
+            @RequestParam Integer month,
+            @RequestParam Integer year,
+            @RequestParam(defaultValue = "PDF") ReportFormat format) {
+
+        UUID tenantId = currentTenantId();
+        Map<String, Object> data = nsitfReportService.generateNsitfData(month, year, tenantId);
+
+        String title = (String) data.get("title");
+        String subtitle = (String) data.get("subtitle");
+        @SuppressWarnings("unchecked")
+        List<String> headers = (List<String>) data.get("headers");
+        @SuppressWarnings("unchecked")
+        List<List<String>> rows = (List<List<String>>) data.get("rows");
+
+        byte[] pdf = reportingService.generatePdfFromData(title, subtitle, headers, rows);
+
+        HttpHeaders headersResponse = new HttpHeaders();
+        headersResponse.setContentType(MediaType.APPLICATION_PDF);
+        headersResponse.setContentDisposition(ContentDisposition.attachment()
+                .filename("nsitf-report-" + year + "-" + String.format("%02d", month) + ".pdf")
+                .build());
+
+        return ResponseEntity.ok().headers(headersResponse).body(pdf);
+    }
+
     private ResponseEntity<byte[]> download(ReportFile file) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(file.contentType()));
@@ -165,4 +195,5 @@ public class ReportingController {
         }
         return UUID.fromString(tenantId);
     }
+
 }
