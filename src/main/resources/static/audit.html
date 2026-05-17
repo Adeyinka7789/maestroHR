@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Management — MaestroHR</title>
+    <title>Audit Logs — MaestroHR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -55,21 +55,23 @@
 
         .nav-section { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; padding: 16px 12px 6px; }
         .card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; }
-        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 500; }
-        .badge-green { background: #dcfce7; color: #166534; }
-        .badge-amber { background: #fef3c7; color: #92400e; }
-        .badge-red { background: #fee2e2; color: #991b1b; }
-        .badge-gray { background: #f1f5f9; color: #475569; }
         .btn-primary { background: #2563eb; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-primary:hover { background: #1d4ed8; }
         .btn-secondary { background: white; color: #374151; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #d1d5db; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-secondary:hover { background: #f9fafb; }
-        .btn-danger { background: #fee2e2; color: #991b1b; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #fecaca; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
-        .btn-danger:hover { background: #fecaca; }
         .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
         .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 500; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
         .data-table tbody tr { transition: background 0.1s; }
         .data-table tbody tr:hover { background: #f8fafc; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .page-title { font-size: 19px; font-weight: 600; color: #111827; }
+        .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
         .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
         .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
@@ -82,19 +84,23 @@
             border-radius: 12px; box-shadow: 0 18px 40px rgba(15,23,42,0.12); display: none; overflow: hidden; z-index: 100;
         }
         .top-search-results { left: 0; right: auto; width: 100%; }
-        .search-result-link { display:block; padding:12px 14px; text-decoration:none; color:#111827; border-bottom:1px solid #f1f5f9; }
-        .search-result-link:hover { background:#f8fafc; }
         .notification-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
         .notification-item.unread { background: #eff6ff; }
         .sidebar-toggle { background:none; border:none; cursor:pointer; color:#94a3b8; padding:6px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
         .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
+
+        /* Status code colors */
+        .status-2xx { color: #166534; background: #dcfce7; }
+        .status-3xx { color: #92400e; background: #fef3c7; }
+        .status-4xx { color: #991b1b; background: #fee2e2; }
+        .status-5xx { color: #991b1b; background: #fee2e2; }
     </style>
 </head>
 <body class="bg-slate-50">
 
 <div class="flex h-screen overflow-hidden">
 
-    <!-- SIDEBAR -->
+    <!-- SIDEBAR (same as other pages) -->
     <aside style="width:var(--sidebar-w); background:#1e293b; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; border-right: 1px solid #334155;">
         <div style="padding:20px 16px 16px; border-bottom:1px solid #334155;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
@@ -123,18 +129,11 @@
             <a href="/reports.html" class="nav-item" data-route="reports" data-label="Reports"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Reports</a>
 
             <div class="nav-section">HR</div>
-            <a href="/leave.html" class="nav-item active" data-route="leave" data-label="Leave Management"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Leave Management</a>
+            <a href="/leave.html" class="nav-item" data-route="leave" data-label="Leave Management"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Leave Management</a>
             <a href="/attendance.html" class="nav-item" data-route="attendance" data-label="Attendance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</a>
 
             <div class="nav-section">System</div>
-            <a href="/audit" class="nav-item" data-route="audit" data-label="Audit Logs">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 8v4l3 3M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                Audit Logs
-            </a>
+            <a href="/audit.html" class="nav-item active" data-route="audit" data-label="Audit Logs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Audit Logs</a>
             <a href="/settings.html" class="nav-item" data-route="settings" data-label="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
 
             <div id="admin-section" style="display: none;">
@@ -159,7 +158,7 @@
     <!-- MAIN CONTENT -->
     <div class="flex flex-col flex-1 overflow-hidden">
         <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
-            <div><span style="font-size:15px;font-weight:600;color:#111827;">Leave Management</span></div>
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Audit Logs</span></div>
             <div style="display:flex;align-items:center;gap:16px;">
                 <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
                 <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
@@ -168,51 +167,86 @@
         </header>
 
         <main class="flex-1 overflow-y-auto" style="padding:24px;">
-            <!-- LEAVE CONTENT START -->
-            <div id="leave-content">
-                <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;margin-bottom:16px;">
-                    <!-- Pending Requests Card -->
-                    <div class="card" style="padding:22px;">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Requests</div>
-                        <div id="pending-count" style="font-size:32px;font-weight:600;margin-top:8px;">0</div>
-                        <div style="margin-top:14px;color:#64748b;font-size:13px;">Recent requests and quick actions for managers.</div>
-                    </div>
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Audit Logs</h1>
+                    <p class="page-subtitle">Track all system activities and user actions</p>
+                </div>
+                <button id="refresh-btn" class="btn-secondary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Refresh
+                </button>
+            </div>
 
-                    <!-- Apply for Leave Card -->
-                    <div class="card" style="padding:22px;">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Apply for Leave</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
-                            <select id="leaveEmployeeId" class="form-input"><option value="">Employee</option></select>
-                            <select id="leaveTypeId" class="form-input"><option value="">Leave type</option></select>
-                            <input id="leaveStartDate" class="form-input" type="date" placeholder="Start Date">
-                            <input id="leaveEndDate" class="form-input" type="date" placeholder="End Date">
-                            <input id="leaveReason" class="form-input" placeholder="Reason" style="grid-column:1 / -1;">
-                        </div>
-                        <button id="leave-apply-btn" class="btn-primary" style="margin-top:12px;">Submit request</button>
+            <!-- Filters -->
+            <div class="card" style="padding:20px; margin-bottom:24px;">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="form-label">Action Filter</label>
+                        <select id="action-filter" class="form-input">
+                            <option value="">All Actions</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Entity Type</label>
+                        <select id="entity-type-filter" class="form-input">
+                            <option value="">All Types</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Actor Email</label>
+                        <input type="text" id="actor-filter" class="form-input" placeholder="Search by email...">
+                    </div>
+                    <div>
+                        <label class="form-label">Status Code</label>
+                        <select id="status-filter" class="form-input">
+                            <option value="">All Status</option>
+                            <option value="2xx">2xx - Success</option>
+                            <option value="3xx">3xx - Redirection</option>
+                            <option value="4xx">4xx - Client Error</option>
+                            <option value="5xx">5xx - Server Error</option>
+                        </select>
                     </div>
                 </div>
-
-                <!-- Leave Requests Table -->
-                <div class="card" style="padding:0;overflow:hidden;">
-                    <div class="overflow-x-auto">
-                        <table class="data-table" style="width:100%;border-collapse:collapse;">
-                            <thead>
-                            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                                <th style="padding:12px 16px;text-align:left;">Employee</th>
-                                <th style="padding:12px 16px;text-align:left;">Type</th>
-                                <th style="padding:12px 16px;text-align:left;">Window</th>
-                                <th style="padding:12px 16px;text-align:left;">Status</th>
-                                <th style="padding:12px 16px;text-align:right;"></th>
-                            </tr>
-                            </thead>
-                            <tbody id="leave-requests-table-body">
-                            <tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading leave requests...</td></tr>
-                            </tbody>
-                        </table>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="form-label">Date From</label>
+                        <input type="datetime-local" id="date-from" class="form-input">
                     </div>
+                    <div>
+                        <label class="form-label">Date To</label>
+                        <input type="datetime-local" id="date-to" class="form-input">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-4">
+                    <button id="apply-filters" class="btn-primary">Apply Filters</button>
+                    <button id="clear-filters" class="btn-secondary">Clear Filters</button>
                 </div>
             </div>
-            <!-- LEAVE CONTENT END -->
+
+            <!-- Audit Logs Table -->
+            <div class="card" style="overflow:hidden;">
+                <div class="overflow-x-auto">
+                    <table class="data-table" style="width:100%;border-collapse:collapse;">
+                        <thead>
+                        <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                            <th style="padding:12px 16px;text-align:left;">Timestamp</th>
+                            <th style="padding:12px 16px;text-align:left;">Actor</th>
+                            <th style="padding:12px 16px;text-align:left;">Action</th>
+                            <th style="padding:12px 16px;text-align:left;">Entity</th>
+                            <th style="padding:12px 16px;text-align:left;">Status</th>
+                            <th style="padding:12px 16px;text-align:left;">Details</th>
+                        </tr>
+                        </thead>
+                        <tbody id="audit-table-body">
+                        <tr><td colspan="6" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading audit logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;"></div>
         </main>
     </div>
 </div>
@@ -220,7 +254,7 @@
 <div id="toast-container"></div>
 
 <script>
-    // ==================== AUTH & UI HELPERS ====================
+    // ==================== AUTH ====================
     const token = localStorage.getItem('maestrohr_token');
     const userEmail = localStorage.getItem('maestrohr_email') || '';
     const userRole = localStorage.getItem('maestrohr_role') || '';
@@ -228,7 +262,7 @@
 
     if (!token && !window.location.pathname.startsWith('/login')) window.location.href = '/login';
 
-    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
     if (userEmail) {
         document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
@@ -263,149 +297,137 @@
         return div.innerHTML;
     }
 
-    // ==================== LEAVE MANAGEMENT LOGIC ====================
-    async function loadLeaveData() {
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
         try {
-            // Load pending count
-            const pendingCountRes = await fetch('/api/leave/requests/pending', { headers: { 'Authorization': `Bearer ${token}` } });
-            const pendingCountData = await pendingCountRes.json();
-            if (pendingCountData.success) {
-                document.getElementById('pending-count').textContent = pendingCountData.data?.length || 0;
-            }
-
-            // Load employees for dropdown (only active employees)
-            const employeesRes = await fetch('/api/employees', { headers: { 'Authorization': `Bearer ${token}` } });
-            const employeesData = await employeesRes.json();
-            if (employeesData.success && employeesData.data && employeesData.data.content) {
-                const employeeSelect = document.getElementById('leaveEmployeeId');
-                employeeSelect.innerHTML = '<option value="">Select Employee</option>' +
-                    employeesData.data.content
-                        .filter(emp => emp.status === 'ACTIVE')
-                        .map(emp => `<option value="${emp.id}">${escapeHtml(emp.fullName || emp.firstName + ' ' + emp.lastName)} (${emp.employeeNumber})</option>`)
-                        .join('');
-            }
-
-            // Load leave types for dropdown
-            const typesRes = await fetch('/api/leave/types', { headers: { 'Authorization': `Bearer ${token}` } });
-            const typesData = await typesRes.json();
-            if (typesData.success && typesData.data) {
-                const typeSelect = document.getElementById('leaveTypeId');
-                typeSelect.innerHTML = '<option value="">Select Leave Type</option>' +
-                    typesData.data.map(type => `<option value="${type.id}">${escapeHtml(type.name)} (${type.maxDaysPerYear} days)</option>`)
-                    .join('');
-            }
-
-            // Load pending leave requests (for approval table)
-            const pendingRequestsRes = await fetch('/api/leave/requests/pending', { headers: { 'Authorization': `Bearer ${token}` } });
-            const pendingRequestsData = await pendingRequestsRes.json();
-
-            const tbody = document.getElementById('leave-requests-table-body');
-            if (pendingRequestsData.success && pendingRequestsData.data && pendingRequestsData.data.length > 0) {
-                tbody.innerHTML = pendingRequestsData.data.map(request => {
-                    let badgeClass = 'badge-amber';
-                    let statusText = request.status || 'PENDING';
-                    if (statusText === 'APPROVED') badgeClass = 'badge-green';
-                    else if (statusText === 'REJECTED') badgeClass = 'badge-red';
-                    else if (statusText === 'PENDING') badgeClass = 'badge-amber';
-
-                    const startDate = request.startDate ? new Date(request.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '';
-                    const endDate = request.endDate ? new Date(request.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-
-                    return `
-                        <tr style="border-bottom:1px solid #f8fafc;">
-                            <td style="padding:14px 16px;">
-                                <div style="font-weight:500;">${escapeHtml(request.employee?.fullName || request.employeeName || 'Unknown')}</div>
-                                <div style="font-size:12px;color:#64748b;">${escapeHtml(request.reason || '')}</div>
-                            </td>
-                            <td style="padding:14px 16px;">${escapeHtml(request.leaveType?.name || request.leaveTypeName || '-')}</td>
-                            <td style="padding:14px 16px;">${startDate} - ${endDate}</td>
-                            <td style="padding:14px 16px;"><span class="badge ${badgeClass}">${statusText}</span></td>
-                            <td style="padding:14px 16px;text-align:right;">
-                                <button class="btn-secondary leave-approve-btn" data-id="${request.id}" style="font-size:12px;padding:5px 10px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">Approve</button>
-                                <button class="btn-danger leave-reject-btn" data-id="${request.id}" style="font-size:12px;padding:5px 10px;">Reject</button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No pending leave requests.</td></tr>';
-            }
-
-            // Attach event listeners for approve/reject buttons
-            document.querySelectorAll('.leave-approve-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const res = await fetch(`/api/leave/requests/${btn.dataset.id}/approve`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    if (!res.ok) { showToast(data.error || data.message || 'Approval failed.', 'error'); return; }
-                    showToast('Leave request approved.', 'success');
-                    setTimeout(() => loadLeaveData(), 500);
-                });
-            });
-
-            document.querySelectorAll('.leave-reject-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const reason = prompt('Reason for rejection:');
-                    if (!reason) return;
-                    const res = await fetch(`/api/leave/requests/${btn.dataset.id}/reject?reason=${encodeURIComponent(reason)}`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    if (!res.ok) { showToast(data.error || data.message || 'Rejection failed.', 'error'); return; }
-                    showToast('Leave request rejected.', 'success');
-                    setTimeout(() => loadLeaveData(), 500);
-                });
-            });
-        } catch (error) {
-            console.error('Failed to load leave data:', error);
-            document.getElementById('leave-requests-table-body').innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Failed to load leave requests.</td></tr>';
+            return new Date(dateStr).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+        } catch (e) {
+            return '-';
         }
     }
 
-    // Submit new leave request
-    document.getElementById('leave-apply-btn')?.addEventListener('click', async () => {
-        const employeeId = document.getElementById('leaveEmployeeId').value;
-        const leaveTypeId = document.getElementById('leaveTypeId').value;
-        const startDate = document.getElementById('leaveStartDate').value;
-        const endDate = document.getElementById('leaveEndDate').value;
-        const reason = document.getElementById('leaveReason').value.trim();
+    function getStatusBadge(statusCode) {
+        let badgeClass = 'badge-gray';
+        if (statusCode >= 200 && statusCode < 300) badgeClass = 'badge-green';
+        else if (statusCode >= 300 && statusCode < 400) badgeClass = 'badge-amber';
+        else if (statusCode >= 400 && statusCode < 600) badgeClass = 'badge-red';
+        return `<span class="badge ${badgeClass}">${statusCode}</span>`;
+    }
 
-        if (!employeeId || !leaveTypeId || !startDate || !endDate || !reason) {
-            showToast('Please complete all required fields.', 'error');
-            return;
-        }
+    // ==================== AUDIT LOGS ====================
+    let currentPage = 0;
+    let totalPages = 0;
+    let currentFilters = {};
 
-        if (new Date(startDate) > new Date(endDate)) {
-            showToast('Start date cannot be after end date.', 'error');
-            return;
-        }
-
+    async function loadFilterOptions() {
         try {
-            const url = `/api/leave/requests?employeeId=${employeeId}&leaveTypeId=${leaveTypeId}&startDate=${startDate}&endDate=${endDate}&reason=${encodeURIComponent(reason)}`;
-            const res = await fetch(url, {
-                method: 'POST',
+            const response = await fetch('/api/audit/filter-options', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = await res.json();
-            if (!res.ok) {
-                showToast(data.error || data.message || 'Request failed.', 'error');
-                return;
-            }
-            showToast('Leave request submitted successfully.', 'success');
-            document.getElementById('leaveStartDate').value = '';
-            document.getElementById('leaveEndDate').value = '';
-            document.getElementById('leaveReason').value = '';
-            setTimeout(() => loadLeaveData(), 500);
-        } catch (error) {
-            showToast('Failed to submit request. Please try again.', 'error');
-        }
-    });
+            const result = await response.json();
+            if (result.success && result.data) {
+                const actionSelect = document.getElementById('action-filter');
+                const entitySelect = document.getElementById('entity-type-filter');
 
-    // Initialize
-    loadLeaveData();
+                if (result.data.actions) {
+                    actionSelect.innerHTML = '<option value="">All Actions</option>' +
+                        result.data.actions.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+                }
+                if (result.data.entityTypes) {
+                    entitySelect.innerHTML = '<option value="">All Types</option>' +
+                        result.data.entityTypes.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load filter options:', error);
+        }
+    }
+
+    async function loadAuditLogs(page) {
+        const tbody = document.getElementById('audit-table-body');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8">Loading...</td></tr>';
+
+        let url = `/api/audit/logs?page=${page}&size=50`;
+
+        const action = document.getElementById('action-filter').value;
+        const entityType = document.getElementById('entity-type-filter').value;
+        const actor = document.getElementById('actor-filter').value;
+        const dateFrom = document.getElementById('date-from').value;
+        const dateTo = document.getElementById('date-to').value;
+
+        if (action) url += `&action=${encodeURIComponent(action)}`;
+        if (entityType) url += `&entityType=${encodeURIComponent(entityType)}`;
+        if (actor) url += `&actor=${encodeURIComponent(actor)}`;
+        if (dateFrom) url += `&startDate=${encodeURIComponent(dateFrom)}`;
+        if (dateTo) url += `&endDate=${encodeURIComponent(dateTo)}`;
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                const logs = result.data.content || [];
+                currentPage = result.data.number || 0;
+                totalPages = result.data.totalPages || 0;
+
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No audit logs found</td></tr>';
+                } else {
+                    tbody.innerHTML = logs.map(log => `
+                        <tr style="border-bottom:1px solid #f8fafc;">
+                            <td style="padding:14px 16px; font-size:12px; font-family:'DM Mono',monospace;">${formatDate(log.createdAt)}</td>
+                            <td style="padding:14px 16px;"><span class="font-medium">${escapeHtml(log.actorEmail)}</span></td>
+                            <td style="padding:14px 16px;"><code class="text-xs bg-gray-100 px-2 py-1 rounded">${escapeHtml(log.action)}</code></td>
+                            <td style="padding:14px 16px;">
+                                <div class="text-sm">${escapeHtml(log.entityType || '-')}</div>
+                                <div class="text-xs text-gray-400">ID: ${escapeHtml(log.entityId || '-')}</div>
+                            </td>
+                            <td style="padding:14px 16px;">${getStatusBadge(log.statusCode)}</td>
+                            <td style="padding:14px 16px;">
+                                <div class="text-sm">${escapeHtml(log.requestPath || '-')}</div>
+                                <div class="text-xs text-gray-400">${escapeHtml(log.details || '-')}</div>
+                             </td>
+                        </tr>
+                    `).join('');
+                }
+                renderPagination();
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-500">Failed to load audit logs</td></tr>';
+            }
+        } catch (error) {
+            console.error('Failed to load audit logs:', error);
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-500">Error loading logs</td></tr>';
+        }
+    }
+
+    function renderPagination() {
+        const container = document.getElementById('pagination');
+        if (totalPages <= 1) { container.innerHTML = ''; return; }
+        container.innerHTML = `
+            <div class="text-sm text-gray-500">Page ${currentPage + 1} of ${totalPages}</div>
+            <div class="flex gap-2">
+                <button id="prev-page" class="btn-secondary text-sm" ${currentPage === 0 ? 'disabled' : ''}>Previous</button>
+                <button id="next-page" class="btn-primary text-sm" ${currentPage + 1 >= totalPages ? 'disabled' : ''}>Next</button>
+            </div>
+        `;
+        document.getElementById('prev-page')?.addEventListener('click', () => loadAuditLogs(currentPage - 1));
+        document.getElementById('next-page')?.addEventListener('click', () => loadAuditLogs(currentPage + 1));
+    }
+
+    // ==================== EVENT LISTENERS ====================
+    document.getElementById('apply-filters').addEventListener('click', () => loadAuditLogs(0));
+    document.getElementById('clear-filters').addEventListener('click', () => {
+        document.getElementById('action-filter').value = '';
+        document.getElementById('entity-type-filter').value = '';
+        document.getElementById('actor-filter').value = '';
+        document.getElementById('status-filter').value = '';
+        document.getElementById('date-from').value = '';
+        document.getElementById('date-to').value = '';
+        loadAuditLogs(0);
+    });
+    document.getElementById('refresh-btn').addEventListener('click', () => loadAuditLogs(currentPage));
 
     // ==================== NOTIFICATIONS ====================
     async function fetchNotifications() {
@@ -435,6 +457,10 @@
         });
     }
     document.addEventListener('click', (e) => { if (notificationPanel && !notificationPanel.parentElement.contains(e.target)) notificationPanel.style.display = 'none'; });
+
+    // ==================== INIT ====================
+    loadFilterOptions();
+    loadAuditLogs(0);
     if (token) fetchNotifications();
 </script>
 </body>

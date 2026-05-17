@@ -10,7 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-@Service  // Uncomment this
+@Service
 @ConditionalOnProperty(name = "spring.mail.host", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
@@ -28,7 +28,7 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(body, true);
 
-            if (attachment != null) {
+            if (attachment != null && attachment.length > 0) {
                 helper.addAttachment(attachmentName, new ByteArrayResource(attachment));
             }
 
@@ -40,8 +40,11 @@ public class EmailService {
         }
     }
 
-    // Simple email without attachment
     public void sendSimpleEmail(String to, String subject, String body) {
         sendEmailWithAttachment(to, subject, body, null, null);
+    }
+
+    public void sendHtmlEmail(String to, String subject, String htmlBody) {
+        sendEmailWithAttachment(to, subject, htmlBody, null, null);
     }
 }

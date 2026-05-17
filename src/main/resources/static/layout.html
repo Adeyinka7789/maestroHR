@@ -199,7 +199,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Dashboard
             </a>
-            <a href="/employees/list.html" class="nav-item" data-route="employees" data-label="Employees">
+            <a href="/employees" class="nav-item" data-route="employees" data-label="Employees">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Employees
             </a>
@@ -233,6 +233,22 @@
             </a>
 
             <div class="nav-section">System</div>
+            <a href="/audit" class="nav-item" data-route="audit" data-label="Audit Logs">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 8v4l3 3M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Audit Logs
+            </a>
+            <a href="/audit" class="nav-item" data-route="audit" data-label="Audit Logs">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 8v4l3 3M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Audit Logs
+            </a>
             <a href="/settings" class="nav-item" data-route="settings" data-label="Settings">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
@@ -374,6 +390,12 @@
         if (adminSection) adminSection.style.display = 'block';
     }
 
+    // Hide Audit Logs for non-authorized users
+    if (userRole !== 'HR_ADMIN' && userRole !== 'SUPER_ADMIN') {
+        const auditLink = document.querySelector('a[href="/audit"]');
+        if (auditLink) auditLink.style.display = 'none';
+    }
+
     // Logout
     document.getElementById('logout-btn').addEventListener('click', () => {
         localStorage.clear();
@@ -389,10 +411,57 @@
         localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
     });
 
-    // Active nav highlighting
+    // Active nav highlighting and page loading
     const currentPath = window.location.pathname.split('/')[1] || 'dashboard';
     document.querySelectorAll('.nav-item').forEach(el => {
         if (el.dataset.route === currentPath) el.classList.add('active');
+    });
+
+    // Handle navigation clicks to load content dynamically (optional)
+    document.querySelectorAll('.nav-item').forEach(link => {
+        link.addEventListener('click', async (e) => {
+            const href = link.getAttribute('href');
+            if (href && !href.startsWith('http') && !href.startsWith('#')) {
+                e.preventDefault();
+
+                // Update active state
+                document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+
+                // Load content
+                const contentDiv = document.getElementById('page-content');
+                contentDiv.innerHTML = '<div class="text-center py-12 text-gray-500">Loading...</div>';
+
+                try {
+                    const response = await fetch(href);
+                    const html = await response.text();
+                    // Extract the main content (you may need to adjust this selector)
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newContent = doc.querySelector('main') || doc.querySelector('.content') || doc.body;
+                    contentDiv.innerHTML = newContent.innerHTML;
+
+                    // Update page title
+                    document.getElementById('page-title').textContent = link.querySelector('span')?.textContent || link.textContent.trim();
+
+                    // Re-run any scripts in the loaded content
+                    const scripts = contentDiv.querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        const newScript = document.createElement('script');
+                        if (oldScript.src) {
+                            newScript.src = oldScript.src;
+                        } else {
+                            newScript.textContent = oldScript.textContent;
+                        }
+                        document.body.appendChild(newScript);
+                        oldScript.remove();
+                    });
+                } catch (error) {
+                    console.error('Failed to load page:', error);
+                    contentDiv.innerHTML = '<div class="text-center py-12 text-red-500">Failed to load page. Please refresh.</div>';
+                }
+            }
+        });
     });
 
     // ==================== SEARCH FUNCTIONALITY ====================
