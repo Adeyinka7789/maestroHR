@@ -5,10 +5,7 @@ import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,6 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
 public class LeaveRequest extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

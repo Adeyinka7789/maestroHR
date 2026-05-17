@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      lang="en">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -58,7 +56,6 @@
         body.sidebar-collapsed .sidebar-footer-meta { display:none; }
         body.sidebar-collapsed .top-search { width: 260px; }
 
-        /* Tooltip on hover for collapsed sidebar */
         body.sidebar-collapsed .nav-item:hover::before {
             content: attr(data-label);
             position: absolute;
@@ -77,7 +74,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
-        /* Toggle arrow rotation */
         body.sidebar-collapsed .sidebar-toggle svg {
             transform: rotate(180deg);
             transition: transform 0.3s ease;
@@ -86,7 +82,6 @@
             transition: transform 0.3s ease;
         }
 
-        /* Sidebar nav items */
         .nav-item {
             display: flex;
             align-items: center;
@@ -107,7 +102,6 @@
         .nav-item.active { background: rgba(37,99,235,0.15); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
         .nav-item.active svg { opacity: 1; color: #3b82f6; }
 
-        /* Nav section label */
         .nav-section {
             font-size: 10px;
             font-weight: 600;
@@ -117,10 +111,7 @@
             padding: 16px 12px 6px;
         }
 
-        /* Content cards */
         .card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; }
-
-        /* Stat cards */
         .stat-card {
             background: #fff;
             border-radius: 10px;
@@ -130,11 +121,9 @@
         }
         .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
 
-        /* Table rows */
         .data-table tbody tr { transition: background 0.1s; }
         .data-table tbody tr:hover { background: #f8fafc; }
 
-        /* Status badges */
         .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 500; }
         .badge-green { background: #dcfce7; color: #166534; }
         .badge-amber { background: #fef3c7; color: #92400e; }
@@ -142,7 +131,6 @@
         .badge-blue  { background: #dbeafe; color: #1e40af; }
         .badge-gray  { background: #f1f5f9; color: #475569; }
 
-        /* Buttons */
         .btn-primary { background: #2563eb; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-primary:hover { background: #1d4ed8; }
         .btn-secondary { background: white; color: #374151; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #d1d5db; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
@@ -150,22 +138,21 @@
         .btn-danger { background: #fee2e2; color: #991b1b; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #fecaca; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-danger:hover { background: #fecaca; }
 
-        /* Input fields */
         .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
         .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
         .form-label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
 
-        /* Page header */
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
         .page-title { font-size: 19px; font-weight: 600; color: #111827; }
         .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
 
-        /* Toast notifications */
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
         .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
         .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
         .toast-error { background: #2e1a1a; color: #fca5a5; border: 1px solid #991b1b; }
         .toast-info { background: #1a2040; color: #93c5fd; border: 1px solid #1e40af; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
         .top-search { width: 320px; position: relative; }
         .top-search-results, .notification-panel {
             position: absolute; top: calc(100% + 10px); right: 0; width: 360px; background: white; border: 1px solid #e2e8f0;
@@ -178,14 +165,13 @@
         .notification-item.unread { background: #eff6ff; }
         .sidebar-toggle { background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center; }
         .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
 <body class="bg-slate-50" style="color:#111827;">
 
 <div class="flex h-screen overflow-hidden">
 
-    <!-- ─── SIDEBAR ─────────────────────────────────────────────────── -->
+    <!-- SIDEBAR -->
     <aside style="width:var(--sidebar-w); background:#1e293b; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; border-right: 1px solid #334155;">
 
         <!-- Logo -->
@@ -206,79 +192,63 @@
             </div>
         </div>
 
-        <!-- Nav -->
+        <!-- Navigation -->
         <nav style="flex:1;padding:8px 8px;">
-
             <div class="nav-section">Main</div>
-
             <a href="/dashboard" class="nav-item" data-route="dashboard" data-label="Dashboard">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 Dashboard
             </a>
-            <a href="/employees" class="nav-item" data-route="employees" data-label="Employees">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <a href="/employees/list.html" class="nav-item" data-route="employees" data-label="Employees">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Employees
             </a>
             <a href="/departments" class="nav-item" data-route="departments" data-label="Departments">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Departments
             </a>
             <a href="/pay-grades" class="nav-item" data-route="pay-grades" data-label="Pay Grades">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 Pay Grades
             </a>
 
             <div class="nav-section">Payroll</div>
-
             <a href="/payroll" class="nav-item" data-route="payroll" data-label="Payroll Runs">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                 Payroll Runs
             </a>
             <a href="/reports" class="nav-item" data-route="reports" data-label="Reports">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 Reports
             </a>
 
             <div class="nav-section">HR</div>
-
             <a href="/leave" class="nav-item" data-route="leave" data-label="Leave Management">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Leave Management
             </a>
             <a href="/attendance" class="nav-item" data-route="attendance" data-label="Attendance">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Attendance
             </a>
 
             <div class="nav-section">System</div>
-
             <a href="/settings" class="nav-item" data-route="settings" data-label="Settings">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
                 Settings
             </a>
 
-            <!-- Admin Section - Only visible to SUPER_ADMIN -->
             <div id="admin-section" style="display: none;">
                 <div class="nav-section">Admin</div>
-
-                <!-- Admin Dashboard Link -->
                 <a href="/admin" class="nav-item" data-route="admin" data-label="Admin Dashboard">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 1v22"/>
-                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     Admin Dashboard
                 </a>
-
-                <!-- Pricing Management Link -->
                 <a href="/admin/pricing" class="nav-item" data-route="admin-pricing" data-label="Pricing">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                    </svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                     Pricing
                 </a>
             </div>
@@ -293,30 +263,29 @@
                     <p id="sidebar-role" style="font-size:11px;color:#94a3b8;margin-top:1px;">—</p>
                 </div>
                 <button id="logout-btn" title="Sign out" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:4px;flex-shrink:0;" class="hover:text-red-400">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </button>
             </div>
         </div>
     </aside>
 
-    <!-- ─── MAIN ──────────────────────────────────────────────────────── -->
+    <!-- MAIN CONTENT AREA -->
     <div class="flex flex-col flex-1 overflow-hidden">
 
-        <!-- Top bar -->
+        <!-- Top Bar -->
         <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
             <div>
-                <span style="font-size:15px;font-weight:600;color:#111827;" th:text="${pageTitle}">Dashboard</span>
-                <span th:if="${pageSubtitle}" style="font-size:13px;color:#9ca3af;margin-left:8px;" th:text="${pageSubtitle}"></span>
+                <span id="page-title" style="font-size:15px;font-weight:600;color:#111827;">Dashboard</span>
+                <span id="page-subtitle" style="font-size:13px;color:#9ca3af;margin-left:8px;"></span>
             </div>
             <div style="display:flex;align-items:center;gap:16px;">
                 <div class="top-search">
                     <input id="global-search-input" class="form-input" type="search" placeholder="Search employees, payroll, leave...">
                     <div id="global-search-results" class="top-search-results"></div>
                 </div>
-                <!-- Notification bell -->
                 <div style="position:relative;">
                     <button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;position:relative;padding:4px;" title="Notifications">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                         <span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;line-height:16px;text-align:center;"></span>
                     </button>
                     <div id="notification-panel" class="notification-panel">
@@ -327,29 +296,26 @@
                         <div id="notification-list"></div>
                     </div>
                 </div>
-                <!-- Date -->
-                <span style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;" th:text="${#temporals.format(T(java.time.LocalDate).now(), 'dd MMM yyyy')}"></span>
+                <span id="current-date" style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;"></span>
             </div>
         </header>
 
-        <!-- Page content -->
-        <main class="flex-1 overflow-y-auto" style="padding:24px;">
-            <div layout:fragment="content">
-                <!-- Page specific content -->
-            </div>
+        <!-- Page Content (loaded dynamically) -->
+        <main id="page-content" class="flex-1 overflow-y-auto" style="padding:24px;">
+            <div class="text-center py-12 text-gray-500">Loading...</div>
         </main>
     </div>
 </div>
 
-<!-- Toast container -->
+<!-- Toast Container -->
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // ── Auth helpers ──────────────────────────────────────────────────────────
-    const token       = localStorage.getItem('maestrohr_token');
-    const userEmail   = localStorage.getItem('maestrohr_email') || '';
-    const userRole    = localStorage.getItem('maestrohr_role')  || '';
+    // ==================== AUTH HELPERS ====================
+    const token = localStorage.getItem('maestrohr_token');
+    const userEmail = localStorage.getItem('maestrohr_email') || '';
+    const userRole = localStorage.getItem('maestrohr_role') || '';
     const companyName = localStorage.getItem('maestrohr_company') || '';
 
     if (!token && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
@@ -368,51 +334,19 @@
         });
     }
 
-    // Show admin section only for SUPER_ADMIN
-    if (userRole === 'SUPER_ADMIN') {
-        const adminSection = document.getElementById('admin-section');
-        if (adminSection) adminSection.style.display = 'block';
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    function clearAuthCookie() {
-        document.cookie = 'maestrohr_token=; Path=/; Max-Age=0; SameSite=Lax';
-    }
-
-    // ── Populate sidebar user info ────────────────────────────────────────────
-    if (userEmail) {
-        const initial = userEmail.charAt(0).toUpperCase();
-        document.getElementById('sidebar-avatar').textContent = initial;
-        document.getElementById('sidebar-email').textContent  = userEmail;
-        document.getElementById('sidebar-role').textContent   =
-            userRole.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    }
-    if (companyName) {
-        document.getElementById('sidebar-tenant').textContent = companyName;
-    }
-
-    // ── Active nav item ───────────────────────────────────────────────────────
-    const path = window.location.pathname.split('/')[1] || 'dashboard';
-    document.querySelectorAll('.nav-item').forEach(el => {
-        if (el.dataset.route === path) el.classList.add('active');
-    });
-
-    // ── Logout ────────────────────────────────────────────────────────────────
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('maestrohr_token');
-        localStorage.removeItem('maestrohr_email');
-        localStorage.removeItem('maestrohr_role');
-        localStorage.removeItem('maestrohr_tenant');
-        localStorage.removeItem('maestrohr_company');
-        clearAuthCookie();
-        window.location.href = '/login';
-    });
-
-    // ── Toast utility ─────────────────────────────────────────────────────────
+    // ==================== SIDEBAR UI ====================
     function showToast(message, type = 'info') {
         const icons = {
-            success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-            error:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-            info:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+            success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+            error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+            info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
         };
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
@@ -421,112 +355,186 @@
         setTimeout(() => toast.remove(), 4000);
     }
 
-    // ── Format currency ───────────────────────────────────────────────────────
-    function formatNGN(kobo) {
-        const naira = kobo / 100;
-        return '₦' + naira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Set current date
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    // Sidebar user info
+    if (userEmail) {
+        document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
+        document.getElementById('sidebar-email').textContent = userEmail;
+        document.getElementById('sidebar-role').textContent = userRole.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    if (companyName) {
+        document.getElementById('sidebar-tenant').textContent = companyName;
     }
 
-    let searchTimer;
-    const searchInput = document.getElementById('global-search-input');
-    const searchResults = document.getElementById('global-search-results');
-    const notificationToggle = document.getElementById('notification-toggle');
-    const notificationPanel = document.getElementById('notification-panel');
-    const notificationList = document.getElementById('notification-list');
-    const notificationBadge = document.getElementById('notification-badge');
+    // Admin section visibility
+    if (userRole === 'SUPER_ADMIN') {
+        const adminSection = document.getElementById('admin-section');
+        if (adminSection) adminSection.style.display = 'block';
+    }
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        localStorage.clear();
+        window.location.href = '/login';
+    });
+
+    // Sidebar collapse
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebarState = localStorage.getItem('maestrohr_sidebar') || 'open';
-
-    if (sidebarState === 'collapsed') {
-        document.body.classList.add('sidebar-collapsed');
-    }
-
+    if (sidebarState === 'collapsed') document.body.classList.add('sidebar-collapsed');
     sidebarToggle?.addEventListener('click', () => {
         document.body.classList.toggle('sidebar-collapsed');
         localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
     });
 
-    async function fetchNotifications() {
-        const [listRes, countRes] = await Promise.all([
-            apiCall('/api/notifications'),
-            apiCall('/api/notifications/unread-count')
-        ]);
-        if (!listRes.ok || !countRes.ok) return;
-        const listData = await listRes.json();
-        const countData = await countRes.json();
-        const notifications = listData.data || [];
-        const unreadCount = countData.data?.count || 0;
+    // Active nav highlighting
+    const currentPath = window.location.pathname.split('/')[1] || 'dashboard';
+    document.querySelectorAll('.nav-item').forEach(el => {
+        if (el.dataset.route === currentPath) el.classList.add('active');
+    });
 
-        notificationBadge.style.display = unreadCount > 0 ? 'block' : 'none';
-        notificationBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+    // ==================== SEARCH FUNCTIONALITY ====================
+    let searchTimer;
+    const searchInput = document.getElementById('global-search-input');
+    const searchResults = document.getElementById('global-search-results');
 
-        notificationList.innerHTML = notifications.length
-            ? notifications.map(item => `
-                <div class="notification-item ${item.read ? '' : 'unread'}">
-                    <div style="display:flex;justify-content:space-between;gap:10px;">
-                        <div>
-                            <div style="font-size:12.5px;font-weight:600;">${item.title}</div>
-                            <div style="font-size:12px;color:#64748b;margin-top:4px;">${item.message}</div>
-                            ${item.link ? `<a href="${item.link}" style="font-size:12px;color:#2563eb;text-decoration:none;display:inline-block;margin-top:6px;">Open</a>` : ''}
-                        </div>
-                        ${item.read ? '' : `<button data-id="${item.id}" class="mark-read-btn" style="background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;">Read</button>`}
-                    </div>
-                </div>`).join('')
-            : '<div style="padding:16px;color:#64748b;font-size:12px;">No notifications yet.</div>';
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            const query = searchInput.value.trim();
 
-        document.querySelectorAll('.mark-read-btn').forEach(button => {
-            button.addEventListener('click', async () => {
-                await apiCall(`/api/notifications/${button.dataset.id}/read`, { method: 'POST' });
-                fetchNotifications();
-            });
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            searchTimer = setTimeout(async () => {
+                try {
+                    const res = await apiCall(`/api/search?q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+
+                    if (data.success && data.data && data.data.results) {
+                        const results = data.data.results;
+
+                        if (results.length === 0) {
+                            searchResults.innerHTML = '<div style="padding:14px;color:#64748b;font-size:12px;">No results found.</div>';
+                        } else {
+                            searchResults.innerHTML = results.map(item => `
+                                <a class="search-result-link" href="${item.url}">
+                                    <div style="font-size:11px;text-transform:uppercase;color:#3b82f6;font-weight:600;">${escapeHtml(item.type)}</div>
+                                    <div style="font-size:13px;font-weight:600;margin-top:2px;">${escapeHtml(item.title)}</div>
+                                    <div style="font-size:12px;color:#64748b;margin-top:3px;">${escapeHtml(item.subtitle)}</div>
+                                </a>
+                            `).join('');
+                        }
+                        searchResults.style.display = 'block';
+                    } else {
+                        searchResults.innerHTML = '<div style="padding:14px;color:#64748b;font-size:12px;">No results found.</div>';
+                        searchResults.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                    searchResults.innerHTML = '<div style="padding:14px;color:#64748b;font-size:12px;">Search failed. Please try again.</div>';
+                    searchResults.style.display = 'block';
+                }
+            }, 300);
+        });
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (event) => {
+            if (searchInput && !searchInput.contains(event.target) && searchResults && !searchResults.contains(event.target)) {
+                searchResults.style.display = 'none';
+            }
         });
     }
 
-    notificationToggle?.addEventListener('click', async () => {
-        const visible = notificationPanel.style.display === 'block';
-        notificationPanel.style.display = visible ? 'none' : 'block';
-        if (!visible) await fetchNotifications();
-    });
+    // ==================== NOTIFICATIONS ====================
+    async function fetchNotifications() {
+        try {
+            const [listRes, countRes] = await Promise.all([
+                apiCall('/api/notifications'),
+                apiCall('/api/notifications/unread-count')
+            ]);
 
-    document.getElementById('mark-all-read-btn')?.addEventListener('click', async () => {
-        await apiCall('/api/notifications/read-all', { method: 'POST' });
+            if (!listRes.ok || !countRes.ok) return;
+
+            const listData = await listRes.json();
+            const countData = await countRes.json();
+            const notifications = listData.data || [];
+            const unreadCount = countData.data?.count || 0;
+
+            const badge = document.getElementById('notification-badge');
+            if (unreadCount > 0) {
+                badge.style.display = 'block';
+                badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+            } else {
+                badge.style.display = 'none';
+            }
+
+            const notificationList = document.getElementById('notification-list');
+            if (notificationList) {
+                if (notifications.length === 0) {
+                    notificationList.innerHTML = '<div style="padding:16px;color:#64748b;font-size:12px;">No notifications</div>';
+                } else {
+                    notificationList.innerHTML = notifications.map(n => `
+                        <div class="notification-item ${n.read ? '' : 'unread'}">
+                            <div style="font-weight:600;font-size:13px;">${escapeHtml(n.title)}</div>
+                            <div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHtml(n.message)}</div>
+                            <div style="font-size:11px;color:#9ca3af;margin-top:6px;">${new Date(n.createdAt).toLocaleString()}</div>
+                            ${!n.read ? `<button class="mark-read-btn" data-id="${n.id}" style="background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;margin-top:6px;">Mark as read</button>` : ''}
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Attach mark as read handlers
+            document.querySelectorAll('.mark-read-btn').forEach(btn => {
+                btn.removeEventListener('click', handleMarkRead);
+                btn.addEventListener('click', handleMarkRead);
+            });
+        } catch (error) {
+            console.error('Failed to fetch notifications:', error);
+        }
+    }
+
+    async function handleMarkRead(event) {
+        const id = event.currentTarget.dataset.id;
+        await apiCall(`/api/notifications/${id}/read`, { method: 'POST' });
         fetchNotifications();
-    });
+    }
 
-    searchInput?.addEventListener('input', () => {
-        clearTimeout(searchTimer);
-        const query = searchInput.value.trim();
-        if (query.length < 2) {
-            searchResults.style.display = 'none';
-            searchResults.innerHTML = '';
-            return;
-        }
-        searchTimer = setTimeout(async () => {
-            const res = await apiCall(`/api/search?q=${encodeURIComponent(query)}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            const results = data.data?.results || [];
-            searchResults.innerHTML = results.length
-                ? results.map(item => `
-                    <a class="search-result-link" href="${item.url}">
-                        <div style="font-size:11px;text-transform:uppercase;color:#3b82f6;font-weight:600;">${item.type}</div>
-                        <div style="font-size:13px;font-weight:600;margin-top:2px;">${item.title}</div>
-                        <div style="font-size:12px;color:#64748b;margin-top:3px;">${item.subtitle}</div>
-                    </a>`).join('')
-                : '<div style="padding:14px;color:#64748b;font-size:12px;">No results found.</div>';
-            searchResults.style.display = 'block';
-        }, 220);
-    });
+    const notificationToggle = document.getElementById('notification-toggle');
+    const notificationPanel = document.getElementById('notification-panel');
 
-    document.addEventListener('click', event => {
-        if (searchInput && !searchInput.closest('.top-search').contains(event.target)) {
-            searchResults.style.display = 'none';
-        }
-        if (notificationPanel && !notificationPanel.parentElement.contains(event.target)) {
+    if (notificationToggle) {
+        notificationToggle.addEventListener('click', () => {
+            const isVisible = notificationPanel.style.display === 'block';
+            notificationPanel.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) fetchNotifications();
+        });
+    }
+
+    const markAllReadBtn = document.getElementById('mark-all-read-btn');
+    if (markAllReadBtn) {
+        markAllReadBtn.addEventListener('click', async () => {
+            await apiCall('/api/notifications/read-all', { method: 'POST' });
+            fetchNotifications();
+        });
+    }
+
+    // Close notification panel when clicking outside
+    document.addEventListener('click', (event) => {
+        if (notificationPanel && notificationToggle &&
+            !notificationPanel.contains(event.target) &&
+            !notificationToggle.contains(event.target)) {
             notificationPanel.style.display = 'none';
         }
     });
 
+    // Initial fetch of notifications if token exists
     if (token) {
         fetchNotifications();
     }

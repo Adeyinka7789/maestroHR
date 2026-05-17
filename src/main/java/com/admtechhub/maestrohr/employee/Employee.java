@@ -3,6 +3,7 @@ package com.admtechhub.maestrohr.employee;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.tenant.Tenant;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
@@ -17,6 +18,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 //@SQLRestriction("tenant_id = current_setting('app.current_tenant', true)::uuid")
 public class Employee extends BaseEntity {
 

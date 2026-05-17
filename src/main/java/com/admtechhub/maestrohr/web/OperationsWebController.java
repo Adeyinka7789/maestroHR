@@ -72,7 +72,7 @@ public class OperationsWebController {
         model.addAttribute("pageSubtitle", "Team structures and reporting lines");
         model.addAttribute("departments", departments);
         model.addAttribute("employeeRepository", employeeRepository);
-        return "departments";
+        return "redirect:/departments.html";
     }
 
     @GetMapping("/pay-grades")
@@ -84,7 +84,7 @@ public class OperationsWebController {
         model.addAttribute("pageTitle", "Pay Grades");
         model.addAttribute("pageSubtitle", "Compensation bands and allowances");
         model.addAttribute("payGrades", payGrades);
-        return "pay-grades";
+        return "redirect:/pay-grades.html";
     }
 
     @GetMapping("/leave")
@@ -106,7 +106,7 @@ public class OperationsWebController {
                 .sorted(Comparator.comparing(Employee::getLastName, String.CASE_INSENSITIVE_ORDER))
                 .toList());
         model.addAttribute("pendingCount", leaveRequestRepository.findByStatus(LeaveStatus.PENDING).size());
-        return "leave";
+        return "redirect:/leave.html";
     }
 
     @GetMapping("/attendance")
@@ -124,7 +124,7 @@ public class OperationsWebController {
         model.addAttribute("presentCount", records.stream().filter(r -> r.getStatus() == AttendanceStatus.PRESENT).count());
         model.addAttribute("lateCount", records.stream().filter(r -> r.getStatus() == AttendanceStatus.LATE).count());
         model.addAttribute("absentCount", records.stream().filter(r -> r.getStatus() == AttendanceStatus.ABSENT).count());
-        return "attendance";
+        return "redirect:/attendance.html";
     }
 
     @GetMapping("/payroll")
@@ -146,7 +146,7 @@ public class OperationsWebController {
         model.addAttribute("payrollRuns", payrollRuns);
         model.addAttribute("latestPayrollRun", payrollRunRepository.findTopByTenant_IdOrderByCreatedAtDesc(tenantId).orElse(null));
         model.addAttribute("pendingApprovals", payrollRunRepository.findByTenant_IdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL).size());
-        return "payroll";
+        return "redirect:/payroll.html";
     }
 
     @GetMapping("/payroll/{id}")
@@ -169,7 +169,7 @@ public class OperationsWebController {
         model.addAttribute("pageSubtitle", payrollRun.getPeriod());
         model.addAttribute("payrollRun", payrollRun);
         model.addAttribute("entries", entries);
-        return "payroll-detail";
+        return "redirect:/payroll-detail.html";
     }
 
     @GetMapping("/reports")
@@ -188,7 +188,7 @@ public class OperationsWebController {
         model.addAttribute("currentYear", YearMonth.now().getYear());
         model.addAttribute("auditFrom", LocalDate.now().minusDays(30));
         model.addAttribute("auditTo", LocalDate.now());
-        return "reports";
+        return "redirect:/reports.html";
     }
 
     @GetMapping("/subscribers")
@@ -202,7 +202,7 @@ public class OperationsWebController {
         model.addAttribute("users", userRepository.findAll());
         model.addAttribute("activeSubscribers", activeSubscribers);
         model.addAttribute("trialSubscribers", trialSubscribers);
-        return "subscribers";
+        return "redirect:/subscribers.html";
     }
 
     @GetMapping("/reports/payslip")
@@ -236,7 +236,7 @@ public class OperationsWebController {
         model.addAttribute("activeTenants", tenants.stream().filter(Tenant::isActive).count());
         model.addAttribute("activeEmployees", employeeRepository.countByStatus(com.admtechhub.maestrohr.employee.EmployeeStatus.ACTIVE));
         model.addAttribute("pendingPayrolls", payrollRunRepository.findByTenant_IdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL).size());
-        return "admin";
+        return "redirect:/admin.html";
     }
 
     private UUID currentTenantId() {

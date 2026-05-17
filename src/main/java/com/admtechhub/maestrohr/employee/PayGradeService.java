@@ -1,6 +1,9 @@
 package com.admtechhub.maestrohr.employee;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.tenant.Tenant;
+import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
+import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,11 +18,15 @@ import java.util.UUID;
 public class PayGradeService {
 
     private final PayGradeRepository payGradeRepository;
+    private final TenantRepository tenantRepository;
 
     @Transactional
     public PayGrade create(String name, Long basicSalary, Long housingAllowance,
                            Long transportAllowance, Long otherAllowances) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new TenantNotFoundException("Tenant not found: " + tenantId));
 
         if (payGradeRepository.existsByNameAndTenantId(name, tenantId)) {
             throw new IllegalArgumentException(
@@ -28,7 +35,7 @@ public class PayGradeService {
         }
 
         PayGrade grade = PayGrade.builder()
-                .tenantId(tenantId)
+                .tenant(tenant)
                 .name(name)
                 .basicSalary(basicSalary)
                 .housingAllowance(housingAllowance)
@@ -42,15 +49,30 @@ public class PayGradeService {
     @Transactional(readOnly = true)
     public List<PayGrade> findAllActive() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        return payGradeRepository.findAllByTenantIdAndIsActive(tenantId, true);
+        List<PayGrade> grades = payGradeRepository.findAllByTenantIdAndIsActive(tenantId, true);
+
+        // Initialize lazy-loaded tenant for each grade
+        grades.forEach(grade -> {
+            if (grade.getTenant() != null) {
+                grade.getTenant().getId();
+                grade.getTenant().getCompanyName();
+            }
+        });
+
+        return grades;
     }
 
     @Transactional(readOnly = true)
     public PayGrade findById(UUID id) {
-        return payGradeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Pay grade not found"
-                ));
+        PayGrade grade = payGradeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pay grade not found"));
+
+        // Initialize lazy-loaded tenant
+        if (grade.getTenant() != null) {
+            grade.getTenant().getId();
+        }
+
+        return grade;
     }
 
     @Transactional
@@ -69,7 +91,7 @@ public class PayGradeService {
     @Transactional
     public void deactivate(UUID id) {
         PayGrade grade = findById(id);
-        grade.setActive(false);
+        grade.setIsActive(false);
         payGradeRepository.save(grade);
     }
 }

@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.employee;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
+import com.admtechhub.maestrohr.tenant.Tenant;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,19 +10,27 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "departments")
-@Getter
-@Setter
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Department extends BaseEntity {
 
-    @Column(name = "tenant_id", nullable = false)
-    private UUID tenantId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id", nullable = false, updatable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "subscriptionPlan", "subscriptionExpiresAt", "isActive"})
+    private Tenant tenant;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "head_employee_id")
-    private UUID headEmployeeId;
+    private String headEmployeeId;
+
+    // Helper method
+    public String getDisplayName() {
+        return name;
+    }
 }

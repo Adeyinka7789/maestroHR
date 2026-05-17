@@ -1,170 +1,348 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-      layout:decorate="~{layout}">
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Checkout — MaestroHR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary: #2563eb;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --bg-page: #f8fafc;
-            --border: #e2e8f0;
+        * { -webkit-font-smoothing: antialiased; }
+        :root { --sidebar-w: 240px; --sidebar-collapsed-w: 84px; }
+        body { font-family: 'DM Sans', sans-serif; }
+        body.sidebar-collapsed aside { width: var(--sidebar-collapsed-w) !important; }
+        body.sidebar-collapsed .nav-item { justify-content:center; padding-left:12px; padding-right:12px; position: relative; }
+        body.sidebar-collapsed .nav-item.active { padding-left:10px; }
+        body.sidebar-collapsed .nav-item svg { margin:0; }
+        body.sidebar-collapsed .nav-item, body.sidebar-collapsed .nav-section, body.sidebar-collapsed #sidebar-email, body.sidebar-collapsed #sidebar-role, body.sidebar-collapsed #sidebar-tenant, body.sidebar-collapsed .sidebar-text { font-size:0 !important; }
+        body.sidebar-collapsed .nav-item::after { content: attr(data-label); font-size: 0; }
+        body.sidebar-collapsed #sidebar-avatar { margin: 0 auto; }
+        body.sidebar-collapsed .sidebar-brand { display:none; }
+        body.sidebar-collapsed .sidebar-footer-meta { display:none; }
+        body.sidebar-collapsed .top-search { width: 260px; }
+        body.sidebar-collapsed .nav-item:hover::before {
+            content: attr(data-label);
+            position: absolute;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
+        body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); transition: transform 0.3s ease; }
+        .sidebar-toggle svg { transition: transform 0.3s ease; }
 
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px;
+            font-size: 13.5px; font-weight: 400; color: #94a3b8; text-decoration: none;
+            transition: background 0.15s, color 0.15s; margin-bottom: 2px; position: relative;
+        }
+        .nav-item svg { flex-shrink: 0; opacity: 0.7; transition: opacity 0.15s; }
+        .nav-item:hover { background: rgba(148, 163, 184, 0.1); color: #e2e8f0; }
+        .nav-item:hover svg { opacity: 1; }
+        .nav-item.active { background: rgba(37,99,235,0.15); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
+        .nav-item.active svg { opacity: 1; color: #3b82f6; }
+
+        .nav-section { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; padding: 16px 12px 6px; }
+        .card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .btn-primary { background: #2563eb; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: white; color: #374151; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #d1d5db; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-secondary:hover { background: #f9fafb; }
+        .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .form-label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+        .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
+        .toast-error { background: #2e1a1a; color: #fca5a5; border: 1px solid #991b1b; }
+        .toast-info { background: #1a2040; color: #93c5fd; border: 1px solid #1e40af; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        .top-search { width: 320px; position: relative; }
+        .top-search-results, .notification-panel {
+            position: absolute; top: calc(100% + 10px); right: 0; width: 360px; background: white; border: 1px solid #e2e8f0;
+            border-radius: 12px; box-shadow: 0 18px 40px rgba(15,23,42,0.12); display: none; overflow: hidden; z-index: 100;
+        }
+        .top-search-results { left: 0; right: auto; width: 100%; }
+        .search-result-link { display:block; padding:12px 14px; text-decoration:none; color:#111827; border-bottom:1px solid #f1f5f9; }
+        .search-result-link:hover { background:#f8fafc; }
+        .notification-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
+        .notification-item.unread { background: #eff6ff; }
+        .sidebar-toggle { background:none; border:none; cursor:pointer; color:#94a3b8; padding:6px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+        .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
+
+        /* Checkout-specific styles */
         .checkout-shell { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
-
-        .order-card { background: white; border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
-
-        .payment-sidebar { background: white; border: 1px solid var(--border); border-radius: 20px; padding: 32px; height: fit-content; }
-
-        .plan-badge {
-            background: #eff6ff; color: var(--primary);
-            padding: 4px 12px; border-radius: 99px;
-            font-size: 12px; font-weight: 700; text-transform: uppercase;
-        }
-
+        .order-card { background: white; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden; }
+        .payment-sidebar { background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 32px; height: fit-content; }
+        .plan-badge { background: #eff6ff; color: #2563eb; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
         .summary-row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #f1f5f9; }
         .summary-row:last-of-type { border-bottom: none; }
-
-        .secure-badge {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            color: #10b981; font-size: 13px; font-weight: 600; margin-bottom: 24px;
-        }
-
-        .paystack-option {
-            border: 2px solid var(--primary); background: #f0f7ff;
-            padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px;
-        }
-
-        .btn-pay {
-            width: 100%; padding: 16px; background: var(--primary); color: white;
-            border: none; border-radius: 12px; font-size: 16px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s; margin-top: 20px;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-        }
+        .secure-badge { display: flex; align-items: center; justify-content: center; gap: 8px; color: #10b981; font-size: 13px; font-weight: 600; margin-bottom: 24px; }
+        .paystack-option { border: 2px solid #2563eb; background: #f0f7ff; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+        .btn-pay { width: 100%; padding: 16px; background: #2563eb; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .btn-pay:hover { background: #1d4ed8; transform: translateY(-1px); }
         .btn-pay:disabled { opacity: 0.7; cursor: not-allowed; }
-
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .processing { animation: pulse 1.5s infinite; }
     </style>
 </head>
-<body>
-<div layout:fragment="content">
-    <div class="checkout-shell">
+<body class="bg-slate-50">
 
-        <div style="margin-bottom: 32px;">
-            <a href="/subscription/plans" style="text-decoration:none; color:var(--text-muted); font-size:14px; font-weight:500;">
-                ← Back to plans
-            </a>
-            <h1 style="font-family:'Outfit'; font-size:32px; color:var(--text-main); margin-top:12px;">Confirm & Pay</h1>
+<div class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside style="width:var(--sidebar-w); background:#1e293b; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; border-right: 1px solid #334155;">
+        <div style="padding:20px 16px 16px; border-bottom:1px solid #334155;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                    <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="sidebar-brand">
+                        <p style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1;">MaestroHR</p>
+                        <p style="font-size:10.5px;color:#94a3b8;margin-top:1px;" id="sidebar-tenant">HR &amp; Payroll</p>
+                    </div>
+                </div>
+                <button id="sidebar-toggle" class="sidebar-toggle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+            </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <nav style="flex:1;padding:8px 8px;">
+            <div class="nav-section">Main</div>
+            <a href="/dashboard.html" class="nav-item" data-route="dashboard" data-label="Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+            <a href="/employees.html" class="nav-item" data-route="employees" data-label="Employees"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Employees</a>
+            <a href="/departments.html" class="nav-item" data-route="departments" data-label="Departments"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Departments</a>
+            <a href="/pay-grades.html" class="nav-item" data-route="pay-grades" data-label="Pay Grades"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pay Grades</a>
 
-            <div class="lg:col-span-2">
-                <div class="order-card">
-                    <div style="padding: 32px; border-bottom: 1px solid var(--border);">
-                        <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Subscription Details</h2>
+            <div class="nav-section">Payroll</div>
+            <a href="/payroll.html" class="nav-item" data-route="payroll" data-label="Payroll Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll Runs</a>
+            <a href="/reports.html" class="nav-item" data-route="reports" data-label="Reports"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Reports</a>
 
-                        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-page); padding:20px; border-radius:12px;">
-                            <div style="display:flex; align-items:center; gap:16px;">
-                                <div style="width:48px; height:48px; background:var(--primary); border-radius:12px; display:flex; align-items:center; justify-content:center; color:white;">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                                </div>
-                                <div>
-                                    <span class="plan-badge" th:text="${selectedPlan.displayName}">Professional</span>
-                                    <p style="margin:4px 0 0; font-weight:600; color:var(--text-main);" th:text="${period} + ' Billing Cycle'">Monthly Billing</p>
-                                </div>
-                            </div>
-                            <div style="text-align:right;">
-                                <p style="font-family:'Outfit'; font-size:20px; font-weight:700;" id="topAmount">₦0</p>
-                            </div>
-                        </div>
-                    </div>
+            <div class="nav-section">HR</div>
+            <a href="/leave.html" class="nav-item" data-route="leave" data-label="Leave Management"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Leave Management</a>
+            <a href="/attendance.html" class="nav-item" data-route="attendance" data-label="Attendance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</a>
 
-                    <div style="padding: 32px;">
-                        <div class="summary-row">
-                            <span style="color:var(--text-muted);">Subtotal</span>
-                            <span style="font-weight:500; color:var(--text-main);" id="subtotalAmount">₦0</span>
-                        </div>
-                        <div class="summary-row">
-                            <span style="color:var(--text-muted);">Processing Fee</span>
-                            <span style="font-weight:500; color:var(--text-main);">₦0.00</span>
-                        </div>
-                        <div class="summary-row" style="margin-top:8px;">
-                            <span style="font-size:18px; font-weight:700;">Total to pay</span>
-                            <span style="font-size:22px; font-weight:800; color:var(--primary);" id="totalAmount">₦0</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="nav-section">System</div>
+            <a href="/settings.html" class="nav-item" data-route="settings" data-label="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
 
-                <div style="margin-top: 24px; display:flex; gap:16px;">
-                    <div style="flex:1; padding:20px; background:white; border:1px solid var(--border); border-radius:16px; display:flex; align-items:center; gap:12px;">
-                        <svg style="color:#10b981;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        <span style="font-size:13px; color:var(--text-muted);">SSL Encrypted Payment</span>
-                    </div>
-                    <div style="flex:1; padding:20px; background:white; border:1px solid var(--border); border-radius:16px; display:flex; align-items:center; gap:12px;">
-                        <svg style="color:var(--primary);" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        <span style="font-size:13px; color:var(--text-muted);">Instant Activation</span>
-                    </div>
-                </div>
+            <div id="admin-section" style="display: none;">
+                <div class="nav-section">Admin</div>
+                <a href="/admin.html" class="nav-item" data-route="admin" data-label="Admin Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Admin Dashboard</a>
+                <a href="/plans.html" class="nav-item" data-route="plans" data-label="Pricing"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Pricing</a>
             </div>
+        </nav>
 
-            <div>
-                <div class="payment-sidebar">
-                    <div class="secure-badge">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        SECURE CHECKOUT
+        <div style="padding:12px 8px;border-top:1px solid #334155;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer;" class="hover:bg-white/5">
+                <div id="sidebar-avatar" style="width:30px;height:30px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;flex-shrink:0;">A</div>
+                <div class="sidebar-footer-meta" style="flex:1;min-width:0;">
+                    <p id="sidebar-email" style="font-size:12.5px;font-weight:500;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">User</p>
+                    <p id="sidebar-role" style="font-size:11px;color:#94a3b8;margin-top:1px;">—</p>
+                </div>
+                <button id="logout-btn" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:4px;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+        <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Checkout</span></div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
+                <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
+                <span id="current-date" style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;"></span>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto" style="padding:24px;">
+            <!-- CHECKOUT CONTENT START -->
+            <div id="checkout-content">
+                <div class="checkout-shell">
+                    <div style="margin-bottom: 32px;">
+                        <a href="/plans.html" style="text-decoration:none; color:#64748b; font-size:14px; font-weight:500;">← Back to plans</a>
+                        <h1 style="font-family:'Outfit'; font-size:32px; color:#0f172a; margin-top:12px;">Confirm & Pay</h1>
                     </div>
 
-                    <p style="font-size:13px; font-weight:600; color:var(--text-muted); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Pay Via</p>
-
-                    <div class="paystack-option">
-                        <div style="width:24px; height:24px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                            <div style="width:8px; height:8px; background:white; border-radius:50%;"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2">
+                            <div class="order-card">
+                                <div style="padding: 32px; border-bottom: 1px solid #e2e8f0;">
+                                    <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Subscription Details</h2>
+                                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:20px; border-radius:12px;">
+                                        <div style="display:flex; align-items:center; gap:16px;">
+                                            <div style="width:48px; height:48px; background:#2563eb; border-radius:12px; display:flex; align-items:center; justify-content:center; color:white;">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                            </div>
+                                            <div>
+                                                <span id="plan-badge" class="plan-badge">Professional</span>
+                                                <p style="margin:4px 0 0; font-weight:600; color:#0f172a;" id="billing-cycle">Monthly Billing</p>
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <p style="font-family:'Outfit'; font-size:20px; font-weight:700;" id="topAmount">₦0</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="padding: 32px;">
+                                    <div class="summary-row">
+                                        <span style="color:#64748b;">Subtotal</span>
+                                        <span style="font-weight:500; color:#0f172a;" id="subtotalAmount">₦0</span>
+                                    </div>
+                                    <div class="summary-row">
+                                        <span style="color:#64748b;">Processing Fee</span>
+                                        <span style="font-weight:500; color:#0f172a;">₦0.00</span>
+                                    </div>
+                                    <div class="summary-row" style="margin-top:8px;">
+                                        <span style="font-size:18px; font-weight:700;">Total to pay</span>
+                                        <span style="font-size:22px; font-weight:800; color:#2563eb;" id="totalAmount">₦0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 24px; display:flex; gap:16px;">
+                                <div style="flex:1; padding:20px; background:white; border:1px solid #e2e8f0; border-radius:16px; display:flex; align-items:center; gap:12px;">
+                                    <svg style="color:#10b981;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                    <span style="font-size:13px; color:#64748b;">SSL Encrypted Payment</span>
+                                </div>
+                                <div style="flex:1; padding:20px; background:white; border:1px solid #e2e8f0; border-radius:16px; display:flex; align-items:center; gap:12px;">
+                                    <svg style="color:#2563eb;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                    <span style="font-size:13px; color:#64748b;">Instant Activation</span>
+                                </div>
+                            </div>
                         </div>
+
                         <div>
-                            <p style="font-size:15px; font-weight:600; color:var(--text-main);">Paystack</p>
-                            <p style="font-size:12px; color:var(--text-muted);">Cards, Transfer, USSD</p>
+                            <div class="payment-sidebar">
+                                <div class="secure-badge">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                    SECURE CHECKOUT
+                                </div>
+                                <p style="font-size:13px; font-weight:600; color:#64748b; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Pay Via</p>
+                                <div class="paystack-option">
+                                    <div style="width:24px; height:24px; background:#2563eb; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                                        <div style="width:8px; height:8px; background:white; border-radius:50%;"></div>
+                                    </div>
+                                    <div>
+                                        <p style="font-size:15px; font-weight:600; color:#0f172a;">Paystack</p>
+                                        <p style="font-size:12px; color:#64748b;">Cards, Transfer, USSD</p>
+                                    </div>
+                                </div>
+                                <button id="payNowBtn" class="btn-pay">
+                                    <span>Pay ₦<span id="btnAmount">0</span></span>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </button>
+                                <p style="font-size:11px; color:#64748b; text-align:center; margin-top:20px; line-height:1.5;">
+                                    MaestroHR uses Paystack for secure transactions. Your card details are never stored on our servers.
+                                </p>
+                            </div>
                         </div>
                     </div>
-
-                    <button id="payNowBtn" class="btn-pay">
-                        <span>Pay ₦<span id="btnAmount">0</span></span>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
-
-                    <p style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:20px; line-height:1.5;">
-                        MaestroHR uses Paystack for secure transactions. Your card details are never stored on our servers.
-                    </p>
                 </div>
             </div>
-        </div>
+            <!-- CHECKOUT CONTENT END -->
+        </main>
     </div>
 </div>
 
-<script th:inline="javascript">
-    /* Formatting Numbers */
-    const rawAmount = /*[[${amount}]]*/ 0;
-    const formatted = (rawAmount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+<div id="toast-container"></div>
 
-    document.getElementById('topAmount').innerText = '₦' + formatted;
-    document.getElementById('subtotalAmount').innerText = '₦' + formatted;
-    document.getElementById('totalAmount').innerText = '₦' + formatted;
-    document.getElementById('btnAmount').innerText = formatted;
+<script>
+    // ==================== AUTH & UI HELPERS ====================
+    const token = localStorage.getItem('maestrohr_token');
+    const userEmail = localStorage.getItem('maestrohr_email') || '';
+    const userRole = localStorage.getItem('maestrohr_role') || '';
+    const companyName = localStorage.getItem('maestrohr_company') || '';
 
-    /* Payment Logic */
+    if (!token && !window.location.pathname.startsWith('/login')) window.location.href = '/login';
+
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    if (userEmail) {
+        document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
+        document.getElementById('sidebar-email').textContent = userEmail;
+        document.getElementById('sidebar-role').textContent = userRole.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    if (companyName) document.getElementById('sidebar-tenant').textContent = companyName;
+    if (userRole === 'SUPER_ADMIN') { const section = document.getElementById('admin-section'); if (section) section.style.display = 'block'; }
+
+    document.getElementById('logout-btn').addEventListener('click', () => { localStorage.clear(); window.location.href = '/login'; });
+
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    if (localStorage.getItem('maestrohr_sidebar') === 'collapsed') document.body.classList.add('sidebar-collapsed');
+    sidebarToggle?.addEventListener('click', () => {
+        document.body.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+    });
+
+    function showToast(message, type) {
+        const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' };
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `${icons[type] || icons.info} <span>${message}</span>`;
+        document.getElementById('toast-container').appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // ==================== CHECKOUT LOGIC ====================
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const planParam = urlParams.get('plan') || 'PROFESSIONAL';
+    const periodParam = urlParams.get('period') || 'MONTHLY';
+
+    // Plan price mapping (in kobo)
+    const priceMap = {
+        'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 },
+        'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 },
+        'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 },
+        'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 }
+    };
+
+    // Plan display names
+    const planNames = {
+        'FREE_TRIAL': 'Free Trial',
+        'BASIC': 'Basic',
+        'PROFESSIONAL': 'Professional',
+        'ENTERPRISE': 'Enterprise'
+    };
+
+    const periodLabels = {
+        'MONTHLY': 'Monthly Billing',
+        'QUARTERLY': 'Quarterly Billing',
+        'ANNUALLY': 'Annual Billing'
+    };
+
+    const selectedPlan = planParam;
+    const period = periodParam;
+    const amount = priceMap[selectedPlan]?.[period.toLowerCase()] || 0;
+
+    // Update UI with plan and amount
+    const formattedAmount = (amount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    document.getElementById('plan-badge').textContent = planNames[selectedPlan] || selectedPlan;
+    document.getElementById('billing-cycle').textContent = periodLabels[period] || period;
+    document.getElementById('topAmount').innerHTML = '₦' + formattedAmount;
+    document.getElementById('subtotalAmount').innerHTML = '₦' + formattedAmount;
+    document.getElementById('totalAmount').innerHTML = '₦' + formattedAmount;
+    document.getElementById('btnAmount').innerHTML = formattedAmount;
+
+    // Payment button handler
     document.getElementById('payNowBtn').addEventListener('click', async () => {
         const btn = document.getElementById('payNowBtn');
-        const token = localStorage.getItem('maestrohr_token');
-
         btn.disabled = true;
         btn.classList.add('processing');
-        btn.querySelector('span').innerText = 'Initializing Secure Payment...';
+        btn.querySelector('span').innerHTML = 'Initializing Secure Payment...';
 
         try {
             const response = await fetch('/api/payment/initialize', {
@@ -174,9 +352,9 @@
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    plan: /*[[${selectedPlan.name()}]]*/ 'BASIC',
-                    period: /*[[${period}]]*/ 'MONTHLY',
-                    amount: rawAmount
+                    plan: selectedPlan,
+                    period: period,
+                    amount: amount
                 })
             });
 
@@ -189,12 +367,42 @@
             }
         } catch (error) {
             console.error('Checkout Error:', error);
-            alert('Could not initialize payment. Please try again.');
+            showToast('Could not initialize payment. Please try again.', 'error');
             btn.disabled = false;
             btn.classList.remove('processing');
-            btn.querySelector('span').innerText = `Pay ₦${formatted}`;
+            btn.querySelector('span').innerHTML = `Pay ₦${formattedAmount}`;
         }
     });
+
+    // ==================== NOTIFICATIONS ====================
+    async function fetchNotifications() {
+        try {
+            const response = await fetch('/api/notifications', { headers: { 'Authorization': `Bearer ${token}` } });
+            const result = await response.json();
+            const notifications = result.data || [];
+            const unreadCount = notifications.filter(n => !n.read).length;
+            const badge = document.getElementById('notification-badge');
+            if (unreadCount > 0) { badge.style.display = 'block'; badge.textContent = unreadCount > 9 ? '9+' : unreadCount; }
+            else { badge.style.display = 'none'; }
+            const listContainer = document.getElementById('notification-list');
+            if (listContainer) {
+                if (notifications.length === 0) listContainer.innerHTML = '<div style="padding:16px;color:#64748b;font-size:12px;">No notifications</div>';
+                else listContainer.innerHTML = notifications.map(n => `<div class="notification-item ${n.read ? '' : 'unread'}"><div style="font-weight:600;font-size:13px;">${n.title}</div><div style="font-size:12px;color:#64748b;margin-top:4px;">${n.message}</div><div style="font-size:11px;color:#9ca3af;margin-top:6px;">${new Date(n.createdAt).toLocaleString()}</div></div>`).join('');
+            }
+        } catch (error) { console.error('Failed to fetch notifications:', error); }
+    }
+
+    const notificationToggle = document.getElementById('notification-toggle');
+    const notificationPanel = document.getElementById('notification-panel');
+    if (notificationToggle) {
+        notificationToggle.addEventListener('click', () => {
+            const isVisible = notificationPanel.style.display === 'block';
+            notificationPanel.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) fetchNotifications();
+        });
+    }
+    document.addEventListener('click', (e) => { if (notificationPanel && !notificationPanel.parentElement.contains(e.target)) notificationPanel.style.display = 'none'; });
+    if (token) fetchNotifications();
 </script>
 </body>
 </html>

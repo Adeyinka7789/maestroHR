@@ -1,41 +1,47 @@
 package com.admtechhub.maestrohr.employee;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
+import com.admtechhub.maestrohr.tenant.Tenant;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.UUID;
-
 @Entity
 @Table(name = "pay_grades")
-@Getter
-@Setter
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class PayGrade extends BaseEntity {
 
-    @Column(name = "tenant_id", nullable = false)
-    private UUID tenantId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id", nullable = false, updatable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "subscriptionPlan", "subscriptionExpiresAt", "isActive"})
+    private Tenant tenant;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "basic_salary", nullable = false)
-    private Long basicSalary;
+    private Long basicSalary;  // in kobo
 
     @Column(name = "housing_allowance", nullable = false)
-    private Long housingAllowance;
+    @Builder.Default
+    private Long housingAllowance = 0L;
 
     @Column(name = "transport_allowance", nullable = false)
-    private Long transportAllowance;
+    @Builder.Default
+    private Long transportAllowance = 0L;
 
     @Column(name = "other_allowances", nullable = false)
-    private Long otherAllowances;
+    @Builder.Default
+    private Long otherAllowances = 0L;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private boolean isActive = true;
+    private Boolean isActive = true;
 
     public Long getGrossSalary() {
         return basicSalary + housingAllowance + transportAllowance + otherAllowances;

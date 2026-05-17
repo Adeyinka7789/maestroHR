@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll Detail — MaestroHR</title>
+    <title>Employee Dashboard — MaestroHR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -72,9 +72,6 @@
         .badge-amber { background: #fef3c7; color: #92400e; }
         .badge-red { background: #fee2e2; color: #991b1b; }
         .badge-blue { background: #dbeafe; color: #1e40af; }
-        .badge-gray { background: #f1f5f9; color: #475569; }
-        .data-table tbody tr { transition: background 0.1s; }
-        .data-table tbody tr:hover { background: #f8fafc; }
         .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
         .page-title { font-size: 19px; font-weight: 600; color: #111827; }
         .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
@@ -159,7 +156,7 @@
     <!-- MAIN CONTENT -->
     <div class="flex flex-col flex-1 overflow-hidden">
         <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
-            <div><span id="page-title" style="font-size:15px;font-weight:600;color:#111827;">Payroll Detail</span></div>
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Employee Dashboard</span></div>
             <div style="display:flex;align-items:center;gap:16px;">
                 <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
                 <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
@@ -168,57 +165,69 @@
         </header>
 
         <main class="flex-1 overflow-y-auto" style="padding:24px;">
-            <!-- PAYROLL DETAIL CONTENT START -->
-            <div id="payroll-detail-content">
+            <!-- EMPLOYEE DASHBOARD CONTENT START -->
+            <div id="employee-dashboard-content">
                 <div class="page-header">
                     <div>
-                        <h1 id="payroll-period" class="page-title">Payroll</h1>
-                        <p id="payroll-status" class="page-subtitle">Loading...</p>
+                        <h1 class="page-title">Welcome, <span id="employee-first-name">Employee</span>!</h1>
+                        <p class="page-subtitle">Employee Dashboard</p>
                     </div>
-                    <div id="action-buttons" style="display:flex;gap:10px;"></div>
                 </div>
 
                 <!-- Stats Cards -->
-                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px;">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Gross</div>
-                        <div id="stat-gross" style="font-size:28px;font-weight:600;margin-top:8px;">₦0</div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:48px;height:48px;background:#dbeafe;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            </div>
+                            <div>
+                                <p style="font-size:13px;color:#6b7280;">Leave Balance</p>
+                                <p id="leave-balance" style="font-size:28px;font-weight:700;color:#111827;">—</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Net</div>
-                        <div id="stat-net" style="font-size:28px;font-weight:600;margin-top:8px;">₦0</div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:48px;height:48px;background:#dcfce7;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                            <div>
+                                <p style="font-size:13px;color:#6b7280;">Pending Requests</p>
+                                <p id="pending-requests-count" style="font-size:28px;font-weight:700;color:#111827;">0</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">PAYE</div>
-                        <div id="stat-paye" style="font-size:28px;font-weight:600;margin-top:8px;">₦0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">NHF</div>
-                        <div id="stat-nhf" style="font-size:28px;font-weight:600;margin-top:8px;">₦0</div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:48px;height:48px;background:#fef3c7;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            </div>
+                            <div>
+                                <p style="font-size:13px;color:#6b7280;">Recent Payslips</p>
+                                <p id="recent-payslips-count" style="font-size:28px;font-weight:700;color:#111827;">0</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Entries Table -->
-                <div class="card" style="overflow:hidden;">
-                    <div class="overflow-x-auto">
-                        <table class="data-table" style="width:100%;border-collapse:collapse;">
-                            <thead>
-                            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                                <th style="padding:12px 16px;text-align:left;">Employee</th>
-                                <th style="padding:12px 16px;text-align:left;">Gross</th>
-                                <th style="padding:12px 16px;text-align:left;">Deductions</th>
-                                <th style="padding:12px 16px;text-align:left;">Net</th>
-                                <th style="padding:12px 16px;text-align:left;">Transfer</th>
-                            </tr>
-                            </thead>
-                            <tbody id="entries-table-body">
-                            <tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading entries...</td></tr>
-                            </tbody>
-                        </table>
+                <!-- Recent Payslips & Leave Requests -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <div class="card" style="padding:20px;">
+                        <h3 class="font-semibold text-gray-800 mb-4">Recent Payslips</h3>
+                        <div id="recent-payslips-list" class="text-gray-500 text-center py-8">Loading...</div>
+                    </div>
+
+                    <div class="card" style="padding:20px;">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-semibold text-gray-800">My Leave Requests</h3>
+                            <a href="/employee-leave.html" class="btn-primary text-sm">Request Leave</a>
+                        </div>
+                        <div id="pending-leaves-list" class="text-gray-500 text-center py-8">Loading...</div>
                     </div>
                 </div>
             </div>
-            <!-- PAYROLL DETAIL CONTENT END -->
+            <!-- EMPLOYEE DASHBOARD CONTENT END -->
         </main>
     </div>
 </div>
@@ -271,133 +280,117 @@
 
     function formatCurrency(amountKobo) {
         const naira = (amountKobo || 0) / 100;
-        return '₦' + naira.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        return '₦' + naira.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function getBadgeClass(status) {
-        if (status === 'SUCCESS') return 'badge-green';
-        if (status === 'FAILED') return 'badge-red';
-        return 'badge-amber';
-    }
+    // ==================== EMPLOYEE DASHBOARD DATA LOADING ====================
+    let currentEmployee = null;
 
-    // ==================== PAYROLL DETAIL LOGIC ====================
-    const urlParams = new URLSearchParams(window.location.search);
-    const payrollRunId = urlParams.get('id');
-
-    if (!payrollRunId) {
-        window.location.href = '/payroll.html';
-    }
-
-    async function loadPayrollDetail() {
+    async function loadEmployeeData() {
         try {
-            const response = await fetch(`/api/payroll/${payrollRunId}`, {
+            // Get employee by email
+            const empRes = await fetch(`/api/employees/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const result = await response.json();
+            const empResult = await empRes.json();
 
+            if (empResult.success && empResult.data) {
+                currentEmployee = empResult.data;
+                document.getElementById('employee-first-name').textContent = currentEmployee.firstName || 'Employee';
+
+                // Load leave balance
+                loadLeaveBalance(currentEmployee.id);
+
+                // Load pending leave requests
+                loadPendingLeaveRequests(currentEmployee.id);
+
+                // Load recent payslips
+                loadRecentPayslips(currentEmployee.id);
+            }
+        } catch (error) {
+            console.error('Failed to load employee data:', error);
+            document.getElementById('employee-first-name').textContent = 'Employee';
+        }
+    }
+
+    async function loadLeaveBalance(employeeId) {
+        try {
+            const res = await fetch(`/api/leave/balance?employeeId=${employeeId}&year=${new Date().getFullYear()}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
             if (result.success && result.data) {
-                const payroll = result.data;
-
-                // Update header
-                document.getElementById('payroll-period').textContent = payroll.period || 'Payroll';
-                document.getElementById('payroll-status').textContent = payroll.status || 'DRAFT';
-                document.getElementById('page-title').textContent = `Payroll ${payroll.period || ''}`;
-
-                // Update stats
-                document.getElementById('stat-gross').textContent = formatCurrency(payroll.totalGross);
-                document.getElementById('stat-net').textContent = formatCurrency(payroll.totalNet);
-                document.getElementById('stat-paye').textContent = formatCurrency(payroll.totalPaye);
-                document.getElementById('stat-nhf').textContent = formatCurrency(payroll.totalNhf);
-
-                // Render action buttons based on status
-                const buttonsContainer = document.getElementById('action-buttons');
-                let buttonsHtml = '';
-
-                if (payroll.editable && payroll.status === 'DRAFT') {
-                    buttonsHtml += `<button id="compute-btn" class="btn-secondary" data-id="${payrollRunId}">Compute</button>`;
-                }
-                if (payroll.canSubmit) {
-                    buttonsHtml += `<button id="submit-btn" class="btn-primary" data-id="${payrollRunId}">Submit</button>`;
-                }
-                if (payroll.status === 'APPROVED') {
-                    buttonsHtml += `<button id="disburse-btn" class="btn-primary" data-id="${payrollRunId}">Disburse</button>`;
-                }
-
-                buttonsContainer.innerHTML = buttonsHtml;
-
-                // Attach button event listeners
-                if (document.getElementById('compute-btn')) {
-                    document.getElementById('compute-btn').addEventListener('click', () => runPayrollAction(`/api/payroll/${payrollRunId}/compute`, 'Payroll computed.'));
-                }
-                if (document.getElementById('submit-btn')) {
-                    document.getElementById('submit-btn').addEventListener('click', () => runPayrollAction(`/api/payroll/${payrollRunId}/submit`, 'Payroll submitted.'));
-                }
-                if (document.getElementById('disburse-btn')) {
-                    document.getElementById('disburse-btn').addEventListener('click', () => runPayrollAction(`/api/payroll/${payrollRunId}/disburse`, 'Salary disbursement initiated.'));
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load payroll detail:', error);
-            showToast('Failed to load payroll detail', 'error');
-        }
-    }
-
-    async function loadEntries() {
-        try {
-            const response = await fetch(`/api/payroll/${payrollRunId}/entries`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const result = await response.json();
-
-            const tbody = document.getElementById('entries-table-body');
-
-            if (result.success && result.data && result.data.length > 0) {
-                tbody.innerHTML = result.data.map(entry => {
-                    const deductions = (entry.payeTax + entry.pensionEmployee + entry.nhfDeduction + (entry.otherDeductions || 0));
-                    const badgeClass = getBadgeClass(entry.transferStatus);
-
-                    return `
-                        <tr style="border-bottom:1px solid #f8fafc;">
-                            <td style="padding:14px 16px;font-weight:500;">${escapeHtml(entry.employeeName || entry.employee?.fullName || 'Unknown')}</td>
-                            <td style="padding:14px 16px;">${formatCurrency(entry.grossSalary)}</td>
-                            <td style="padding:14px 16px;">${formatCurrency(deductions)}</td>
-                            <td style="padding:14px 16px;">${formatCurrency(entry.netSalary)}</td>
-                            <td style="padding:14px 16px;"><span class="badge ${badgeClass}">${entry.transferStatus || 'PENDING'}</span></td>
-                        </tr>
-                    `;
-                }).join('');
+                document.getElementById('leave-balance').textContent = result.data.daysRemaining || 0;
             } else {
-                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No entries generated yet. Click "Compute" to generate payroll entries.</td></tr>';
+                document.getElementById('leave-balance').textContent = '—';
             }
         } catch (error) {
-            console.error('Failed to load entries:', error);
-            document.getElementById('entries-table-body').innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Failed to load entries.</td></tr>';
+            document.getElementById('leave-balance').textContent = '—';
         }
     }
 
-    async function runPayrollAction(url, successMessage) {
+    async function loadPendingLeaveRequests(employeeId) {
         try {
-            const response = await fetch(url, {
-                method: 'POST',
+            const res = await fetch(`/api/leave/requests/employee/${employeeId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const result = await response.json();
+            const result = await res.json();
+            if (result.success && result.data) {
+                const pending = result.data.filter(r => r.status === 'PENDING');
+                document.getElementById('pending-requests-count').textContent = pending.length;
 
-            if (!response.ok) {
-                showToast(result.error || result.message || 'Action failed.', 'error');
-                return;
+                const container = document.getElementById('pending-leaves-list');
+                if (pending.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-center py-8">No pending requests</div>';
+                } else {
+                    container.innerHTML = pending.map(req => `
+                        <div class="border-b py-3">
+                            <p class="font-medium">${escapeHtml(req.leaveTypeName || req.leaveType?.name || 'Leave')}</p>
+                            <p class="text-sm text-gray-500">${req.startDate || ''} to ${req.endDate || ''}</p>
+                            <span class="badge badge-amber text-xs mt-1">Pending</span>
+                        </div>
+                    `).join('');
+                }
+            } else {
+                document.getElementById('pending-requests-count').textContent = 0;
+                document.getElementById('pending-leaves-list').innerHTML = '<div class="text-gray-500 text-center py-8">No pending requests</div>';
             }
-
-            showToast(successMessage, 'success');
-            loadPayrollDetail();
-            loadEntries();
         } catch (error) {
-            showToast('Action failed: ' + error.message, 'error');
+            document.getElementById('pending-requests-count').textContent = 0;
+            document.getElementById('pending-leaves-list').innerHTML = '<div class="text-gray-500 text-center py-8">Failed to load leave requests</div>';
         }
     }
 
-    loadPayrollDetail();
-    loadEntries();
+    async function loadRecentPayslips(employeeId) {
+        try {
+            const res = await fetch(`/api/payroll/employee/${employeeId}/recent?limit=5`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success && result.data && result.data.length > 0) {
+                document.getElementById('recent-payslips-count').textContent = result.data.length;
+
+                const container = document.getElementById('recent-payslips-list');
+                container.innerHTML = result.data.map(payslip => `
+                    <div class="border-b py-3 flex justify-between items-center">
+                        <div>
+                            <p class="font-medium">${escapeHtml(payslip.period || 'Period')}</p>
+                            <p class="text-sm text-gray-500">${formatCurrency(payslip.netSalary)}</p>
+                        </div>
+                        <a href="/reports/payslip?employeeId=${employeeId}&payrollRunId=${payslip.payrollRunId}" class="btn-secondary text-sm">Download</a>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('recent-payslips-count').textContent = 0;
+                document.getElementById('recent-payslips-list').innerHTML = '<div class="text-gray-500 text-center py-8">No payslips yet</div>';
+            }
+        } catch (error) {
+            document.getElementById('recent-payslips-count').textContent = 0;
+            document.getElementById('recent-payslips-list').innerHTML = '<div class="text-gray-500 text-center py-8">Failed to load payslips</div>';
+        }
+    }
+
+    loadEmployeeData();
 
     // ==================== NOTIFICATIONS ====================
     async function fetchNotifications() {

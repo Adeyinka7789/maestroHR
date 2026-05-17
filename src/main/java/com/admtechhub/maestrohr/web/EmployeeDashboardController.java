@@ -55,7 +55,7 @@ public class EmployeeDashboardController {
         model.addAttribute("pendingRequests", pendingRequests);
         model.addAttribute("currentYear", currentYear);
 
-        return "employee/dashboard";
+        return "redirect:/employee-dashboard.html";
     }
 
     @GetMapping("/profile")
@@ -63,7 +63,7 @@ public class EmployeeDashboardController {
         Employee employee = getCurrentEmployee();
         model.addAttribute("pageTitle", "My Profile");
         model.addAttribute("employee", employee);
-        return "employee/profile";
+        return "redirect:/employee-view.html";
     }
 
     @GetMapping("/leave")
@@ -74,7 +74,7 @@ public class EmployeeDashboardController {
         model.addAttribute("pageTitle", "My Leave Requests");
         model.addAttribute("requests", requests);
         model.addAttribute("employee", employee);
-        return "employee/leave";
+        return "redirect:/leave.html";
     }
 
     @PostMapping("/leave/submit")
@@ -96,6 +96,6 @@ public class EmployeeDashboardController {
         model.addAttribute("pageTitle", "My Payslips");
         model.addAttribute("payslips", payslips);
         model.addAttribute("employee", employee);
-        return "employee/payslips";
+        return "redirect:/reports.html";
     }
 }

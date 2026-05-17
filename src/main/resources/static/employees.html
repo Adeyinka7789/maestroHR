@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employees — MaestroHR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { -webkit-font-smoothing: antialiased; }
+        :root { --sidebar-w: 240px; --sidebar-collapsed-w: 84px; }
+        body { font-family: 'DM Sans', sans-serif; }
+        body.sidebar-collapsed aside { width: var(--sidebar-collapsed-w) !important; }
+        body.sidebar-collapsed .nav-item { justify-content:center; padding-left:12px; padding-right:12px; position: relative; }
+        body.sidebar-collapsed .nav-item.active { padding-left:10px; }
+        body.sidebar-collapsed .nav-item svg { margin:0; }
+        body.sidebar-collapsed .nav-item,
+        body.sidebar-collapsed .nav-section,
+        body.sidebar-collapsed #sidebar-email,
+        body.sidebar-collapsed #sidebar-role,
+        body.sidebar-collapsed #sidebar-tenant,
+        body.sidebar-collapsed .sidebar-text { font-size:0 !important; }
+        body.sidebar-collapsed #sidebar-avatar { margin: 0 auto; }
+        body.sidebar-collapsed .sidebar-brand { display:none; }
+        body.sidebar-collapsed .sidebar-footer-meta { display:none; }
+        body.sidebar-collapsed .nav-item:hover::before {
+            content: attr(data-label);
+            position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%);
+            background: #1e293b; color: #e2e8f0; padding: 6px 12px; border-radius: 6px;
+            font-size: 13px; white-space: nowrap; z-index: 1000; pointer-events: none;
+            font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+        .sidebar-toggle svg { transition: transform 0.3s ease; }
+        .nav-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; font-size:13.5px; font-weight:400; color:#94a3b8; text-decoration:none; transition:background 0.15s,color 0.15s; margin-bottom:2px; position:relative; }
+        .nav-item svg { flex-shrink:0; opacity:0.7; transition:opacity 0.15s; }
+        .nav-item:hover { background:rgba(148,163,184,0.1); color:#e2e8f0; }
+        .nav-item:hover svg { opacity:1; }
+        .nav-item.active { background:rgba(37,99,235,0.15); color:#93c5fd; border-left:2px solid #3b82f6; padding-left:10px; }
+        .nav-item.active svg { opacity:1; color:#3b82f6; }
+        .nav-section { font-size:10px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; padding:16px 12px 6px; }
+        .card { background:#fff; border-radius:10px; border:1px solid #e2e8f0; }
+        .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:500; }
+        .badge-green { background:#dcfce7; color:#166534; }
+        .badge-amber { background:#fef3c7; color:#92400e; }
+        .badge-red   { background:#fee2e2; color:#991b1b; }
+        .badge-gray  { background:#f1f5f9; color:#475569; }
+        .btn-primary { background:#2563eb; color:white; padding:8px 16px; border-radius:6px; font-size:13.5px; font-weight:500; border:none; cursor:pointer; transition:background 0.15s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+        .btn-primary:hover { background:#1d4ed8; }
+        .btn-secondary { background:white; color:#374151; padding:7px 15px; border-radius:6px; font-size:13.5px; font-weight:500; border:1px solid #d1d5db; cursor:pointer; transition:background 0.15s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+        .btn-secondary:hover { background:#f9fafb; }
+        .form-input { width:100%; padding:9px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:13.5px; font-family:'DM Sans',sans-serif; color:#111827; background:white; transition:border-color 0.15s,box-shadow 0.15s; outline:none; }
+        .form-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+        .data-table tbody tr { transition:background 0.1s; }
+        .data-table tbody tr:hover { background:#f8fafc; }
+        .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+        .page-title { font-size:19px; font-weight:600; color:#111827; }
+        .page-subtitle { font-size:13px; color:#6b7280; margin-top:2px; }
+
+        /* Search dropdown */
+        .top-search { width:320px; position:relative; }
+        .top-search-results {
+            position:absolute; top:calc(100% + 8px); left:0; width:100%;
+            background:white; border:1px solid #e2e8f0; border-radius:10px;
+            box-shadow:0 12px 32px rgba(15,23,42,0.1); display:none; overflow:hidden; z-index:200;
+        }
+        .search-result-item { padding:10px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+        .search-result-item:hover { background:#f8fafc; }
+        .search-result-item:last-child { border-bottom:none; }
+
+        /* Notification panel */
+        .notif-wrapper { position:relative; }
+        .notification-panel {
+            position:absolute; top:calc(100% + 10px); right:0; width:340px;
+            background:white; border:1px solid #e2e8f0; border-radius:12px;
+            box-shadow:0 18px 40px rgba(15,23,42,0.12); display:none; overflow:hidden; z-index:200;
+            max-height:420px; overflow-y:auto;
+        }
+        .notification-item { padding:12px 14px; border-bottom:1px solid #f1f5f9; }
+        .notification-item.unread { background:#eff6ff; }
+        .notification-item:last-child { border-bottom:none; }
+
+        /* Toast */
+        #toast-container { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+        .toast { display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:8px; font-size:13.5px; font-weight:500; min-width:280px; animation:slideIn 0.25s ease; box-shadow:0 4px 20px rgba(0,0,0,0.12); }
+        .toast-success { background:#1a2e1f; color:#86efac; border:1px solid #166534; }
+        .toast-error   { background:#2e1a1a; color:#fca5a5; border:1px solid #991b1b; }
+        .toast-info    { background:#1a2040; color:#93c5fd; border:1px solid #1e40af; }
+        @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+        .sidebar-toggle { background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center; }
+        .sidebar-toggle:hover { background:rgba(148,163,184,0.1); color:#e2e8f0; }
+    </style>
+</head>
+<body class="bg-slate-50">
+<div class="flex h-screen overflow-hidden">
+
+    <!-- ─── SIDEBAR ──────────────────────────────────────────────────── -->
+    <aside style="width:var(--sidebar-w);background:#1e293b;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;border-right:1px solid #334155;">
+        <div style="padding:20px 16px 16px;border-bottom:1px solid #334155;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                    <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="sidebar-brand">
+                        <p style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1;">MaestroHR</p>
+                        <p style="font-size:10.5px;color:#94a3b8;margin-top:1px;" id="sidebar-tenant">HR &amp; Payroll</p>
+                    </div>
+                </div>
+                <button id="sidebar-toggle" class="sidebar-toggle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+            </div>
+        </div>
+        <nav style="flex:1;padding:8px;">
+            <div class="nav-section">Main</div>
+            <a href="/dashboard"   class="nav-item" data-route="dashboard"   data-label="Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+            <a href="/employees"   class="nav-item active" data-route="employees" data-label="Employees"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Employees</a>
+            <a href="/departments" class="nav-item" data-route="departments" data-label="Departments"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Departments</a>
+            <a href="/pay-grades"  class="nav-item" data-route="pay-grades"  data-label="Pay Grades"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pay Grades</a>
+            <div class="nav-section">Payroll</div>
+            <a href="/payroll"     class="nav-item" data-route="payroll"     data-label="Payroll Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll Runs</a>
+            <a href="/reports"     class="nav-item" data-route="reports"     data-label="Reports"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Reports</a>
+            <div class="nav-section">HR</div>
+            <a href="/leave"       class="nav-item" data-route="leave"       data-label="Leave Management"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Leave Management</a>
+            <a href="/attendance"  class="nav-item" data-route="attendance"  data-label="Attendance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</a>
+            <div id="admin-section" style="display:none;">
+                <div class="nav-section">Admin</div>
+                <a href="/admin"          class="nav-item" data-route="admin"         data-label="Admin Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Admin Dashboard</a>
+                <a href="/admin/pricing"  class="nav-item" data-route="admin-pricing" data-label="Pricing"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pricing</a>
+            </div>
+        </nav>
+        <div style="padding:12px 8px;border-top:1px solid #334155;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;">
+                <div id="sidebar-avatar" style="width:30px;height:30px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;flex-shrink:0;">A</div>
+                <div class="sidebar-footer-meta" style="flex:1;min-width:0;">
+                    <p id="sidebar-email" style="font-size:12.5px;font-weight:500;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">User</p>
+                    <p id="sidebar-role"  style="font-size:11px;color:#94a3b8;margin-top:1px;">—</p>
+                </div>
+                <button id="logout-btn" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:4px;flex-shrink:0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ─── MAIN ─────────────────────────────────────────────────────── -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+
+        <!-- Header -->
+        <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
+            <div>
+                <span style="font-size:15px;font-weight:600;color:#111827;">Employees</span>
+                <span id="header-subtitle" style="font-size:13px;color:#9ca3af;margin-left:8px;"></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;">
+
+                <!-- Search — filters the table, no backend call needed -->
+                <div class="top-search">
+                    <input id="search-input" class="form-input" type="search"
+                           placeholder="Search by name, email, ID…"
+                           style="padding-left:34px;">
+                    <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;pointer-events:none;"
+                         width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <!-- dropdown only shows when API search is available -->
+                    <div id="search-results" class="top-search-results"></div>
+                </div>
+
+                <!-- Bell -->
+                <div class="notif-wrapper">
+                    <button id="notif-btn" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;position:relative;" title="Notifications">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <span id="notif-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;line-height:16px;text-align:center;"></span>
+                    </button>
+                    <div id="notif-panel" class="notification-panel">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #f1f5f9;position:sticky;top:0;background:white;">
+                            <strong style="font-size:13px;">Notifications</strong>
+                            <button id="mark-all-btn" style="background:none;border:none;color:#2563eb;font-size:12px;cursor:pointer;">Mark all read</button>
+                        </div>
+                        <div id="notif-list"><div style="padding:16px;font-size:13px;color:#64748b;">Loading...</div></div>
+                    </div>
+                </div>
+
+                <span id="current-date" style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;"></span>
+            </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 overflow-y-auto" style="padding:24px;">
+
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Employees</h1>
+                    <p id="record-count" class="page-subtitle">Loading…</p>
+                </div>
+                <a href="/employees/create" class="btn-primary">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add Employee
+                </a>
+            </div>
+
+            <!-- Table -->
+            <div class="card" style="overflow:hidden;">
+                <table class="data-table" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                    <tr style="border-bottom:1px solid #f3f4f6;background:#f9fafb;">
+                        <th style="text-align:left;padding:11px 16px;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;">Employee</th>
+                        <th style="text-align:left;padding:11px 16px;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;">ID</th>
+                        <th style="text-align:left;padding:11px 16px;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;">Department</th>
+                        <th style="text-align:left;padding:11px 16px;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;">Pay Grade</th>
+                        <th style="text-align:left;padding:11px 16px;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;">Status</th>
+                        <th style="text-align:left;padding:11px 16px;font-size:11.5px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em;">Basic Salary</th>
+                        <th style="padding:11px 16px;"></th>
+                    </tr>
+                    </thead>
+                    <tbody id="employees-tbody">
+                    <tr><td colspan="7" style="padding:56px 16px;text-align:center;color:#94a3b8;font-size:13px;">Loading employees…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;"></div>
+
+        </main>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+    (function () {
+        // ── Auth ─────────────────────────────────────────────────────────────────
+        var token       = localStorage.getItem('maestrohr_token') || '';
+        var userEmail   = localStorage.getItem('maestrohr_email') || '';
+        var userRole    = localStorage.getItem('maestrohr_role')  || '';
+        var companyName = localStorage.getItem('maestrohr_company') || '';
+
+        if (!token) { window.location.href = '/login'; return; }
+
+        function api(url, opts) {
+            return fetch(url, Object.assign({
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+            }, opts || {}));
+        }
+
+        function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function showToast(msg, type) {
+            var t = document.createElement('div');
+            t.className = 'toast toast-' + (type || 'info');
+            t.textContent = msg;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(function () { t.remove(); }, 4000);
+        }
+
+        // ── Sidebar init ─────────────────────────────────────────────────────────
+        document.getElementById('current-date').textContent =
+            new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+        if (userEmail) {
+            document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
+            document.getElementById('sidebar-email').textContent  = userEmail;
+            document.getElementById('sidebar-role').textContent   =
+                userRole.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+        }
+        if (companyName) document.getElementById('sidebar-tenant').textContent = companyName;
+        if (userRole === 'SUPER_ADMIN') document.getElementById('admin-section').style.display = 'block';
+
+        document.getElementById('logout-btn').addEventListener('click', function () {
+            localStorage.clear();
+            document.cookie = 'maestrohr_token=; Path=/; Max-Age=0';
+            window.location.href = '/login';
+        });
+
+        // Sidebar collapse
+        if (localStorage.getItem('maestrohr_sidebar') === 'collapsed')
+            document.body.classList.add('sidebar-collapsed');
+        document.getElementById('sidebar-toggle').addEventListener('click', function () {
+            document.body.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('maestrohr_sidebar',
+                document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+        });
+
+        // ── Employee data ─────────────────────────────────────────────────────────
+        var allEmployees = [];   // full page loaded from API
+        var currentPage  = 0;
+        var totalPages   = 0;
+        var totalCount   = 0;
+        var PAGE_SIZE    = 20;
+
+        function loadEmployees(page) {
+            page = page || 0;
+            document.getElementById('employees-tbody').innerHTML =
+                '<tr><td colspan="7" style="padding:56px 16px;text-align:center;color:#94a3b8;font-size:13px;">Loading…</td></tr>';
+
+            api('/api/employees?page=' + page + '&size=' + PAGE_SIZE)
+                .then(function (r) { return r.json(); })
+                .then(function (result) {
+                    var data = result.data || result;
+                    allEmployees = data.content || [];
+                    currentPage  = data.number  || page;
+                    totalPages   = data.totalPages   || 0;
+                    totalCount   = data.totalElements || allEmployees.length;
+
+                    document.getElementById('record-count').textContent  = totalCount + ' records';
+                    document.getElementById('header-subtitle').textContent = totalCount + ' records';
+
+                    renderTable(allEmployees);
+                    renderPagination();
+                })
+                .catch(function (e) {
+                    console.error(e);
+                    document.getElementById('employees-tbody').innerHTML =
+                        '<tr><td colspan="7" style="padding:40px 16px;text-align:center;color:#ef4444;font-size:13px;">Failed to load employees. Please refresh.</td></tr>';
+                });
+        }
+
+        function renderTable(employees) {
+            if (!employees || employees.length === 0) {
+                document.getElementById('employees-tbody').innerHTML =
+                    '<tr><td colspan="7" style="padding:56px 16px;text-align:center;">'
+                    + '<p style="font-size:14px;font-weight:500;color:#374151;margin:0 0 4px;">No employees found</p>'
+                    + '<p style="font-size:13px;color:#9ca3af;margin:0 0 16px;">Add your first employee to get started.</p>'
+                    + '<a href="/employees/create" class="btn-primary" style="display:inline-flex;">Add Employee</a>'
+                    + '</td></tr>';
+                return;
+            }
+
+            document.getElementById('employees-tbody').innerHTML = employees.map(function (emp) {
+                var initials = ((emp.firstName || '')[0] || '') + ((emp.lastName || '')[0] || '');
+                var bc = { ACTIVE:'badge-green', ON_LEAVE:'badge-amber', SUSPENDED:'badge-red', TERMINATED:'badge-gray' }[emp.status] || 'badge-gray';
+
+                // ✅ FIXED: Use flat fields from EmployeeSummaryDTO
+                var salary = emp.basicSalary
+                    ? '₦' + Math.round(emp.basicSalary / 100).toLocaleString('en-NG')
+                    : '—';
+
+                return '<tr style="border-bottom:1px solid #f9fafb;">'
+                    + '<td style="padding:12px 16px;">'
+                    +   '<div style="display:flex;align-items:center;gap:10px;">'
+                    +     '<div style="width:34px;height:34px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:#2563eb;flex-shrink:0;">' + esc(initials) + '</div>'
+                    +     '<div>'
+                    +       '<p style="font-size:13.5px;font-weight:500;color:#111827;margin:0;">' + esc(emp.firstName) + ' ' + esc(emp.lastName) + '</p>'
+                    +       '<p style="font-size:12px;color:#6b7280;margin:2px 0 0;">' + esc(emp.email) + '</p>'
+                    +     '</div>'
+                    +   '</div>'
+                    + '</td>'
+                    + '<td style="padding:12px 16px;"><span style="font-size:12.5px;color:#374151;font-family:\'DM Mono\',monospace;">' + esc(emp.employeeNumber || '—') + '</span></td>'
+                    // ✅ FIXED: Use departmentName directly
+                    + '<td style="padding:12px 16px;font-size:13px;color:#374151;">' + esc(emp.departmentName || '—') + '</td>'
+                    // ✅ FIXED: Use payGradeName directly
+                    + '<td style="padding:12px 16px;font-size:13px;color:#374151;">' + esc(emp.payGradeName || '—') + '</td>'
+                    + '<td style="padding:12px 16px;"><span class="badge ' + bc + '">' + esc(emp.status || 'ACTIVE') + '</span></td>'
+                    + '<td style="padding:12px 16px;font-size:13px;font-family:\'DM Mono\',monospace;color:#111827;">' + salary + '</td>'
+                    + '<td style="padding:12px 16px;text-align:right;">'
+                    +   '<div style="display:flex;gap:6px;justify-content:flex-end;">'
+                    +     '<a href="/employees/' + emp.id + '" class="btn-secondary" style="font-size:12px;padding:5px 10px;">View</a>'
+                    +     '<a href="/employees/' + emp.id + '/edit" class="btn-secondary" style="font-size:12px;padding:5px 10px;">Edit</a>'
+                    +   '</div>'
+                    + '</td>'
+                    + '</tr>';
+            }).join('');
+        }
+
+        function renderPagination() {
+            var c = document.getElementById('pagination');
+            if (totalPages <= 1) { c.innerHTML = ''; return; }
+            c.innerHTML = '<p style="font-size:13px;color:#6b7280;">Page ' + (currentPage + 1) + ' of ' + totalPages + '</p>'
+                + '<div style="display:flex;gap:8px;">'
+                + '<button id="prev-btn" class="btn-secondary" style="font-size:13px;padding:6px 12px;"' + (currentPage === 0 ? ' disabled' : '') + '>← Prev</button>'
+                + '<button id="next-btn" class="btn-primary"   style="font-size:13px;padding:6px 12px;"' + (currentPage + 1 >= totalPages ? ' disabled' : '') + '>Next →</button>'
+                + '</div>';
+            document.getElementById('prev-btn').onclick = function () { if (currentPage > 0) loadEmployees(currentPage - 1); };
+            document.getElementById('next-btn').onclick = function () { if (currentPage + 1 < totalPages) loadEmployees(currentPage + 1); };
+        }
+
+        // ── Search — filters the already-loaded rows (no extra API needed) ────────
+        document.getElementById('search-input').addEventListener('input', function () {
+            var q = this.value.trim().toLowerCase();
+            if (!q) { renderTable(allEmployees); return; }
+            var filtered = allEmployees.filter(function (emp) {
+                var name   = ((emp.firstName || '') + ' ' + (emp.lastName || '')).toLowerCase();
+                var email  = (emp.email || '').toLowerCase();
+                var empNum = (emp.employeeNumber || '').toLowerCase();
+                var dept   = (emp.department && emp.department.name || '').toLowerCase();
+                return name.includes(q) || email.includes(q) || empNum.includes(q) || dept.includes(q);
+            });
+            renderTable(filtered);
+            document.getElementById('record-count').textContent = filtered.length + ' of ' + totalCount + ' records';
+        });
+
+        // ── Notification bell ─────────────────────────────────────────────────────
+        var notifOpen = false;
+
+        function loadNotifications() {
+            document.getElementById('notif-list').innerHTML =
+                '<div style="padding:14px;font-size:13px;color:#64748b;">Loading…</div>';
+
+            api('/api/notifications')
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (result) {
+                    var items = (result && (result.data || result)) || [];
+                    if (!Array.isArray(items)) items = [];
+
+                    // Badge count
+                    var unread = items.filter(function (n) { return !n.read; }).length;
+                    var badge  = document.getElementById('notif-badge');
+                    badge.style.display  = unread > 0 ? 'block' : 'none';
+                    badge.textContent    = unread > 9 ? '9+' : unread;
+
+                    if (items.length === 0) {
+                        document.getElementById('notif-list').innerHTML =
+                            '<div style="padding:20px 14px;font-size:13px;color:#64748b;text-align:center;">No notifications</div>';
+                        return;
+                    }
+
+                    document.getElementById('notif-list').innerHTML = items.map(function (n) {
+                        return '<div class="notification-item ' + (n.read ? '' : 'unread') + '">'
+                            + '<div style="font-weight:600;font-size:13px;">' + esc(n.title) + '</div>'
+                            + '<div style="font-size:12px;color:#64748b;margin-top:4px;">' + esc(n.message) + '</div>'
+                            + '<div style="font-size:11px;color:#9ca3af;margin-top:6px;">' + new Date(n.createdAt).toLocaleString() + '</div>'
+                            + (!n.read ? '<button class="mark-read" data-id="' + n.id + '" style="background:none;border:none;color:#2563eb;font-size:11px;cursor:pointer;margin-top:6px;padding:0;">Mark as read</button>' : '')
+                            + '</div>';
+                    }).join('');
+
+                    // Wire mark-read buttons
+                    document.querySelectorAll('.mark-read').forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            api('/api/notifications/' + this.dataset.id + '/read', { method: 'POST' })
+                                .then(function () { loadNotifications(); });
+                        });
+                    });
+                })
+                .catch(function () {
+                    document.getElementById('notif-list').innerHTML =
+                        '<div style="padding:14px;font-size:13px;color:#64748b;">Could not load notifications.</div>';
+                });
+        }
+
+        document.getElementById('notif-btn').addEventListener('click', function (e) {
+            e.stopPropagation();
+            notifOpen = !notifOpen;
+            document.getElementById('notif-panel').style.display = notifOpen ? 'block' : 'none';
+            if (notifOpen) loadNotifications();
+        });
+
+        document.getElementById('mark-all-btn').addEventListener('click', function () {
+            api('/api/notifications/read-all', { method: 'POST' }).then(loadNotifications);
+        });
+
+        document.addEventListener('click', function (e) {
+            var panel = document.getElementById('notif-panel');
+            var btn   = document.getElementById('notif-btn');
+            if (!panel.contains(e.target) && !btn.contains(e.target)) {
+                notifOpen = false;
+                panel.style.display = 'none';
+            }
+        });
+
+        // ── Initial load ──────────────────────────────────────────────────────────
+        loadEmployees(0);
+        loadNotifications();   // pre-load badge count on page open
+
+    })();
+</script>
+</body>
+</html>

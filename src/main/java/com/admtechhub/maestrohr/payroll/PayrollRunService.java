@@ -176,6 +176,15 @@ public class PayrollRunService {
     }
 
     /**
+     * Get count of pending approval payroll runs
+     */
+    @Transactional(readOnly = true)
+    public long getPendingApprovalsCount() {
+        UUID tenantId = currentTenantId();
+        return payrollRunRepository.countByTenantIdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
+    }
+
+    /**
      * Submit payroll for approval
      */
     @Transactional
@@ -417,5 +426,12 @@ public class PayrollRunService {
                 .employeeName(entry.getEmployee().getFullName())
                 .employeeNumber(entry.getEmployee().getEmployeeNumber())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PayrollRunResponse> getPendingApprovals() {
+        UUID tenantId = currentTenantId();
+        List<PayrollRun> payrollRuns = payrollRunRepository.findByTenant_IdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
+        return payrollRuns.stream().map(this::toResponse).toList();
     }
 }

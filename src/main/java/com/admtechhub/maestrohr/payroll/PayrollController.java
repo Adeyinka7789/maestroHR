@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/payroll")
@@ -23,12 +24,21 @@ public class PayrollController {
     private final PayrollRunService payrollRunService;
     private final UserRepository userRepository;
     private final DisbursementService disbursementService;
+    private final PayrollEntryRepository payrollEntryRepository;
 
     private UUID getCurrentUserId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + email))
                 .getId();
+    }
+
+    // SPECIFIC ENDPOINTS FIRST (before path variables)
+    @GetMapping("/pending-count")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getPendingApprovalsCount() {
+        long count = payrollRunService.getPendingApprovalsCount();
+        return ResponseEntity.ok(ApiResponse.success("Pending count retrieved", Map.of("count", count)));
     }
 
     @PostMapping("/initiate")
@@ -117,15 +127,44 @@ public class PayrollController {
         return ResponseEntity.ok(ApiResponse.success("Payroll summary retrieved", summary));
     }
 
-    /**
-     * Disburse salaries (initiate Paystack bulk transfer)
-     * POST /api/payroll/{payrollRunId}/disburse
-     */
     @PostMapping("/{payrollRunId}/disburse")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
     public ResponseEntity<ApiResponse<PayrollRunResponse>> disburseSalaries(@PathVariable UUID payrollRunId) {
         PayrollRun payrollRun = disbursementService.disburseSalaries(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Salary disbursement initiated",
                 payrollRunService.getPayrollRunResponse(payrollRunId)));
+    }
+
+    /**
+     * Get pending approvals count
+     * GET /api/payroll/pending-approvals
+     */
+    @GetMapping("/pending-approvals")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER')")
+    public ResponseEntity<ApiResponse<List<PayrollRunResponse>>> getPendingApprovals() {
+        List<PayrollRunResponse> responses = payrollRunService.getPendingApprovals();
+        return ResponseEntity.ok(ApiResponse.success("Pending approvals retrieved", responses));
+    }
+
+    @GetMapping("/employee/{employeeId}/recent")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRecentPayslips(
+            @PathVariable UUID employeeId,
+            @RequestParam(defaultValue = "5") int limit) {
+
+        List<PayrollEntry> entries = payrollEntryRepository.findByEmployeeIdOrderByPayrollRunCreatedAtDesc(employeeId);
+
+        List<Map<String, Object>> result = entries.stream()
+                .limit(limit)
+                .map(entry -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("period", entry.getPayrollRun().getPeriod());
+                    map.put("netSalary", entry.getNetSalary());
+                    map.put("payrollRunId", entry.getPayrollRun().getId());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success("Recent payslips retrieved", result));
     }
 }

@@ -2,10 +2,7 @@ package com.admtechhub.maestrohr.tenant;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "pricing_config")
@@ -13,6 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
 public class PricingConfig extends BaseEntity {
 
     @Column(name = "plan_name", nullable = false, length = 50)

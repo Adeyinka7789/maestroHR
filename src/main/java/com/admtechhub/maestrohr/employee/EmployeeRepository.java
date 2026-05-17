@@ -44,4 +44,18 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     // Check if email exists for this tenant
     @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.email = :email AND e.tenant.id = :tenantId")
     boolean existsByEmail(@Param("email") String email, @Param("tenantId") UUID tenantId);
+
+    // Add these methods to EmployeeRepository interface
+
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.tenant.id = :tenantId")
+    long countByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.tenant.id = :tenantId AND e.status = :status")
+    long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") EmployeeStatus status);
+
+    @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId")
+    Page<Employee> findAllByTenantId(@Param("tenantId") UUID tenantId, Pageable pageable);
+
+    @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId AND e.id = :id")
+    Optional<Employee> findByIdAndTenantId(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 }

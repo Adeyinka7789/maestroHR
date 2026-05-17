@@ -93,7 +93,7 @@ public class DashboardController {
         model.addAttribute("monthlyTotals", monthlyTotals);
         model.addAttribute("departmentHeadcounts", filteredDepartmentHeadcounts);
 
-        return "dashboard";
+        return "redirect:/dashboard.html";
     }
 
     @GetMapping("/")

@@ -2,11 +2,9 @@ package com.admtechhub.maestrohr.leave;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.tenant.Tenant;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "leave_types")
@@ -14,6 +12,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = false)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "tenant"})
 public class LeaveType extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

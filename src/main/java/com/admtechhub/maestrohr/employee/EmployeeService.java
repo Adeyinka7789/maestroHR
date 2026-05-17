@@ -168,18 +168,23 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public Page<Employee> getAllEmployees(Pageable pageable) {
-        Page<Employee> employees = employeeRepository.findAll(pageable);
+        String tenantIdStr = TenantContext.getCurrentTenant();
+        UUID tenantId = UUID.fromString(tenantIdStr);
 
-        // Initialize lazy-loaded relationships for each employee
+        Page<Employee> employees = employeeRepository.findAllByTenantId(tenantId, pageable);
+
+        // Force initialization of lazy-loaded relationships
         employees.getContent().forEach(employee -> {
             // Initialize department
             if (employee.getDepartment() != null) {
                 employee.getDepartment().getName();
+                employee.getDepartment().getId();
             }
             // Initialize pay grade
             if (employee.getPayGrade() != null) {
                 employee.getPayGrade().getName();
                 employee.getPayGrade().getBasicSalary();
+                employee.getPayGrade().getId();
             }
         });
 
@@ -278,7 +283,9 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public long countActiveEmployees() {
-        return employeeRepository.countByStatus(EmployeeStatus.ACTIVE);
+        String tenantIdStr = TenantContext.getCurrentTenant();
+        UUID tenantId = UUID.fromString(tenantIdStr);
+        return employeeRepository.countByTenantIdAndStatus(tenantId, EmployeeStatus.ACTIVE);
     }
 
     /**
@@ -354,4 +361,5 @@ public class EmployeeService {
         return employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with email: " + email));
     }
+
 }

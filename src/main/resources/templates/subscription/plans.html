@@ -4,245 +4,256 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subscription Plans — MaestroHR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    },
+                    colors: {
+                        navy: { 950: '#060d1f', 900: '#0a1628', 800: '#0f2040', 700: '#162b55', 600: '#1e3a6e', 500: '#2a4f8f', 400: '#3d6ab5' },
+                        brand: { DEFAULT: '#2563eb', light: '#3b82f6', muted: '#1e40af' }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #f8fafc;
-        }
-
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 48px 20px;
-        }
-
-        .plan-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin-top: 40px;
-        }
-
-        .plan-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 24px;
-            padding: 40px 32px;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .plan-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.1);
-            border-color: #2563eb;
-        }
-
-        .plan-card.popular {
-            background: #0f172a;
-            border-color: #0f172a;
-            color: white;
-        }
-
-        .plan-card.popular .text-muted {
-            color: #94a3b8;
-        }
-
-        .plan-card.popular .btn-upgrade {
-            background: #2563eb;
-            color: white;
-            border: none;
-        }
-
-        .plan-card.popular .btn-upgrade:hover {
-            background: #1d4ed8;
-        }
-
-        .popular-badge {
+        * { -webkit-font-smoothing: antialiased; }
+        :root { --sidebar-w: 240px; --sidebar-collapsed-w: 84px; }
+        body { font-family: 'DM Sans', sans-serif; }
+        body.sidebar-collapsed aside { width: var(--sidebar-collapsed-w) !important; }
+        body.sidebar-collapsed .nav-item { justify-content:center; padding-left:12px; padding-right:12px; position: relative; }
+        body.sidebar-collapsed .nav-item.active { padding-left:10px; }
+        body.sidebar-collapsed .nav-item svg { margin:0; }
+        body.sidebar-collapsed .nav-item, body.sidebar-collapsed .nav-section, body.sidebar-collapsed #sidebar-email, body.sidebar-collapsed #sidebar-role, body.sidebar-collapsed #sidebar-tenant, body.sidebar-collapsed .sidebar-text { font-size:0 !important; }
+        body.sidebar-collapsed .nav-item::after { content: attr(data-label); font-size: 0; }
+        body.sidebar-collapsed #sidebar-avatar { margin: 0 auto; }
+        body.sidebar-collapsed .sidebar-brand { display:none; }
+        body.sidebar-collapsed .sidebar-footer-meta { display:none; }
+        body.sidebar-collapsed .top-search { width: 260px; }
+        body.sidebar-collapsed .nav-item:hover::before {
+            content: attr(data-label);
             position: absolute;
-            top: 16px;
-            right: -35px;
-            background: #2563eb;
-            color: white;
-            padding: 8px 40px;
-            font-size: 11px;
-            font-weight: 700;
-            transform: rotate(45deg);
-            letter-spacing: 1px;
+            left: calc(100% + 12px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
+        body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); transition: transform 0.3s ease; }
+        .sidebar-toggle svg { transition: transform 0.3s ease; }
 
-        .price-text {
-            font-family: 'Outfit', sans-serif;
-            font-size: 42px;
-            font-weight: 700;
-            letter-spacing: -1px;
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px;
+            font-size: 13.5px; font-weight: 400; color: #94a3b8; text-decoration: none;
+            transition: background 0.15s, color 0.15s; margin-bottom: 2px; position: relative;
         }
+        .nav-item svg { flex-shrink: 0; opacity: 0.7; transition: opacity 0.15s; }
+        .nav-item:hover { background: rgba(148, 163, 184, 0.1); color: #e2e8f0; }
+        .nav-item:hover svg { opacity: 1; }
+        .nav-item.active { background: rgba(37,99,235,0.15); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
+        .nav-item.active svg { opacity: 1; color: #3b82f6; }
 
-        .currency {
-            font-size: 20px;
-            vertical-align: super;
-            margin-right: 2px;
-            color: #64748b;
+        .nav-section { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; padding: 16px 12px 6px; }
+        .card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .btn-primary { background: #2563eb; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: white; color: #374151; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #d1d5db; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-secondary:hover { background: #f9fafb; }
+        .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .page-title { font-size: 19px; font-weight: 600; color: #111827; }
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+        .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
+        .toast-error { background: #2e1a1a; color: #fca5a5; border: 1px solid #991b1b; }
+        .toast-info { background: #1a2040; color: #93c5fd; border: 1px solid #1e40af; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        .top-search { width: 320px; position: relative; }
+        .top-search-results, .notification-panel {
+            position: absolute; top: calc(100% + 10px); right: 0; width: 360px; background: white; border: 1px solid #e2e8f0;
+            border-radius: 12px; box-shadow: 0 18px 40px rgba(15,23,42,0.12); display: none; overflow: hidden; z-index: 100;
         }
+        .sidebar-toggle { background:none; border:none; cursor:pointer; color:#94a3b8; padding:6px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+        .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
 
-        .period {
-            font-size: 15px;
-            font-weight: 400;
-            color: #64748b;
-            margin-left: 4px;
-        }
-
-        .plan-card.popular .currency,
-        .plan-card.popular .period {
-            color: #94a3b8;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-
-        .feature-check {
-            color: #10b981;
-            flex-shrink: 0;
-            width: 18px;
-            height: 18px;
-        }
-
-        .btn-upgrade {
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 15px;
-            cursor: pointer;
-            text-align: center;
-            text-decoration: none;
-            border: 1px solid #e2e8f0;
-            background: white;
-            color: #0f172a;
-            margin-top: 24px;
-            display: block;
-            transition: all 0.2s;
-        }
-
-        .btn-upgrade:hover {
-            background: #eff6ff;
-            border-color: #2563eb;
-            color: #2563eb;
-        }
-
-        .btn-upgrade.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .toggle-container {
-            background: #f1f5f9;
-            padding: 4px;
-            border-radius: 14px;
-            display: inline-flex;
-            gap: 4px;
-        }
-
-        .toggle-btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #64748b;
-            background: transparent;
-        }
-
-        .toggle-btn.active {
-            background: white;
-            color: #0f172a;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .discount-tag {
-            font-size: 11px;
-            color: #10b981;
-            background: #ecfdf5;
-            padding: 2px 8px;
-            border-radius: 99px;
-            margin-left: 6px;
-        }
-
-        .loading-spinner {
-            text-align: center;
-            padding: 60px;
-            color: #64748b;
-        }
+        /* Pricing-specific styles */
+        .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 40px; }
+        .plan-card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px 32px; display: flex; flex-direction: column; transition: all 0.3s ease; position: relative; }
+        .plan-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px -12px rgba(0,0,0,0.1); border-color: #2563eb; }
+        .plan-card.popular { background: #0f172a; border-color: #0f172a; color: white; }
+        .plan-card.popular .text-muted { color: #94a3b8; }
+        .plan-card.popular .btn-upgrade { background: #2563eb; color: white; border: none; }
+        .plan-card.popular .btn-upgrade:hover { background: #1d4ed8; }
+        .popular-badge { position: absolute; top: 16px; right: -35px; background: #2563eb; color: white; padding: 8px 40px; font-size: 11px; font-weight: 700; transform: rotate(45deg); letter-spacing: 1px; }
+        .price-text { font-family: 'Outfit', sans-serif; font-size: 42px; font-weight: 700; letter-spacing: -1px; }
+        .currency { font-size: 20px; vertical-align: super; margin-right: 2px; color: #64748b; }
+        .period { font-size: 15px; font-weight: 400; color: #64748b; margin-left: 4px; }
+        .plan-card.popular .currency, .plan-card.popular .period { color: #94a3b8; }
+        .feature-item { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 14px; }
+        .feature-check { color: #10b981; flex-shrink: 0; width: 18px; height: 18px; }
+        .btn-upgrade { width: 100%; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; text-align: center; text-decoration: none; border: 1px solid #e2e8f0; background: white; color: #0f172a; margin-top: 24px; display: block; transition: all 0.2s; }
+        .btn-upgrade:hover { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+        .toggle-container { background: #f1f5f9; padding: 4px; border-radius: 14px; display: inline-flex; gap: 4px; }
+        .toggle-btn { padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; color: #64748b; background: transparent; }
+        .toggle-btn.active { background: white; color: #0f172a; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .discount-tag { font-size: 11px; color: #10b981; background: #ecfdf5; padding: 2px 8px; border-radius: 99px; margin-left: 6px; }
+        .loading-spinner { text-align: center; padding: 60px; color: #64748b; }
     </style>
 </head>
-<body>
-<div class="container">
-    <div class="text-center">
-        <h1 style="font-family:'Outfit'; font-size: 48px; font-weight: 700; color: #0f172a; margin-bottom: 16px;">Simple, Transparent Pricing</h1>
-        <p style="font-size: 18px; color: #64748b; max-width: 600px; margin: 0 auto;">
-            Deploy MaestroHR across your organization today. No hidden setup fees, just pure HR automation.
-        </p>
+<body class="bg-slate-50">
 
-        <div class="mt-10 flex flex-col items-center">
-            <div class="toggle-container">
-                <button class="toggle-btn active" data-period="MONTHLY">Monthly</button>
-                <button class="toggle-btn" data-period="QUARTERLY">Quarterly</button>
-                <button class="toggle-btn" data-period="ANNUALLY">
-                    Annually <span class="discount-tag">Save 10%</span>
-                </button>
+<div class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside style="width:var(--sidebar-w); background:#1e293b; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; border-right: 1px solid #334155;">
+        <div style="padding:20px 16px 16px; border-bottom:1px solid #334155;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                    <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="sidebar-brand">
+                        <p style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1;">MaestroHR</p>
+                        <p style="font-size:10.5px;color:#94a3b8;margin-top:1px;" id="sidebar-tenant">HR &amp; Payroll</p>
+                    </div>
+                </div>
+                <button id="sidebar-toggle" class="sidebar-toggle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
             </div>
         </div>
-    </div>
 
-    <div id="plans-container" class="plan-grid">
-        <div class="loading-spinner">Loading plans...</div>
+        <nav style="flex:1;padding:8px 8px;">
+            <div class="nav-section">Main</div>
+            <a href="/dashboard" class="nav-item" data-route="dashboard" data-label="Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+            <a href="/employees" class="nav-item" data-route="employees" data-label="Employees"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Employees</a>
+            <a href="/departments" class="nav-item" data-route="departments" data-label="Departments"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Departments</a>
+            <a href="/pay-grades" class="nav-item" data-route="pay-grades" data-label="Pay Grades"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pay Grades</a>
+
+            <div class="nav-section">Payroll</div>
+            <a href="/payroll" class="nav-item" data-route="payroll" data-label="Payroll Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll Runs</a>
+            <a href="/reports" class="nav-item" data-route="reports" data-label="Reports"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Reports</a>
+
+            <div class="nav-section">HR</div>
+            <a href="/leave" class="nav-item" data-route="leave" data-label="Leave Management"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Leave Management</a>
+            <a href="/attendance" class="nav-item" data-route="attendance" data-label="Attendance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</a>
+
+            <div class="nav-section">System</div>
+            <a href="/settings" class="nav-item" data-route="settings" data-label="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+
+            <div id="admin-section" style="display: none;">
+                <div class="nav-section">Admin</div>
+                <a href="/admin" class="nav-item" data-route="admin" data-label="Admin Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Admin Dashboard</a>
+                <a href="/admin/pricing" class="nav-item" data-route="admin-pricing" data-label="Pricing"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Pricing</a>
+            </div>
+        </nav>
+
+        <div style="padding:12px 8px;border-top:1px solid #334155;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer;" class="hover:bg-white/5">
+                <div id="sidebar-avatar" style="width:30px;height:30px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;flex-shrink:0;">A</div>
+                <div class="sidebar-footer-meta" style="flex:1;min-width:0;">
+                    <p id="sidebar-email" style="font-size:12.5px;font-weight:500;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">User</p>
+                    <p id="sidebar-role" style="font-size:11px;color:#94a3b8;margin-top:1px;">—</p>
+                </div>
+                <button id="logout-btn" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:4px;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+        <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Subscription Plans</span></div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
+                <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
+                <span id="current-date" style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;"></span>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto" style="padding:24px;">
+            <!-- PRICING CONTENT START -->
+            <div class="text-center">
+                <h1 style="font-family:'Outfit'; font-size: 48px; font-weight: 700; color: #0f172a; margin-bottom: 16px;">Simple, Transparent Pricing</h1>
+                <p style="font-size: 18px; color: #64748b; max-width: 600px; margin: 0 auto;">Deploy MaestroHR across your organization today. No hidden setup fees, just pure HR automation.</p>
+                <div class="mt-10 flex flex-col items-center">
+                    <div class="toggle-container">
+                        <button class="toggle-btn active" data-period="MONTHLY">Monthly</button>
+                        <button class="toggle-btn" data-period="QUARTERLY">Quarterly</button>
+                        <button class="toggle-btn" data-period="ANNUALLY">Annually <span class="discount-tag">Save 10%</span></button>
+                    </div>
+                </div>
+            </div>
+            <div id="plans-container" class="plan-grid"><div class="loading-spinner">Loading plans...</div></div>
+            <!-- PRICING CONTENT END -->
+        </main>
     </div>
 </div>
 
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Plan metadata (features don't change)
+    // ==================== AUTH & UI HELPERS ====================
+    const token = localStorage.getItem('maestrohr_token');
+    const userEmail = localStorage.getItem('maestrohr_email') || '';
+    const userRole = localStorage.getItem('maestrohr_role') || '';
+    const companyName = localStorage.getItem('maestrohr_company') || '';
+
+    if (!token && !window.location.pathname.startsWith('/login')) window.location.href = '/login';
+
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (userEmail) {
+        document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
+        document.getElementById('sidebar-email').textContent = userEmail;
+        document.getElementById('sidebar-role').textContent = userRole.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    if (companyName) document.getElementById('sidebar-tenant').textContent = companyName;
+    if (userRole === 'SUPER_ADMIN') { const section = document.getElementById('admin-section'); if (section) section.style.display = 'block'; }
+
+    document.getElementById('logout-btn').addEventListener('click', () => { localStorage.clear(); window.location.href = '/login'; });
+
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    if (localStorage.getItem('maestrohr_sidebar') === 'collapsed') document.body.classList.add('sidebar-collapsed');
+    sidebarToggle?.addEventListener('click', () => {
+        document.body.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+    });
+
+    const currentPath = window.location.pathname.split('/')[1] || 'dashboard';
+    document.querySelectorAll('.nav-item').forEach(el => { if (el.dataset.route === currentPath) el.classList.add('active'); });
+
+    function showToast(message, type) {
+        const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' };
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `${icons[type] || icons.info} <span>${message}</span>`;
+        document.getElementById('toast-container').appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // ==================== PRICING LOGIC ====================
     const planMetadata = {
-        'FREE_TRIAL': {
-            displayName: 'Free Trial',
-            description: 'Perfect for testing',
-            features: ['Up to 20 employees', 'Basic payroll', 'Email support'],
-            isPopular: false
-        },
-        'BASIC': {
-            displayName: 'Basic',
-            description: 'For small businesses',
-            features: ['Up to 50 employees', 'Basic payroll', 'Email support', 'SMS notifications'],
-            isPopular: false
-        },
-        'PROFESSIONAL': {
-            displayName: 'Professional',
-            description: 'For growing companies',
-            features: ['Up to 200 employees', 'Advanced payroll', 'API access', 'Email support', 'SMS notifications', 'Leave management'],
-            isPopular: true
-        },
-        'ENTERPRISE': {
-            displayName: 'Enterprise',
-            description: 'For large organizations',
-            features: ['Unlimited employees', 'Advanced payroll', 'API access', 'Priority support', 'Custom reporting', 'SMS notifications', 'Leave management', 'Attendance tracking'],
-            isPopular: false
-        }
+        'FREE_TRIAL': { displayName: 'Free Trial', description: 'Perfect for testing', features: ['Up to 20 employees', 'Basic payroll', 'Email support'], isPopular: false },
+        'BASIC': { displayName: 'Basic', description: 'For small businesses', features: ['Up to 50 employees', 'Basic payroll', 'Email support', 'SMS notifications'], isPopular: false },
+        'PROFESSIONAL': { displayName: 'Professional', description: 'For growing companies', features: ['Up to 200 employees', 'Advanced payroll', 'API access', 'Email support', 'SMS notifications', 'Leave management'], isPopular: true },
+        'ENTERPRISE': { displayName: 'Enterprise', description: 'For large organizations', features: ['Unlimited employees', 'Advanced payroll', 'API access', 'Priority support', 'Custom reporting', 'SMS notifications', 'Leave management', 'Attendance tracking'], isPopular: false }
     };
 
     let priceData = {};
@@ -252,13 +263,8 @@
         try {
             const response = await fetch('/api/admin/pricing');
             const result = await response.json();
-
-            console.log('Fetched prices:', result);
-
             if (result.success && result.data) {
-                // Handle both response structures
                 const prices = result.data.prices || result.data;
-
                 for (const plan in prices) {
                     if (prices[plan] && typeof prices[plan] === 'object') {
                         priceData[plan] = {
@@ -269,17 +275,10 @@
                     }
                 }
             }
-
             renderPlans();
         } catch (error) {
             console.error('Failed to fetch prices:', error);
-            // Use fallback prices
-            priceData = {
-                'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 },
-                'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 },
-                'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 },
-                'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 }
-            };
+            priceData = { 'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 }, 'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 }, 'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 }, 'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 } };
             renderPlans();
         }
     }
@@ -287,78 +286,24 @@
     function renderPlans() {
         const container = document.getElementById('plans-container');
         const plans = ['FREE_TRIAL', 'BASIC', 'PROFESSIONAL', 'ENTERPRISE'];
-
-        const periodKey = currentPeriod === 'MONTHLY' ? 'monthly' :
-                         (currentPeriod === 'QUARTERLY' ? 'quarterly' : 'annually');
-        const periodLabel = currentPeriod === 'MONTHLY' ? '/mo' :
-                           (currentPeriod === 'QUARTERLY' ? '/qt' : '/yr');
-
+        const periodKey = currentPeriod === 'MONTHLY' ? 'monthly' : (currentPeriod === 'QUARTERLY' ? 'quarterly' : 'annually');
+        const periodLabel = currentPeriod === 'MONTHLY' ? '/mo' : (currentPeriod === 'QUARTERLY' ? '/qt' : '/yr');
         container.innerHTML = plans.map(planKey => {
             const plan = planMetadata[planKey];
             const price = priceData[planKey] ? priceData[planKey][periodKey] : 0;
-            const isCurrentPlan = false; // You can implement current plan check
-
-            return `
-                <div class="plan-card ${plan.isPopular ? 'popular' : ''}">
-                    ${plan.isPopular ? '<div class="popular-badge">MOST POPULAR</div>' : ''}
-
-                    <div class="mb-8">
-                        <h3 style="font-family: Outfit; font-size: 20px; font-weight: 600; margin-bottom: 8px;">${plan.displayName}</h3>
-                        <p style="font-size: 14px; color: #64748b;">${plan.description}</p>
-                    </div>
-
-                    <div class="mb-10">
-                        <span class="currency">₦</span>
-                        <span class="price-text">${price.toLocaleString()}</span>
-                        <span class="period">${periodLabel}</span>
-                    </div>
-
-                    <div style="flex: 1;">
-                        <p style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 20px;">Features included:</p>
-                        <ul style="list-style: none;">
-                            ${plan.features.map(feature => `
-                                <li class="feature-item">
-                                    <svg class="feature-check" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                        <path d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    <span>${feature}</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>
-
-                    ${isCurrentPlan ?
-                        '<button disabled class="btn-upgrade disabled">Current Plan</button>' :
-                        `<a href="/subscription/checkout?plan=${planKey}&period=${currentPeriod}" class="btn-upgrade">Get Started</a>`
-                    }
-                </div>
-            `;
+            return `<div class="plan-card ${plan.isPopular ? 'popular' : ''}">${plan.isPopular ? '<div class="popular-badge">MOST POPULAR</div>' : ''}<div class="mb-8"><h3 style="font-family: Outfit; font-size: 20px; font-weight: 600; margin-bottom: 8px;">${plan.displayName}</h3><p style="font-size: 14px; color: #64748b;">${plan.description}</p></div><div class="mb-10"><span class="currency">₦</span><span class="price-text">${price.toLocaleString()}</span><span class="period">${periodLabel}</span></div><div style="flex: 1;"><p style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 20px;">Features included:</p><ul style="list-style: none;">${plan.features.map(f => `<li class="feature-item"><svg class="feature-check" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span>${f}</span></li>`).join('')}</ul></div><a href="/subscription/checkout?plan=${planKey}&period=${currentPeriod}" class="btn-upgrade">Get Started</a></div>`;
         }).join('');
     }
 
     function setPeriod(period) {
         currentPeriod = period;
-
-        // Update active toggle button
-        document.querySelectorAll('.toggle-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
+        document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.querySelector(`.toggle-btn[data-period="${period}"]`);
         if (activeBtn) activeBtn.classList.add('active');
-
-        // Re-render with new period
         renderPlans();
     }
 
-    // Set up event listeners
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const period = btn.getAttribute('data-period');
-            if (period) setPeriod(period);
-        });
-    });
-
-    // Load prices and render
+    document.querySelectorAll('.toggle-btn').forEach(btn => btn.addEventListener('click', () => { const period = btn.getAttribute('data-period'); if (period) setPeriod(period); }));
     fetchPrices();
 </script>
 </body>

@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.leave;
 
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.common.ApiResponse;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,10 +36,17 @@ public class LeaveController {
      * GET /api/leave/types
      */
     @GetMapping("/types")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<LeaveType>>> getLeaveTypes() {
         List<LeaveType> types = leaveTypeRepository.findAll();
         return ResponseEntity.ok(ApiResponse.success("Leave types retrieved", types));
+    }
+
+    @GetMapping("/requests")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<LeaveRequest>>> getAllLeaveRequests() {
+        List<LeaveRequest> requests = leaveRequestRepository.findAll();
+        return ResponseEntity.ok(ApiResponse.success("All leave requests retrieved", requests));
     }
 
     /**
