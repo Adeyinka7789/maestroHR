@@ -5,11 +5,11 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -20,9 +20,7 @@ public class NotificationService {
     private final PayslipGenerator payslipGenerator;
     private final TermiiClient termiiClient;
     private final InAppNotificationRepository inAppNotificationRepository;
-
-    @Autowired(required = false)
-    private EmailService emailService;
+    private final Optional<EmailService> emailService;
 
     @Async
     public void sendPayslipNotification(PayrollEntry entry, Employee employee, String period) {
@@ -32,7 +30,7 @@ public class NotificationService {
 
         if (payslipPdf != null) {
             // Send email if email service is available
-            if (emailService != null) {
+            if (emailService.isPresent()) {
                 String subject = "Payslip for " + period;
                 String body = String.format(
                         "<h3>Dear %s,</h3>" +
@@ -42,7 +40,7 @@ public class NotificationService {
                         employee.getFullName(), period, entry.getNetSalary() / 100.0
                 );
 
-                emailService.sendEmailWithAttachment(
+                emailService.get().sendEmailWithAttachment(
                         employee.getEmail(), subject, body, payslipPdf,
                         "payslip_" + period + ".pdf"
                 );
@@ -127,7 +125,7 @@ public class NotificationService {
         }
 
         // Send email if email service is available
-        if (emailService != null) {
+        if (emailService.isPresent()) {
             String subject = "Welcome to MaestroHR - Your Account Has Been Created";
             String htmlBody = String.format(
                     "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>" +
@@ -149,7 +147,7 @@ public class NotificationService {
                             "</div>",
                     employee.getFullName(), employee.getEmail(), password
             );
-            emailService.sendSimpleEmail(employee.getEmail(), subject, htmlBody);
+            emailService.get().sendSimpleEmail(employee.getEmail(), subject, htmlBody);
         }
 
         // Create in-app notification

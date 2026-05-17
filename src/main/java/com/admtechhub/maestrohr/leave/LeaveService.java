@@ -6,6 +6,7 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
+import com.admtechhub.maestrohr.notification.TermiiClient;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +32,9 @@ public class LeaveService {
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final TermiiClient termiiClient;
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
     /**
      * Create default leave types for a new tenant
@@ -91,10 +95,8 @@ public class LeaveService {
         LeaveType leaveType = leaveTypeRepository.findById(leaveTypeId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave type not found"));
 
-        // Calculate days requested (exclude Sundays for MVP)
         long daysRequested = calculateWorkingDays(startDate, endDate);
 
-        // Check available balance
         int currentYear = LocalDate.now().getYear();
         LeaveBalance balance = leaveBalanceRepository
                 .findByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, currentYear)
@@ -105,7 +107,6 @@ public class LeaveService {
                     "Available: " + balance.getDaysRemaining() + ", Requested: " + daysRequested);
         }
 
-        // Check for overlapping approved leaves
         List<LeaveRequest> overlapping = leaveRequestRepository
                 .findApprovedLeavesInDateRange(employeeId, startDate, endDate);
         if (!overlapping.isEmpty()) {
@@ -141,7 +142,7 @@ public class LeaveService {
     }
 
     /**
-     * Approve leave request
+     * Approve leave request with SMS and Email
      */
     @Transactional
     public LeaveRequest approveLeaveRequest(UUID requestId, UUID approverUserId, String comment) {
@@ -155,7 +156,6 @@ public class LeaveService {
         User approver = userRepository.findById(approverUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Approver not found"));
 
-        // Deduct from balance
         int currentYear = request.getStartDate().getYear();
         LeaveBalance balance = leaveBalanceRepository
                 .findByEmployeeIdAndLeaveTypeIdAndYear(
@@ -165,7 +165,6 @@ public class LeaveService {
                 .orElse(null);
 
         if (balance == null) {
-            // Create balance if it doesn't exist
             balance = createLeaveBalance(request.getEmployee(), request.getLeaveType(), currentYear);
         }
 
@@ -182,6 +181,8 @@ public class LeaveService {
         request.setApprovedAt(LocalDateTime.now());
 
         LeaveRequest updated = leaveRequestRepository.save(request);
+
+        // In-app notification
         notificationService.createInAppNotification(
                 request.getEmployee().getEmail(),
                 "LEAVE_APPROVED",
@@ -189,13 +190,28 @@ public class LeaveService {
                 "Your leave request from " + request.getStartDate() + " to " + request.getEndDate() + " has been approved.",
                 "/leave"
         );
-        log.info("Leave request {} approved", requestId);
 
+        // SMS Notification
+        Employee employee = request.getEmployee();
+        if (employee.getPhone() != null && !employee.getPhone().isEmpty()) {
+            String formattedStartDate = request.getStartDate().format(DATE_FORMATTER);
+            String formattedEndDate = request.getEndDate().format(DATE_FORMATTER);
+            String smsMessage = String.format(
+                    "MaestroHR: Your %s leave request from %s to %s has been APPROVED by %s.",
+                    request.getLeaveType().getName(),
+                    formattedStartDate,
+                    formattedEndDate,
+                    approver.getEmail().split("@")[0]
+            );
+            termiiClient.sendSms(employee.getPhone(), smsMessage);
+        }
+
+        log.info("Leave request {} approved, SMS sent to {}", requestId, employee.getPhone());
         return updated;
     }
 
     /**
-     * Reject leave request
+     * Reject leave request with SMS
      */
     @Transactional
     public LeaveRequest rejectLeaveRequest(UUID requestId, String reason) {
@@ -210,6 +226,8 @@ public class LeaveService {
         request.setRejectionReason(reason);
 
         LeaveRequest updated = leaveRequestRepository.save(request);
+
+        // In-app notification
         notificationService.createInAppNotification(
                 request.getEmployee().getEmail(),
                 "LEAVE_REJECTED",
@@ -217,8 +235,21 @@ public class LeaveService {
                 "Your leave request from " + request.getStartDate() + " to " + request.getEndDate() + " was rejected. Reason: " + reason,
                 "/leave"
         );
-        log.info("Leave request {} rejected: {}", requestId, reason);
 
+        // SMS Notification
+        Employee employee = request.getEmployee();
+        if (employee.getPhone() != null && !employee.getPhone().isEmpty()) {
+            String smsMessage = String.format(
+                    "MaestroHR: Your %s leave request from %s to %s was REJECTED. Reason: %s",
+                    request.getLeaveType().getName(),
+                    request.getStartDate(),
+                    request.getEndDate(),
+                    reason.length() > 100 ? reason.substring(0, 100) : reason
+            );
+            termiiClient.sendSms(employee.getPhone(), smsMessage);
+        }
+
+        log.info("Leave request {} rejected: {}, SMS sent to {}", requestId, reason, employee.getPhone());
         return updated;
     }
 
@@ -262,7 +293,7 @@ public class LeaveService {
         long days = 0;
         LocalDate date = startDate;
         while (!date.isAfter(endDate)) {
-            if (date.getDayOfWeek().getValue() != 7) { // Exclude Sunday
+            if (date.getDayOfWeek().getValue() != 7) {
                 days++;
             }
             date = date.plusDays(1);
