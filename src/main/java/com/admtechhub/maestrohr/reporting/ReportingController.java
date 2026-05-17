@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.reporting;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -7,11 +8,13 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpStatus;
+import java.nio.charset.StandardCharsets;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -25,6 +28,7 @@ import java.util.UUID;
 public class ReportingController {
 
     private final ReportingService reportingService;
+    private final PenComReportService penComReportService;
 
     @GetMapping("/monthly-payroll-summary")
     public ResponseEntity<byte[]> monthlyPayrollSummary(@RequestParam Integer month,
@@ -110,10 +114,55 @@ public class ReportingController {
         }
     }
 
+    @GetMapping("/pencom-report")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> generatePenComReport(
+            @RequestParam Integer month,
+            @RequestParam Integer year,
+            @RequestParam(defaultValue = "PDF") ReportFormat format) {
+
+        UUID tenantId = currentTenantId();
+        String html = penComReportService.generatePenComHtml(month, year, tenantId);
+
+        // Convert HTML to PDF using the same utility as other reports
+        byte[] pdf = convertHtmlToPdf(html);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("pencom-report-" + year + "-" + String.format("%02d", month) + ".pdf")
+                .build());
+
+        return ResponseEntity.ok().headers(headers).body(pdf);
+    }
+
+    // Add this helper method (reuse from your ReportingService or implement here)
+    private byte[] convertHtmlToPdf(String html) {
+        try {
+            org.xhtmlrenderer.pdf.ITextRenderer renderer = new org.xhtmlrenderer.pdf.ITextRenderer();
+            renderer.setDocumentFromString(html);
+            renderer.layout();
+            try (java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+                renderer.createPDF(out);
+                return out.toByteArray();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to generate PDF", e);
+        }
+    }
+
     private ResponseEntity<byte[]> download(ReportFile file) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(file.contentType()));
         headers.setContentDisposition(ContentDisposition.attachment().filename(file.filename()).build());
         return ResponseEntity.ok().headers(headers).body(file.content());
+    }
+
+    private UUID currentTenantId() {
+        String tenantId = TenantContext.getCurrentTenant();
+        if (tenantId == null || tenantId.isBlank()) {
+            throw new IllegalStateException("No tenant context available");
+        }
+        return UUID.fromString(tenantId);
     }
 }
