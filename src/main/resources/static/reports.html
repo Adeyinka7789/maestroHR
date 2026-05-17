@@ -206,9 +206,8 @@
                             <button class="btn-secondary report-btn" data-report="paye-schedule">PAYE Schedule (Form A)</button>
                             <button class="btn-secondary report-btn" data-report="pension-schedule">Pension Schedule</button>
                             <button class="btn-secondary report-btn" data-report="nhf-schedule">NHF Schedule</button>
-                            <button id="pencom-report-btn" class="btn-secondary" style="margin-top:10px;">
-                                📄 PenCom Pension Report (RSA)
-                            </button>
+                            <button id="pencom-report-btn" class="btn-secondary" style="margin-top:10px;">📄 PenCom Pension Report (RSA)</button>
+                            <button id="nsitf-report-btn" class="btn-secondary" style="margin-top:10px;">📄 NSITF Contribution Report</button>
                         </div>
                     </div>
 
@@ -448,6 +447,17 @@
         }
         // Download XML file directly
         window.location.href = `/api/reports/pencom-report?month=${month}&year=${year}`;
+    });
+
+    // NSITF Report
+    document.getElementById('nsitf-report-btn')?.addEventListener('click', () => {
+        const month = document.getElementById('reportMonth').value;
+        const year = document.getElementById('reportYear').value;
+        if (!month || !year) {
+            showToast('Please select month and year', 'error');
+            return;
+        }
+        window.location.href = `/api/reports/nsitf-report?month=${month}&year=${year}`;
     });
 
     // Salary history report
