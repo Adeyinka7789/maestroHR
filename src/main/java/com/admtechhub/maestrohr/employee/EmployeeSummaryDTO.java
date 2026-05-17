@@ -22,6 +22,19 @@ public class EmployeeSummaryDTO {
     private Long basicSalary;
     private EmployeeStatus status;
     private LocalDate employmentStartDate;
+    private LocalDate dateOfBirth;
+    private String gender;
+    private String maritalStatus;
+    private String address;
+    private String bankName;
+    private String bankAccountNumber;
+    private String bankAccountName;
+    private String paystackRecipientCode;
+    private LocalDate createdAt;
+    private String employmentType;
+    private LocalDate probationEndDate;
+    private Integer payrollCount;
+    private Integer leaveDaysTaken;
 
     public EmployeeSummaryDTO(Employee employee) {
         this.id = employee.getId();
@@ -34,8 +47,23 @@ public class EmployeeSummaryDTO {
         this.jobTitle = employee.getJobTitle();
         this.status = employee.getStatus();
         this.employmentStartDate = employee.getEmploymentStartDate();
+        this.dateOfBirth = employee.getDateOfBirth();
 
-        // Safely get department name
+        // Enums to string
+        this.gender = employee.getGender() != null ? employee.getGender().name() : null;
+        this.maritalStatus = employee.getMaritalStatus() != null ? employee.getMaritalStatus().name() : null;
+        this.employmentType = employee.getEmploymentType() != null ? employee.getEmploymentType().name() : null;
+
+        // Basic fields
+        this.address = employee.getAddress();
+        this.bankName = employee.getBankName();
+        this.bankAccountNumber = employee.getBankAccountNumber();
+        this.bankAccountName = employee.getBankAccountName();
+        this.paystackRecipientCode = employee.getPaystackRecipientCode();
+        this.probationEndDate = employee.getProbationEndDate();
+        this.createdAt = employee.getCreatedAt() != null ? employee.getCreatedAt().toLocalDate() : null;
+
+        // Lazy-loaded relationships (safe)
         if (employee.getDepartment() != null) {
             try {
                 this.departmentName = employee.getDepartment().getName();
@@ -43,8 +71,6 @@ public class EmployeeSummaryDTO {
                 this.departmentName = null;
             }
         }
-
-        // Safely get pay grade name and salary
         if (employee.getPayGrade() != null) {
             try {
                 this.payGradeName = employee.getPayGrade().getName();
@@ -54,5 +80,9 @@ public class EmployeeSummaryDTO {
                 this.basicSalary = null;
             }
         }
+
+        // Stats – you may want to fetch these via separate queries (set to 0 for now)
+        this.payrollCount = 0;
+        this.leaveDaysTaken = 0;
     }
 }
