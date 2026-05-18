@@ -10,4 +10,9 @@ public class PageController {
     public String audit() {
         return "forward:/audit.html";
     }
+
+    @GetMapping("/recruitment")
+    public String recruitment() {
+        return "forward:/fragments/recruitment-dashboard-fragment.html";
+    }
 }

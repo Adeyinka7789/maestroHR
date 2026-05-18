@@ -59,4 +59,10 @@ public class Tenant extends BaseEntity {
     @Column(name = "disbursement_provider", nullable = false, length = 50)
     @Builder.Default
     private String disbursementProvider = "CSV";
+
+    @Column(name = "logo_url")
+    private String logoUrl;
+
+    @Column(name = "logo_file_name")
+    private String logoFileName;
 }

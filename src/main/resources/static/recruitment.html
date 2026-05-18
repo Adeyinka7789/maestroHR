@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recruitment — MaestroHR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { -webkit-font-smoothing: antialiased; }
+        :root { --sidebar-w: 240px; --sidebar-collapsed-w: 84px; }
+        body { font-family: 'DM Sans', sans-serif; }
+        body.sidebar-collapsed aside { width: var(--sidebar-collapsed-w) !important; }
+        body.sidebar-collapsed .nav-item { justify-content:center; padding-left:12px; padding-right:12px; position: relative; }
+        body.sidebar-collapsed .nav-item.active { padding-left:10px; }
+        body.sidebar-collapsed .nav-item svg { margin:0; }
+        body.sidebar-collapsed .nav-item, body.sidebar-collapsed .nav-section, body.sidebar-collapsed #sidebar-email, body.sidebar-collapsed #sidebar-role, body.sidebar-collapsed #sidebar-tenant, body.sidebar-collapsed .sidebar-text { font-size:0 !important; }
+        body.sidebar-collapsed .nav-item::after { content: attr(data-label); font-size: 0; }
+        body.sidebar-collapsed #sidebar-avatar { margin: 0 auto; }
+        body.sidebar-collapsed .sidebar-brand { display:none; }
+        body.sidebar-collapsed .sidebar-footer-meta { display:none; }
+        body.sidebar-collapsed .top-search { width: 260px; }
+        body.sidebar-collapsed .nav-item:hover::before {
+            content: attr(data-label);
+            position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%);
+            background: #1e293b; color: #e2e8f0; padding: 6px 12px; border-radius: 6px;
+            font-size: 13px; white-space: nowrap; z-index: 1000; pointer-events: none;
+            font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); transition: transform 0.3s ease; }
+        .sidebar-toggle svg { transition: transform 0.3s ease; }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px;
+            font-size: 13.5px; font-weight: 400; color: #94a3b8; text-decoration: none;
+            transition: background 0.15s, color 0.15s; margin-bottom: 2px; position: relative;
+        }
+        .nav-item svg { flex-shrink: 0; opacity: 0.7; transition: opacity 0.15s; }
+        .nav-item:hover { background: rgba(148, 163, 184, 0.1); color: #e2e8f0; }
+        .nav-item:hover svg { opacity: 1; }
+        .nav-item.active { background: rgba(37,99,235,0.15); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
+        .nav-item.active svg { opacity: 1; color: #3b82f6; }
+
+        .nav-section { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; padding: 16px 12px 6px; }
+        .card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; }
+        .stat-card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; padding: 20px 24px; transition: box-shadow 0.2s; }
+        .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .data-table tbody tr { transition: background 0.1s; }
+        .data-table tbody tr:hover { background: #f8fafc; }
+
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 500; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+
+        .btn-primary { background: #2563eb; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: white; color: #374151; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #d1d5db; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-secondary:hover { background: #f9fafb; }
+        .btn-danger { background: #fee2e2; color: #991b1b; padding: 7px 15px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: 1px solid #fecaca; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-danger:hover { background: #fecaca; }
+
+        .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
+        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .form-label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .page-title { font-size: 19px; font-weight: 600; color: #111827; }
+        .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
+
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+        .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
+        .toast-error { background: #2e1a1a; color: #fca5a5; border: 1px solid #991b1b; }
+        .toast-info { background: #1a2040; color: #93c5fd; border: 1px solid #1e40af; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+        .top-search { width: 320px; position: relative; }
+        .top-search-results, .notification-panel {
+            position: absolute; top: calc(100% + 10px); right: 0; width: 360px; background: white; border: 1px solid #e2e8f0;
+            border-radius: 12px; box-shadow: 0 18px 40px rgba(15,23,42,0.12); display: none; overflow: hidden; z-index: 100;
+        }
+        .top-search-results { left: 0; right: auto; width: 100%; }
+        .search-result-link { display:block; padding:12px 14px; text-decoration:none; color:#111827; border-bottom:1px solid #f1f5f9; }
+        .search-result-link:hover { background:#f8fafc; }
+        .notification-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
+        .notification-item.unread { background: #eff6ff; }
+        .sidebar-toggle { background:none; border:none; cursor:pointer; color:#94a3b8; padding:6px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+        .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
+        .tab-btn {
+            padding: 9px 18px; border-radius: 8px; cursor: pointer;
+            font-size: 13.5px; font-weight: 500; border: none;
+            transition: background 0.15s, color 0.15s;
+            background: #f1f5f9; color: #64748b;
+        }
+        .tab-btn:hover { background: #e2e8f0; }
+        .tab-btn.active { background: #2563eb; color: white; }
+    </style>
+</head>
+<body class="bg-slate-50">
+
+<div class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside style="width:var(--sidebar-w); background:#1e293b; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; border-right: 1px solid #334155;">
+        <div style="padding:20px 16px 16px; border-bottom:1px solid #334155;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                    <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="sidebar-brand">
+                        <p style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1;">MaestroHR</p>
+                        <p style="font-size:10.5px;color:#94a3b8;margin-top:1px;" id="sidebar-tenant">HR &amp; Payroll</p>
+                    </div>
+                </div>
+                <button id="sidebar-toggle" class="sidebar-toggle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+            </div>
+        </div>
+
+        <nav style="flex:1;padding:8px 8px;">
+            <div class="nav-section">Main</div>
+            <a href="/dashboard.html" class="nav-item" data-route="dashboard" data-label="Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+            <a href="/employees.html" class="nav-item" data-route="employees" data-label="Employees"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Employees</a>
+            <a href="/departments.html" class="nav-item" data-route="departments" data-label="Departments"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Departments</a>
+            <a href="/pay-grades.html" class="nav-item" data-route="pay-grades" data-label="Pay Grades"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pay Grades</a>
+
+            <div class="nav-section">Payroll</div>
+            <a href="/payroll.html" class="nav-item" data-route="payroll" data-label="Payroll Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll Runs</a>
+            <a href="/reports.html" class="nav-item" data-route="reports" data-label="Reports"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Reports</a>
+
+            <div class="nav-section">HR</div>
+            <a href="/leave.html" class="nav-item" data-route="leave" data-label="Leave Management"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Leave Management</a>
+            <a href="/attendance.html" class="nav-item" data-route="attendance" data-label="Attendance"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</a>
+            <a href="/recruitment.html" class="nav-item" data-route="recruitment" data-label="Recruitment">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 13.5a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4-3-9s1.34-9 3-9"/>
+                </svg>
+                Recruitment
+            </a>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 13.5a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4-3-9s1.34-9 3-9"/>
+                </svg>
+                Recruitment
+            </a>
+
+            <div class="nav-section">System</div>
+            <a href="/audit.html" class="nav-item" data-route="audit" data-label="Audit Logs">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 8v4l3 3M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Audit Logs
+            </a>
+            <a href="/settings.html" class="nav-item" data-route="settings" data-label="Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </a>
+
+            <div id="admin-section" style="display: none;">
+                <div class="nav-section">Admin</div>
+                <a href="/admin.html" class="nav-item" data-route="admin" data-label="Admin Dashboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Admin Dashboard
+                </a>
+                <a href="/plans.html" class="nav-item" data-route="plans" data-label="Pricing">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    Pricing
+                </a>
+            </div>
+        </nav>
+
+        <div style="padding:12px 8px;border-top:1px solid #334155;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;cursor:pointer;" class="hover:bg-white/5">
+                <div id="sidebar-avatar" style="width:30px;height:30px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:white;flex-shrink:0;">A</div>
+                <div class="sidebar-footer-meta" style="flex:1;min-width:0;">
+                    <p id="sidebar-email" style="font-size:12.5px;font-weight:500;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">User</p>
+                    <p id="sidebar-role" style="font-size:11px;color:#94a3b8;margin-top:1px;">—</p>
+                </div>
+                <button id="logout-btn" style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:4px;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+        <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Recruitment</span></div>
+            <div style="display:flex;align-items:center;gap:16px;">
+                <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
+                <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
+                <span id="current-date" style="font-size:12.5px;color:#9ca3af;font-family:'DM Mono',monospace;"></span>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto" style="padding:24px;">
+            <!-- Recruitment Content -->
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Recruitment</h1>
+                    <p class="page-subtitle">Manage job postings and track applicants</p>
+                </div>
+                <button id="create-job-btn" class="btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Job Posting
+                </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Open Positions</div><div id="stats-open-jobs" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Total Applicants</div><div id="stats-total-applicants" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">New Applicants</div><div id="stats-new-applicants" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Interviews Scheduled</div><div id="stats-interviews" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+            </div>
+
+            <!-- Tabs -->
+            <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+                <button id="tab-jobs" class="tab-btn active">📋 Job Postings</button>
+                <button id="tab-applications" class="tab-btn">👥 Applications</button>
+            </div>
+
+            <!-- Jobs List -->
+            <div id="jobs-view">
+                <div class="card" style="overflow:hidden;">
+                    <div class="overflow-x-auto">
+                        <table class="data-table" style="width:100%;border-collapse:collapse;">
+                            <thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                                <th style="padding:12px 16px;text-align:left;">Title</th>
+                                <th style="padding:12px 16px;text-align:left;">Department</th>
+                                <th style="padding:12px 16px;text-align:left;">Location</th>
+                                <th style="padding:12px 16px;text-align:left;">Status</th>
+                                <th style="padding:12px 16px;text-align:left;">Applicants</th>
+                                <th style="padding:12px 16px;text-align:left;">Posted Date</th>
+                                <th style="padding:12px 16px;text-align:center;">Actions</th>
+                            </tr></thead>
+                            <tbody id="jobs-table-body"><tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading job postings...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Applications List (hidden by default) -->
+            <div id="applications-view" style="display:none;">
+                <div class="card" style="overflow:hidden;">
+                    <div class="overflow-x-auto">
+                        <table class="data-table" style="width:100%;border-collapse:collapse;">
+                            <thead><tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                                <th style="padding:12px 16px;text-align:left;">Applicant</th>
+                                <th style="padding:12px 16px;text-align:left;">Job</th>
+                                <th style="padding:12px 16px;text-align:left;">Status</th>
+                                <th style="padding:12px 16px;text-align:left;">Applied Date</th>
+                                <th style="padding:12px 16px;text-align:center;">Actions</th>
+                            </tr></thead>
+                            <tbody id="applications-table-body"><tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading applications...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Modals (same as your fragment) -->
+<div id="job-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;overflow-y:auto;">
+    <div style="background:white;border-radius:12px;max-width:600px;width:90%;margin:40px auto;padding:28px;">
+        <h3 id="modal-title" style="font-size:18px;font-weight:600;margin-bottom:20px;">Create Job Posting</h3>
+        <div style="display:grid;gap:16px;">
+            <input type="text" id="job-title" placeholder="Job Title" class="form-input">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><input type="text" id="job-department" placeholder="Department" class="form-input"><input type="text" id="job-location" placeholder="Location (e.g., Lagos, Remote)" class="form-input"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><select id="job-type" class="form-input"><option value="FULL_TIME">Full Time</option><option value="PART_TIME">Part Time</option><option value="CONTRACT">Contract</option><option value="INTERNSHIP">Internship</option><option value="REMOTE">Remote</option></select><select id="job-status" class="form-input"><option value="DRAFT">Draft</option><option value="PUBLISHED">Published</option><option value="CLOSED">Closed</option></select></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><input type="number" id="job-salary-min" placeholder="Min Salary (₦)" class="form-input"><input type="number" id="job-salary-max" placeholder="Max Salary (₦)" class="form-input"></div>
+            <textarea id="job-description" placeholder="Job Description" rows="5" class="form-input"></textarea>
+            <textarea id="job-requirements" placeholder="Requirements (one per line)" rows="3" class="form-input"></textarea>
+            <textarea id="job-benefits" placeholder="Benefits (one per line)" rows="2" class="form-input"></textarea>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;"><button id="close-modal-btn" class="btn-secondary">Cancel</button><button id="save-job-btn" class="btn-primary">Save</button></div>
+        </div>
+    </div>
+</div>
+
+<div id="application-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;overflow-y:auto;">
+    <div style="background:white;border-radius:12px;max-width:500px;width:90%;margin:40px auto;padding:28px;">
+        <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">Application Details</h3>
+        <div id="application-detail-content"></div>
+        <div style="margin-top:16px;"><label class="form-label">Update Status</label><select id="app-status-select" class="form-input"><option value="NEW">New</option><option value="UNDER_REVIEW">Under Review</option><option value="INTERVIEW_SCHEDULED">Interview Scheduled</option><option value="OFFER_EXTENDED">Offer Extended</option><option value="HIRED">Hired</option><option value="REJECTED">Rejected</option></select></div>
+        <div style="margin-top:12px;"><label class="form-label">Notes</label><textarea id="app-notes" rows="3" class="form-input" placeholder="Add internal notes..."></textarea></div>
+        <div style="margin-top:12px;"><label class="form-label">Schedule Interview</label><input type="datetime-local" id="app-interview-date" class="form-input"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;"><button id="close-app-modal" class="btn-secondary">Close</button><button id="update-app-status" class="btn-primary">Update</button><button id="convert-to-employee-btn" class="btn-primary" style="background:#16a34a;">🎉 Convert to Employee</button></div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+    const token = localStorage.getItem('maestrohr_token');
+    const userEmail = localStorage.getItem('maestrohr_email') || '';
+    const userRole = localStorage.getItem('maestrohr_role') || '';
+    const companyName = localStorage.getItem('maestrohr_company') || '';
+
+    if (!token && !window.location.pathname.startsWith('/login')) window.location.href = '/login';
+
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    if (userEmail) {
+        document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
+        document.getElementById('sidebar-email').textContent = userEmail;
+        document.getElementById('sidebar-role').textContent = userRole.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    if (companyName) document.getElementById('sidebar-tenant').textContent = companyName;
+    if (userRole === 'SUPER_ADMIN') { const section = document.getElementById('admin-section'); if (section) section.style.display = 'block'; }
+
+    document.getElementById('logout-btn').addEventListener('click', () => { localStorage.clear(); window.location.href = '/login'; });
+
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    if (localStorage.getItem('maestrohr_sidebar') === 'collapsed') document.body.classList.add('sidebar-collapsed');
+    sidebarToggle?.addEventListener('click', () => {
+        document.body.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+    });
+
+    function showToast(msg, type) {
+        const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' };
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `${icons[type] || icons.info} <span>${msg}</span>`;
+        document.getElementById('toast-container').appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+
+    let currentJobId = null;
+    let currentAppId = null;
+
+    async function loadJobs() {
+        try {
+            const res = await fetch('/api/recruitment/jobs', { headers: { 'Authorization': `Bearer ${token}` } });
+            const result = await res.json();
+            const tbody = document.getElementById('jobs-table-body');
+            if (result.success && result.data?.content) {
+                const jobs = result.data.content;
+                if (jobs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#94a3b8;">No job postings yet. Click "New Job Posting" to create one.</td></tr>'; return; }
+                tbody.innerHTML = jobs.map(job => `<tr style="border-bottom:1px solid #f8fafc;">
+                    <td style="padding:14px 16px;font-weight:500;">${escapeHtml(job.title)}</td>
+                    <td style="padding:14px 16px;">${escapeHtml(job.department || '-')}</td>
+                    <td style="padding:14px 16px;">${escapeHtml(job.location || '-')}</td>
+                    <td style="padding:14px 16px;"><span class="badge ${job.status === 'PUBLISHED' ? 'badge-green' : job.status === 'CLOSED' ? 'badge-red' : 'badge-gray'}">${job.status}</span></td>
+                    <td style="padding:14px 16px;">${job.applicantCount || 0}</td>
+                    <td style="padding:14px 16px;">${job.postedDate ? new Date(job.postedDate).toLocaleDateString() : '-'}</td>
+                    <td style="padding:14px 16px;text-align:center;"><button class="edit-job-btn btn-secondary" data-id="${job.id}" style="font-size:12px;padding:4px 10px;margin-right:5px;">Edit</button><button class="delete-job-btn btn-danger" data-id="${job.id}" style="font-size:12px;padding:4px 10px;">Delete</button></td>
+                </tr>`).join('');
+            } else { tbody.innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load jobs</td></tr>'; }
+        } catch (err) { console.error(err); document.getElementById('jobs-table-body').innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#ef4444;">Error loading jobs</td></tr>'; }
+    }
+
+    async function loadApplications() {
+        try {
+            const res = await fetch('/api/recruitment/applications', { headers: { 'Authorization': `Bearer ${token}` } });
+            const result = await res.json();
+            const tbody = document.getElementById('applications-table-body');
+            if (result.success && result.data?.content) {
+                const apps = result.data.content;
+                if (apps.length === 0) { tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No applications yet.</td></tr>'; return; }
+                tbody.innerHTML = apps.map(app => {
+                    let badgeClass = 'badge-gray';
+                    if (app.status === 'NEW') badgeClass = 'badge-blue';
+                    else if (app.status === 'UNDER_REVIEW') badgeClass = 'badge-amber';
+                    else if (app.status === 'INTERVIEW_SCHEDULED') badgeClass = 'badge-blue';
+                    else if (app.status === 'HIRED') badgeClass = 'badge-green';
+                    else if (app.status === 'REJECTED') badgeClass = 'badge-red';
+                    return `<tr><td style="padding:14px 16px;"><div><strong>${escapeHtml(app.applicantName)}</strong></div><div class="text-xs text-gray-500">${escapeHtml(app.applicantEmail)}</div></td>
+                        <td>${escapeHtml(app.jobPosting?.title || '-')}</td>
+                        <td><span class="badge ${badgeClass}">${app.status}</span></td>
+                        <td>${new Date(app.createdAt).toLocaleDateString()}</td>
+                        <td><button class="view-app-btn btn-secondary" data-id="${app.id}" style="font-size:12px;padding:4px 10px;">View</button></td>
+                    </tr>`;
+                }).join('');
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function loadStats() {
+        try {
+            const jobsRes = await fetch('/api/recruitment/jobs?size=100', { headers: { 'Authorization': `Bearer ${token}` } });
+            const jobsResult = await jobsRes.json();
+            const jobs = jobsResult.success ? jobsResult.data?.content || [] : [];
+            document.getElementById('stats-open-jobs').textContent = jobs.filter(j => j.status === 'PUBLISHED').length;
+            const appsRes = await fetch('/api/recruitment/applications?size=100', { headers: { 'Authorization': `Bearer ${token}` } });
+            const appsResult = await appsRes.json();
+            const apps = appsResult.success ? appsResult.data?.content || [] : [];
+            document.getElementById('stats-total-applicants').textContent = apps.length;
+            document.getElementById('stats-new-applicants').textContent = apps.filter(a => a.status === 'NEW').length;
+            document.getElementById('stats-interviews').textContent = apps.filter(a => a.status === 'INTERVIEW_SCHEDULED').length;
+        } catch (err) { console.error(err); }
+    }
+
+    async function createJob(jobData) {
+        try {
+            const res = await fetch('/api/recruitment/jobs', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(jobData) });
+            if (res.ok) { showToast('Job created', 'success'); closeJobModal(); loadJobs(); loadStats(); }
+            else { showToast('Failed to create job', 'error'); }
+        } catch (err) { showToast('Error creating job', 'error'); }
+    }
+
+    async function updateJob(id, jobData) {
+        try {
+            const res = await fetch(`/api/recruitment/jobs/${id}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(jobData) });
+            if (res.ok) { showToast('Job updated', 'success'); closeJobModal(); loadJobs(); loadStats(); }
+        } catch (err) { showToast('Error updating job', 'error'); }
+    }
+
+    async function deleteJob(id) {
+        if (!confirm('Delete this job posting?')) return;
+        try {
+            const res = await fetch(`/api/recruitment/jobs/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) { showToast('Job deleted', 'success'); loadJobs(); loadStats(); }
+        } catch (err) { showToast('Error deleting job', 'error'); }
+    }
+
+    async function updateApplicationStatus(appId, status, notes, interviewDate) {
+        let url = `/api/recruitment/applications/${appId}/status?status=${status}`;
+        if (notes) url += `&notes=${encodeURIComponent(notes)}`;
+        try {
+            const res = await fetch(url, { method: 'PATCH', headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                if (interviewDate) await fetch(`/api/recruitment/applications/${appId}/schedule-interview?interviewDate=${interviewDate}${notes ? `&notes=${encodeURIComponent(notes)}` : ''}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                showToast('Application updated', 'success'); closeApplicationModal(); loadApplications(); loadStats();
+            }
+        } catch (err) { showToast('Error updating', 'error'); }
+    }
+
+    async function convertToEmployee(appId) {
+        if (!confirm('Convert to employee?')) return;
+        try {
+            const res = await fetch(`/api/recruitment/applications/${appId}/convert-to-employee`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) { showToast('Converted to employee!', 'success'); closeApplicationModal(); loadApplications(); loadStats(); }
+        } catch (err) { showToast('Conversion failed', 'error'); }
+    }
+
+    function openCreateJobModal() { currentJobId = null; document.getElementById('modal-title').textContent = 'Create Job Posting'; document.getElementById('job-title').value = ''; document.getElementById('job-department').value = ''; document.getElementById('job-location').value = ''; document.getElementById('job-type').value = 'FULL_TIME'; document.getElementById('job-status').value = 'DRAFT'; document.getElementById('job-salary-min').value = ''; document.getElementById('job-salary-max').value = ''; document.getElementById('job-description').value = ''; document.getElementById('job-requirements').value = ''; document.getElementById('job-benefits').value = ''; document.getElementById('job-modal').style.display = 'flex'; }
+    function openEditJobModal(job) { currentJobId = job.id; document.getElementById('modal-title').textContent = 'Edit Job Posting'; document.getElementById('job-title').value = job.title || ''; document.getElementById('job-department').value = job.department || ''; document.getElementById('job-location').value = job.location || ''; document.getElementById('job-type').value = job.employmentType || 'FULL_TIME'; document.getElementById('job-status').value = job.status || 'DRAFT'; document.getElementById('job-salary-min').value = job.salaryRangeMin ? job.salaryRangeMin / 100 : ''; document.getElementById('job-salary-max').value = job.salaryRangeMax ? job.salaryRangeMax / 100 : ''; document.getElementById('job-description').value = job.description || ''; document.getElementById('job-requirements').value = job.requirements || ''; document.getElementById('job-benefits').value = job.benefits || ''; document.getElementById('job-modal').style.display = 'flex'; }
+    function closeJobModal() { document.getElementById('job-modal').style.display = 'none'; }
+    function openApplicationModal(app) {
+        currentAppId = app.id;
+        document.getElementById('application-detail-content').innerHTML = `<div><p><strong>Name:</strong> ${escapeHtml(app.applicantName)}</p><p><strong>Email:</strong> ${escapeHtml(app.applicantEmail)}</p><p><strong>Phone:</strong> ${escapeHtml(app.applicantPhone || '-')}</p><p><strong>Job:</strong> ${escapeHtml(app.jobPosting?.title || '-')}</p><p><strong>Applied:</strong> ${new Date(app.createdAt).toLocaleString()}</p>${app.coverLetter ? `<p><strong>Cover Letter:</strong><br>${escapeHtml(app.coverLetter)}</p>` : ''}${app.resumeUrl ? `<p><a href="${app.resumeUrl}" target="_blank">📄 View Resume</a></p>` : ''}</div>`;
+        document.getElementById('app-status-select').value = app.status || 'NEW';
+        document.getElementById('app-notes').value = app.notes || '';
+        document.getElementById('app-interview-date').value = app.interviewDate ? new Date(app.interviewDate).toISOString().slice(0, 16) : '';
+        document.getElementById('application-modal').style.display = 'flex';
+    }
+    function closeApplicationModal() { document.getElementById('application-modal').style.display = 'none'; }
+
+    document.getElementById('create-job-btn').addEventListener('click', openCreateJobModal);
+    document.getElementById('save-job-btn').addEventListener('click', () => {
+        const jobData = { title: document.getElementById('job-title').value, department: document.getElementById('job-department').value, location: document.getElementById('job-location').value, employmentType: document.getElementById('job-type').value, status: document.getElementById('job-status').value, salaryRangeMin: (document.getElementById('job-salary-min').value || 0) * 100, salaryRangeMax: (document.getElementById('job-salary-max').value || 0) * 100, description: document.getElementById('job-description').value, requirements: document.getElementById('job-requirements').value, benefits: document.getElementById('job-benefits').value };
+        if (currentJobId) updateJob(currentJobId, jobData); else createJob(jobData);
+    });
+    document.getElementById('close-modal-btn').addEventListener('click', closeJobModal);
+    document.getElementById('close-app-modal').addEventListener('click', closeApplicationModal);
+    document.getElementById('update-app-status').addEventListener('click', () => { updateApplicationStatus(currentAppId, document.getElementById('app-status-select').value, document.getElementById('app-notes').value, document.getElementById('app-interview-date').value); });
+    document.getElementById('convert-to-employee-btn').addEventListener('click', () => { convertToEmployee(currentAppId); });
+    document.getElementById('job-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('job-modal')) closeJobModal(); });
+    document.getElementById('application-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('application-modal')) closeApplicationModal(); });
+    document.getElementById('tab-jobs').addEventListener('click', () => { document.getElementById('jobs-view').style.display = 'block'; document.getElementById('applications-view').style.display = 'none'; document.getElementById('tab-jobs').classList.add('active'); document.getElementById('tab-applications').classList.remove('active'); loadJobs(); });
+    document.getElementById('tab-applications').addEventListener('click', () => { document.getElementById('jobs-view').style.display = 'none'; document.getElementById('applications-view').style.display = 'block'; document.getElementById('tab-applications').classList.add('active'); document.getElementById('tab-jobs').classList.remove('active'); loadApplications(); });
+
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-job-btn')) { fetch(`/api/recruitment/jobs/${e.target.dataset.id}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()).then(result => { if (result.success) openEditJobModal(result.data); }); }
+        if (e.target.classList.contains('delete-job-btn')) deleteJob(e.target.dataset.id);
+        if (e.target.classList.contains('view-app-btn')) { fetch(`/api/recruitment/applications/${e.target.dataset.id}`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()).then(result => { if (result.success) openApplicationModal(result.data); }); }
+    });
+
+    loadJobs(); loadStats();
+</script>
+</body>
+</html>
