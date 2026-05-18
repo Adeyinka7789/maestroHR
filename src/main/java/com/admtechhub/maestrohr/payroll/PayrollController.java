@@ -4,8 +4,7 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.common.ApiResponse;
 import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -162,5 +161,21 @@ public class PayrollController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success("Recent payslips retrieved", result));
+    }
+
+    @GetMapping("/{payrollRunId}/export-excel")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> exportPayrollToExcel(@PathVariable UUID payrollRunId) {
+        byte[] excelData = payrollRunService.exportPayrollToExcel(payrollRunId);
+
+        PayrollRunResponse payrollRun = payrollRunService.getPayrollRunResponse(payrollRunId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("payroll-" + payrollRun.getPeriod() + ".xlsx")
+                .build());
+
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }
