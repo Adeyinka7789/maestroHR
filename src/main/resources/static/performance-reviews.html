@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payroll — MaestroHR</title>
+    <title>Performance Reviews — MaestroHR</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -42,13 +42,9 @@
         body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); transition: transform 0.3s ease; }
         .sidebar-toggle svg { transition: transform 0.3s ease; }
 
-        .nav-item {
-            display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px;
-            font-size: 13.5px; font-weight: 400; color: #94a3b8; text-decoration: none;
-            transition: background 0.15s, color 0.15s; margin-bottom: 2px; position: relative;
-        }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; font-size: 13.5px; font-weight: 400; color: #94a3b8; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px; position: relative; }
         .nav-item svg { flex-shrink: 0; opacity: 0.7; transition: opacity 0.15s; }
-        .nav-item:hover { background: rgba(148, 163, 184, 0.1); color: #e2e8f0; }
+        .nav-item:hover { background: rgba(148,163,184,0.1); color: #e2e8f0; }
         .nav-item:hover svg { opacity: 1; }
         .nav-item.active { background: rgba(37,99,235,0.15); color: #93c5fd; border-left: 2px solid #3b82f6; padding-left: 10px; }
         .nav-item.active svg { opacity: 1; color: #3b82f6; }
@@ -61,7 +57,6 @@
         .btn-secondary:hover { background: #f9fafb; }
         .form-input { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: #111827; background: white; transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
         .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-        .form-label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
         .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 500; }
         .badge-green { background: #dcfce7; color: #166534; }
         .badge-amber { background: #fef3c7; color: #92400e; }
@@ -70,6 +65,9 @@
         .badge-gray { background: #f1f5f9; color: #475569; }
         .data-table tbody tr { transition: background 0.1s; }
         .data-table tbody tr:hover { background: #f8fafc; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .page-title { font-size: 19px; font-weight: 600; color: #111827; }
+        .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
         #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
         .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; min-width: 280px; animation: slideIn 0.25s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
         .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
@@ -82,12 +80,11 @@
             border-radius: 12px; box-shadow: 0 18px 40px rgba(15,23,42,0.12); display: none; overflow: hidden; z-index: 100;
         }
         .top-search-results { left: 0; right: auto; width: 100%; }
-        .search-result-link { display:block; padding:12px 14px; text-decoration:none; color:#111827; border-bottom:1px solid #f1f5f9; }
-        .search-result-link:hover { background:#f8fafc; }
-        .notification-item { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; }
-        .notification-item.unread { background: #eff6ff; }
         .sidebar-toggle { background:none; border:none; cursor:pointer; color:#94a3b8; padding:6px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
-        .sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color:#e2e8f0; }
+        .sidebar-toggle:hover { background: rgba(148,163,184,0.1); color:#e2e8f0; }
+        .tab-btn { padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 13.5px; font-weight: 500; border: none; transition: background 0.15s, color 0.15s; background: #f1f5f9; color: #64748b; }
+        .tab-btn:hover { background: #e2e8f0; }
+        .tab-btn.active { background: #2563eb; color: white; }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -119,7 +116,7 @@
             <a href="/pay-grades.html" class="nav-item" data-route="pay-grades" data-label="Pay Grades"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Pay Grades</a>
 
             <div class="nav-section">Payroll</div>
-            <a href="/payroll.html" class="nav-item active" data-route="payroll" data-label="Payroll Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll Runs</a>
+            <a href="/payroll.html" class="nav-item" data-route="payroll" data-label="Payroll Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Payroll Runs</a>
             <a href="/reports.html" class="nav-item" data-route="reports" data-label="Reports"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Reports</a>
 
             <div class="nav-section">HR</div>
@@ -139,11 +136,13 @@
                 </svg>
                 Recruitment
             </a>
-            <a href="/recruitment" class="nav-item" data-route="recruitment" data-label="Recruitment">
+            <a href="/performance-reviews.html" class="nav-item active" data-route="performance-reviews" data-label="Performance Reviews">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 13.5a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4-3-9s1.34-9 3-9"/>
+                    <path d="M12 8v4l3 3M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                Recruitment
+                Performance Reviews
             </a>
 
             <div class="nav-section">System</div>
@@ -179,7 +178,7 @@
     <!-- MAIN CONTENT -->
     <div class="flex flex-col flex-1 overflow-hidden">
         <header style="height:56px;background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;">
-            <div><span style="font-size:15px;font-weight:600;color:#111827;">Payroll Runs</span></div>
+            <div><span style="font-size:15px;font-weight:600;color:#111827;">Performance Reviews</span></div>
             <div style="display:flex;align-items:center;gap:16px;">
                 <div class="top-search"><input id="global-search-input" class="form-input" type="search" placeholder="Search..."><div id="global-search-results" class="top-search-results"></div></div>
                 <div style="position:relative;"><button id="notification-toggle" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notification-badge" style="display:none;position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:white;font-size:10px;text-align:center;"></span></button><div id="notification-panel" class="notification-panel"><div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;"><strong>Notifications</strong><button id="mark-all-read-btn" style="float:right;background:none;border:none;color:#2563eb;font-size:12px;">Mark all read</button></div><div id="notification-list"></div></div></div>
@@ -188,47 +187,75 @@
         </header>
 
         <main class="flex-1 overflow-y-auto" style="padding:24px;">
-            <!-- PAYROLL CONTENT START -->
-            <div id="payroll-content">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-                    <!-- Pending Approval Card -->
-                    <div class="card" style="padding:22px;">
-                        <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Approval</div>
-                        <div id="pending-approvals-count" style="font-size:32px;font-weight:600;margin-top:8px;">0</div>
-                        <div style="margin-top:14px;color:#64748b;font-size:13px;">Runs waiting on approval or disbursement decisions.</div>
-                    </div>
-
-                    <!-- Initiate Payroll Card -->
-                    <div class="card" style="padding:22px;">
-                        <div style="display:flex;gap:10px;align-items:end;">
-                            <div style="flex:1;"><label class="form-label">Month</label><input class="form-input" id="payrollMonth" type="number" min="1" max="12"></div>
-                            <div style="flex:1;"><label class="form-label">Year</label><input class="form-input" id="payrollYear" type="number" min="2024" max="2099"></div>
-                            <button class="btn-primary" id="initiate-payroll-btn">Initiate</button>
-                        </div>
-                    </div>
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Performance Reviews</h1>
+                    <p class="page-subtitle">Manage employee evaluations and performance tracking</p>
                 </div>
+                <button id="create-review-btn" class="btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Review Cycle
+                </button>
+            </div>
 
-                <!-- Payroll Runs Table -->
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Reviews</div><div id="stats-pending" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Completed</div><div id="stats-completed" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Overdue</div><div id="stats-overdue" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+                <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Avg Rating</div><div id="stats-rating" style="font-size:28px;font-weight:600;margin-top:8px;">0.0</div></div>
+            </div>
+
+            <!-- Tabs -->
+            <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+                <button id="tab-cycles" class="tab-btn active">📋 Review Cycles</button>
+                <button id="tab-templates" class="tab-btn">📝 Templates</button>
+            </div>
+
+            <!-- Review Cycles List -->
+            <div id="cycles-view">
                 <div class="card" style="overflow:hidden;">
                     <div class="overflow-x-auto">
                         <table class="data-table" style="width:100%;border-collapse:collapse;">
                             <thead>
                             <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                                <th style="padding:12px 16px;text-align:left;">Period</th>
-                                <th style="padding:12px 16px;text-align:left;">Status</th>
-                                <th style="padding:12px 16px;text-align:left;">Net</th>
-                                <th style="padding:12px 16px;text-align:left;">Initiated By</th>
-                                <th style="padding:12px 16px;text-align:right;"></th>
+                                <th class="p-3 text-left">Employee</th>
+                                <th class="p-3 text-left">Template</th>
+                                <th class="p-3 text-left">Period</th>
+                                <th class="p-3 text-left">Status</th>
+                                <th class="p-3 text-left">Due Date</th>
+                                <th class="p-3 text-left">Rating</th>
+                                <th class="p-3 text-center">Actions</th>
+                        </table>
+                        </thead>
+                        <tbody id="cycles-table-body">
+                        <tr><td colspan="7" class="p-8 text-center text-gray-400">Loading review cycles...</td></tr>
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates List (hidden by default) -->
+            <div id="templates-view" style="display:none;">
+                <div class="card" style="overflow:hidden;">
+                    <div class="overflow-x-auto">
+                        <table class="data-table" style="width:100%;border-collapse:collapse;">
+                            <thead>
+                            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                                <th class="p-3 text-left">Template Name</th>
+                                <th class="p-3 text-left">Type</th>
+                                <th class="p-3 text-left">Description</th>
+                                <th class="p-3 text-center">Actions</th>
                             </tr>
                             </thead>
-                            <tbody id="payroll-runs-table-body">
-                            <tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading payroll runs...</td></tr>
+                            <tbody id="templates-table-body">
+                            <tr><td colspan="4" class="p-8 text-center text-gray-400">Loading templates...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            <!-- PAYROLL CONTENT END -->
         </main>
     </div>
 </div>
@@ -236,7 +263,6 @@
 <div id="toast-container"></div>
 
 <script>
-    // ==================== AUTH & UI HELPERS ====================
     const token = localStorage.getItem('maestrohr_token');
     const userEmail = localStorage.getItem('maestrohr_email') || '';
     const userRole = localStorage.getItem('maestrohr_role') || '';
@@ -244,7 +270,7 @@
 
     if (!token && !window.location.pathname.startsWith('/login')) window.location.href = '/login';
 
-    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
     if (userEmail) {
         document.getElementById('sidebar-avatar').textContent = userEmail.charAt(0).toUpperCase();
@@ -263,180 +289,242 @@
         localStorage.setItem('maestrohr_sidebar', document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
     });
 
-    function showToast(message, type) {
-        const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' };
+    function showToast(msg, type) {
+        const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' };
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        toast.innerHTML = `${icons[type] || icons.info} <span>${message}</span>`;
+        toast.innerHTML = `${icons[type] || ''} <span>${msg}</span>`;
         document.getElementById('toast-container').appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
     }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
-    function formatCurrency(amountKobo) {
-        const naira = (amountKobo || 0) / 100;
-        return '₦' + naira.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    }
+    // ==================== LOAD FUNCTIONS ====================
 
-    function getBadgeClass(status) {
-        if (status === 'APPROVED') return 'badge-green';
-        if (status === 'REJECTED') return 'badge-red';
-        if (status === 'DRAFT') return 'badge-blue';
-        if (status === 'PENDING_APPROVAL') return 'badge-amber';
-        if (status === 'DISBURSING') return 'badge-amber';
-        if (status === 'COMPLETED') return 'badge-green';
-        return 'badge-gray';
-    }
-
-    // ==================== ROLE CHECK ====================
-    function hasPayrollAccess() {
-        return userRole === 'HR_ADMIN' || userRole === 'FINANCE_OFFICER' || userRole === 'SUPER_ADMIN';
-    }
-
-    // ==================== PAYROLL LOGIC ====================
-    async function loadPayrollData() {
-        const tbody = document.getElementById('payroll-runs-table-body');
-
-        if (!hasPayrollAccess()) {
-            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">You do not have permission to view payroll runs. Only HR Admins, Finance Officers, and Super Admins can access this page.<tr></tr>';
-            document.getElementById('pending-approvals-count').textContent = '—';
-            document.getElementById('initiate-payroll-btn').disabled = true;
-            return;
-        }
-
-        tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading...</td></tr>';
-
+    async function loadCycles() {
         try {
-            // Load pending approvals count
-            try {
-                const pendingRes = await fetch('/api/payroll/pending-count', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (pendingRes.ok) {
-                    const pending = await pendingRes.json();
-                    document.getElementById('pending-approvals-count').textContent = pending.data?.count || 0;
-                } else {
-                    document.getElementById('pending-approvals-count').textContent = '0';
-                }
-            } catch (e) {
-                document.getElementById('pending-approvals-count').textContent = '0';
-            }
-
-            // Load all payroll runs
-            const runsRes = await fetch('/api/payroll', {
+            const res = await fetch('/api/performance/cycles', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            const result = await res.json();
+            const tbody = document.getElementById('cycles-table-body');
 
-            if (!runsRes.ok) {
-                if (runsRes.status === 403) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Access denied. Your role "' + userRole + '" does not have permission to view payroll. Please contact your administrator to add HR_ADMIN or FINANCE_OFFICER role.</td></tr>';
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Please try again.</td></tr>';
+            if (result.success && result.data && result.data.content) {
+                const cycles = result.data.content;
+                if (cycles.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No review cycles found. Click "New Review Cycle" to create one.</td></tr>';
+                    return;
                 }
-                return;
-            }
+                tbody.innerHTML = cycles.map(cycle => {
+                    let badgeClass = 'badge-gray';
+                    let statusText = cycle.status || 'PENDING';
+                    if (statusText === 'COMPLETED') badgeClass = 'badge-green';
+                    else if (statusText === 'OVERDUE') badgeClass = 'badge-red';
+                    else if (statusText === 'IN_PROGRESS') badgeClass = 'badge-amber';
+                    else badgeClass = 'badge-blue';
 
-            const runs = await runsRes.json();
-            let runsData = runs.data || (Array.isArray(runs) ? runs : []);
-
-            if (runsData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No payroll runs yet. Start by initiating a new run above.</td></tr>';
+                    return `
+                        <tr class="border-b">
+                            <td class="p-3 font-medium">${escapeHtml(cycle.employee?.fullName || cycle.employeeName || '—')}</td>
+                            <td class="p-3">${escapeHtml(cycle.template?.name || '—')}</td>
+                            <td class="p-3">${cycle.periodStart || '—'} to ${cycle.periodEnd || '—'}</td>
+                            <td class="p-3"><span class="badge ${badgeClass}">${statusText}</span></td>
+                            <td class="p-3">${cycle.dueDate ? new Date(cycle.dueDate).toLocaleDateString() : '—'}</td>
+                            <td class="p-3">${cycle.overallRating || '—'}</td>
+                            <td class="p-3 text-center">
+                                <button class="view-review-btn btn-secondary" data-id="${cycle.id}" style="font-size:12px;padding:4px 10px;">View</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             } else {
-                tbody.innerHTML = runsData.map(run => `
-                    <tr style="border-bottom:1px solid #f8fafc;">
-                        <td style="padding:14px 16px;font-weight:500;">${escapeHtml(run.period || 'N/A')}</td>
-                        <td style="padding:14px 16px;"><span class="badge ${getBadgeClass(run.status)}">${escapeHtml(run.status || 'DRAFT')}</span></td>
-                        <td style="padding:14px 16px;">${formatCurrency(run.totalNet)}</td>
-                        <td style="padding:14px 16px;">${escapeHtml(run.initiatedBy?.email || '-')}</td>
-                        <td style="padding:14px 16px;text-align:right;">
-                            <a href="/payroll-detail.html?id=${run.id}" class="btn-secondary" style="font-size:12px;padding:5px 10px;text-decoration:none;">Open</a>
-                        </td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No review cycles found.</td></tr>';
             }
-        } catch (error) {
-            console.error('Failed to load payroll data:', error);
-            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Check console for details.</td></tr>';
+        } catch (err) {
+            console.error('Failed to load cycles', err);
+            document.getElementById('cycles-table-body').innerHTML = '<tr><td colspan="7" class="p-8 text-center text-red-500">Failed to load review cycles. Please try again.</td></tr>';
         }
     }
 
-    // Set default month/year to current
-    const now = new Date();
-    document.getElementById('payrollMonth').value = now.getMonth() + 1;
-    document.getElementById('payrollYear').value = now.getFullYear();
-
-    // Initiate Payroll
-    document.getElementById('initiate-payroll-btn').addEventListener('click', async () => {
-        if (!hasPayrollAccess()) {
-            showToast('You do not have permission to initiate payroll.', 'error');
-            return;
-        }
-        const month = document.getElementById('payrollMonth').value;
-        const year = document.getElementById('payrollYear').value;
-
-        if (!month || !year) {
-            showToast('Please enter month and year', 'error');
-            return;
-        }
-
+    async function loadTemplates() {
         try {
-            const response = await fetch(`/api/payroll/initiate?month=${month}&year=${year}`, {
-                method: 'POST',
+            const res = await fetch('/api/performance/templates', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const result = await response.json();
+            const result = await res.json();
+            const tbody = document.getElementById('templates-table-body');
 
-            if (!response.ok) {
-                showToast(result.error || result.message || 'Payroll initiation failed.', 'error');
+            if (result.success && result.data && result.data.length > 0) {
+                tbody.innerHTML = result.data.map(template => `
+                    <tr class="border-b">
+                        <td class="p-3 font-medium">${escapeHtml(template.name)}</td>
+                        <td class="p-3"><span class="badge badge-blue">${template.reviewType || 'ANNUAL'}</span></td>
+                        <td class="p-3">${escapeHtml(template.description || '—')}</td>
+                        <td class="p-3 text-center">
+                            <button class="edit-template-btn btn-secondary" data-id="${template.id}" data-name="${escapeHtml(template.name)}" data-type="${template.reviewType}" data-desc="${escapeHtml(template.description || '')}" style="font-size:12px;padding:4px 10px;margin-right:5px;">Edit</button>
+                            <button class="delete-template-btn btn-danger" data-id="${template.id}" style="font-size:12px;padding:4px 10px;">Delete</button>
+                        </td>
+                    </table>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">No templates found. Click "New Review Cycle" to create a template.</span></td>';
+            }
+        } catch (err) {
+            console.error('Failed to load templates', err);
+            document.getElementById('templates-table-body').innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-500">Failed to load templates. Please try again.</span></td>';
+        }
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/api/performance/stats', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success && result.data) {
+                document.getElementById('stats-pending').textContent = result.data.pendingReviews || 0;
+                document.getElementById('stats-completed').textContent = result.data.completedReviews || 0;
+                document.getElementById('stats-overdue').textContent = result.data.overdueReviews || 0;
+                document.getElementById('stats-rating').textContent = result.data.averageRating || '0.0';
+            } else {
+                document.getElementById('stats-pending').textContent = '0';
+                document.getElementById('stats-completed').textContent = '0';
+                document.getElementById('stats-overdue').textContent = '0';
+                document.getElementById('stats-rating').textContent = '0.0';
+            }
+        } catch (err) {
+            console.error('Failed to load stats', err);
+        }
+    }
+
+    // ==================== CREATE/EDIT TEMPLATE MODAL ====================
+
+    function openTemplateModal(templateData = null) {
+        const isEdit = templateData !== null;
+        const modalHtml = `
+            <div id="template-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;">
+                <div style="background:white;border-radius:12px;max-width:500px;width:90%;padding:28px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">${isEdit ? 'Edit' : 'Create'} Review Template</h3>
+                    <div style="display:grid;gap:16px;">
+                        <input type="text" id="template-name" placeholder="Template Name" class="form-input" value="${isEdit ? templateData.name : ''}">
+                        <select id="template-type" class="form-input">
+                            <option value="ANNUAL" ${isEdit && templateData.reviewType === 'ANNUAL' ? 'selected' : ''}>Annual</option>
+                            <option value="QUARTERLY" ${isEdit && templateData.reviewType === 'QUARTERLY' ? 'selected' : ''}>Quarterly</option>
+                            <option value="MONTHLY" ${isEdit && templateData.reviewType === 'MONTHLY' ? 'selected' : ''}>Monthly</option>
+                            <option value="PROBATION" ${isEdit && templateData.reviewType === 'PROBATION' ? 'selected' : ''}>Probation</option>
+                        </select>
+                        <textarea id="template-description" placeholder="Description (optional)" rows="3" class="form-input">${isEdit ? templateData.description : ''}</textarea>
+                        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                            <button id="close-modal-btn" class="btn-secondary">Cancel</button>
+                            <button id="save-template-btn" class="btn-primary" data-id="${isEdit ? templateData.id : ''}">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('close-modal-btn').addEventListener('click', () => {
+            document.getElementById('template-modal').remove();
+        });
+
+        document.getElementById('save-template-btn').addEventListener('click', async () => {
+            const name = document.getElementById('template-name').value.trim();
+            const reviewType = document.getElementById('template-type').value;
+            const description = document.getElementById('template-description').value;
+
+            if (!name) {
+                showToast('Template name is required', 'error');
                 return;
             }
 
-            showToast('Payroll initiated successfully.', 'success');
-            loadPayrollData(); // Refresh the list
-        } catch (error) {
-            console.error(error);
-            showToast('Failed to initiate payroll', 'error');
+            const templateData = { name, reviewType, description };
+            const isEditing = document.getElementById('save-template-btn').dataset.id;
+            const url = isEditing ? `/api/performance/templates/${isEditing}` : '/api/performance/templates';
+            const method = isEditing ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(templateData)
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showToast(isEditing ? 'Template updated' : 'Template created', 'success');
+                    document.getElementById('template-modal').remove();
+                    loadTemplates();
+                } else {
+                    showToast(result.error || 'Failed to save template', 'error');
+                }
+            } catch (err) {
+                showToast('Error saving template', 'error');
+            }
+        });
+    }
+
+    // ==================== EVENT HANDLERS ====================
+
+    document.getElementById('tab-cycles').addEventListener('click', () => {
+        document.getElementById('cycles-view').style.display = 'block';
+        document.getElementById('templates-view').style.display = 'none';
+        document.getElementById('tab-cycles').classList.add('active');
+        document.getElementById('tab-templates').classList.remove('active');
+        loadCycles();
+    });
+
+    document.getElementById('tab-templates').addEventListener('click', () => {
+        document.getElementById('cycles-view').style.display = 'none';
+        document.getElementById('templates-view').style.display = 'block';
+        document.getElementById('tab-templates').classList.add('active');
+        document.getElementById('tab-cycles').classList.remove('active');
+        loadTemplates();
+    });
+
+    document.getElementById('create-review-btn').addEventListener('click', () => {
+        openTemplateModal();
+    });
+
+    // Handle edit/delete clicks
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-template-btn')) {
+            const templateData = {
+                id: e.target.dataset.id,
+                name: e.target.dataset.name,
+                reviewType: e.target.dataset.type,
+                description: e.target.dataset.desc
+            };
+            openTemplateModal(templateData);
+        }
+
+        if (e.target.classList.contains('delete-template-btn')) {
+            const id = e.target.dataset.id;
+            if (!confirm('Delete this template? This action cannot be undone.')) return;
+            fetch(`/api/performance/templates/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => {
+                if (res.ok) {
+                    showToast('Template deleted', 'success');
+                    loadTemplates();
+                } else {
+                    showToast('Failed to delete template', 'error');
+                }
+            }).catch(err => showToast('Error deleting template', 'error'));
+        }
+
+        if (e.target.classList.contains('view-review-btn')) {
+            showToast('Review details feature coming soon', 'info');
         }
     });
 
-    // Load data on page load
-    loadPayrollData();
+    // ==================== INITIALIZE ====================
 
-    // ==================== NOTIFICATIONS ====================
-    async function fetchNotifications() {
-        try {
-            const response = await fetch('/api/notifications', { headers: { 'Authorization': `Bearer ${token}` } });
-            const result = await response.json();
-            const notifications = result.data || [];
-            const unreadCount = notifications.filter(n => !n.read).length;
-            const badge = document.getElementById('notification-badge');
-            if (unreadCount > 0) { badge.style.display = 'block'; badge.textContent = unreadCount > 9 ? '9+' : unreadCount; }
-            else { badge.style.display = 'none'; }
-            const listContainer = document.getElementById('notification-list');
-            if (listContainer) {
-                if (notifications.length === 0) listContainer.innerHTML = '<div style="padding:16px;color:#64748b;font-size:12px;">No notifications</div>';
-                else listContainer.innerHTML = notifications.map(n => `<div class="notification-item ${n.read ? '' : 'unread'}"><div style="font-weight:600;font-size:13px;">${escapeHtml(n.title)}</div><div style="font-size:12px;color:#64748b;margin-top:4px;">${escapeHtml(n.message)}</div><div style="font-size:11px;color:#9ca3af;margin-top:6px;">${new Date(n.createdAt).toLocaleString()}</div></div>`).join('');
-            }
-        } catch (error) { console.error('Failed to fetch notifications:', error); }
-    }
-
-    const notificationToggle = document.getElementById('notification-toggle');
-    const notificationPanel = document.getElementById('notification-panel');
-    if (notificationToggle) {
-        notificationToggle.addEventListener('click', () => {
-            const isVisible = notificationPanel.style.display === 'block';
-            notificationPanel.style.display = isVisible ? 'none' : 'block';
-            if (!isVisible) fetchNotifications();
-        });
-    }
-    document.addEventListener('click', (e) => { if (notificationPanel && !notificationPanel.parentElement.contains(e.target)) notificationPanel.style.display = 'none'; });
-    if (token) fetchNotifications();
+    loadCycles();
+    loadTemplates();
+    loadStats();
 </script>
 </body>
 </html>

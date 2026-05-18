@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.employee.DepartmentRepository;
@@ -11,16 +12,15 @@ import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
 import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -105,6 +105,45 @@ public class DashboardApiController {
         } catch (Exception e) {
             log.error("Error getting department headcounts: {}", e.getMessage());
             return ResponseEntity.ok(ApiResponse.success("Department headcounts retrieved", Map.of()));
+        }
+    }
+
+    @GetMapping("/upcoming-birthdays")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getUpcomingBirthdays() {
+        try {
+            UUID tenantId = getCurrentTenantId();
+            List<Employee> employees = employeeRepository.findAllByTenantId(tenantId, Pageable.unpaged()).getContent();
+
+            LocalDate today = LocalDate.now();
+
+            List<Map<String, Object>> birthdays = employees.stream()
+                    .filter(e -> e.getDateOfBirth() != null)
+                    .map(e -> {
+                        LocalDate dob = e.getDateOfBirth();
+                        LocalDate thisYearBirthday = dob.withYear(today.getYear());
+                        if (thisYearBirthday.isBefore(today)) {
+                            thisYearBirthday = thisYearBirthday.plusYears(1);
+                        }
+                        long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(today, thisYearBirthday);
+
+                        Map<String, Object> birthday = new HashMap<>();
+                        birthday.put("employeeId", e.getId());
+                        birthday.put("employeeName", e.getFullName());
+                        birthday.put("birthdayDate", thisYearBirthday.toString());
+                        birthday.put("daysUntil", (int) daysUntil);
+                        String avatar = String.valueOf((e.getFirstName() != null && e.getFirstName().length() > 0 ? e.getFirstName().charAt(0) : '?'));
+                        birthday.put("avatar", avatar);
+                        return birthday;
+                    })
+                    .filter(b -> (int)b.get("daysUntil") <= 7)
+                    .sorted((a, b) -> Integer.compare((int)a.get("daysUntil"), (int)b.get("daysUntil")))
+                    .limit(5)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(ApiResponse.success("Upcoming birthdays retrieved", birthdays));
+        } catch (Exception e) {
+            log.error("Error getting birthdays", e);
+            return ResponseEntity.ok(ApiResponse.success("Birthdays retrieved", new ArrayList<>()));
         }
     }
 

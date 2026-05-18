@@ -13,9 +13,12 @@ import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -433,5 +436,68 @@ public class PayrollRunService {
         UUID tenantId = currentTenantId();
         List<PayrollRun> payrollRuns = payrollRunRepository.findByTenant_IdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
         return payrollRuns.stream().map(this::toResponse).toList();
+    }
+
+    public byte[] exportPayrollToExcel(UUID payrollRunId) {
+        PayrollRun payrollRun = payrollRunRepository.findById(payrollRunId)
+                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found"));
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Payroll - " + payrollRun.getPeriod());
+
+            // Header style
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            // Header row
+            Row header = sheet.createRow(0);
+            String[] columns = {"Employee Number", "Employee Name", "Basic Salary", "Housing Allowance",
+                    "Transport Allowance", "Other Allowances", "Gross Salary", "PAYE Tax", "Pension (Employee)",
+                    "Pension (Employer)", "NHF", "Net Salary"};
+            for (int i = 0; i < columns.length; i++) {
+                Cell cell = header.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Data rows
+            int rowNum = 1;
+            for (PayrollEntry entry : entries) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(entry.getEmployee().getEmployeeNumber());
+                row.createCell(1).setCellValue(entry.getEmployee().getFullName());
+                row.createCell(2).setCellValue(formatAmount(entry.getBasicSalary()));
+                row.createCell(3).setCellValue(formatAmount(entry.getHousingAllowance()));
+                row.createCell(4).setCellValue(formatAmount(entry.getTransportAllowance()));
+                row.createCell(5).setCellValue(formatAmount(entry.getOtherAllowances()));
+                row.createCell(6).setCellValue(formatAmount(entry.getGrossSalary()));
+                row.createCell(7).setCellValue(formatAmount(entry.getPayeTax()));
+                row.createCell(8).setCellValue(formatAmount(entry.getPensionEmployee()));
+                row.createCell(9).setCellValue(formatAmount(entry.getPensionEmployer()));
+                row.createCell(10).setCellValue(formatAmount(entry.getNhfDeduction()));
+                row.createCell(11).setCellValue(formatAmount(entry.getNetSalary()));
+            }
+
+            for (int i = 0; i < columns.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate Excel export", e);
+        }
+    }
+
+    private double formatAmount(Long amountInKobo) {
+        if (amountInKobo == null) return 0.0;
+        return amountInKobo / 100.0;
     }
 }
