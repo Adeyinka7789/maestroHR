@@ -56,4 +56,14 @@ public class TenantService {
         tenantRepository.save(tenant);
         log.info("Tenant deactivated: {}", id);
     }
+
+    @Transactional(readOnly = true)
+    public long countAll(){
+        return tenantRepository.count();
+    }
+
+    @Transactional(readOnly = true)
+    public long countActive(){
+        return tenantRepository.countActiveTenants();
+    }
 }

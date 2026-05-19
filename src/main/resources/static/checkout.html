@@ -1,0 +1,177 @@
+<!-- checkout.html – content partial only -->
+<style>
+    /* Checkout-specific styles (not in layout.css) */
+    .checkout-shell { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+    .order-card { background: white; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden; }
+    .payment-sidebar { background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 32px; height: fit-content; }
+    .plan-badge { background: #eff6ff; color: #2563eb; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .summary-row { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #f1f5f9; }
+    .summary-row:last-of-type { border-bottom: none; }
+    .secure-badge { display: flex; align-items: center; justify-content: center; gap: 8px; color: #10b981; font-size: 13px; font-weight: 600; margin-bottom: 24px; }
+    .paystack-option { border: 2px solid #2563eb; background: #f0f7ff; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+    .btn-pay { width: 100%; padding: 16px; background: #2563eb; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .btn-pay:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-pay:disabled { opacity: 0.7; cursor: not-allowed; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    .processing { animation: pulse 1.5s infinite; }
+</style>
+
+<div id="checkout-content">
+    <div class="checkout-shell">
+        <div style="margin-bottom: 32px;">
+            <a href="/htmx/plans" style="text-decoration:none; color:#64748b; font-size:14px; font-weight:500;">← Back to plans</a>
+            <h1 style="font-family:'Outfit'; font-size:32px; color:#0f172a; margin-top:12px;">Confirm & Pay</h1>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2">
+                <div class="order-card">
+                    <div style="padding: 32px; border-bottom: 1px solid #e2e8f0;">
+                        <h2 style="font-size:18px; font-weight:600; margin-bottom:20px;">Subscription Details</h2>
+                        <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:20px; border-radius:12px;">
+                            <div style="display:flex; align-items:center; gap:16px;">
+                                <div style="width:48px; height:48px; background:#2563eb; border-radius:12px; display:flex; align-items:center; justify-content:center; color:white;">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                                </div>
+                                <div>
+                                    <span id="plan-badge" class="plan-badge">Professional</span>
+                                    <p style="margin:4px 0 0; font-weight:600; color:#0f172a;" id="billing-cycle">Monthly Billing</p>
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <p style="font-family:'Outfit'; font-size:20px; font-weight:700;" id="topAmount">₦0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding: 32px;">
+                        <div class="summary-row">
+                            <span style="color:#64748b;">Subtotal</span>
+                            <span style="font-weight:500; color:#0f172a;" id="subtotalAmount">₦0</span>
+                        </div>
+                        <div class="summary-row">
+                            <span style="color:#64748b;">Processing Fee</span>
+                            <span style="font-weight:500; color:#0f172a;">₦0.00</span>
+                        </div>
+                        <div class="summary-row" style="margin-top:8px;">
+                            <span style="font-size:18px; font-weight:700;">Total to pay</span>
+                            <span style="font-size:22px; font-weight:800; color:#2563eb;" id="totalAmount">₦0</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 24px; display:flex; gap:16px;">
+                    <div style="flex:1; padding:20px; background:white; border:1px solid #e2e8f0; border-radius:16px; display:flex; align-items:center; gap:12px;">
+                        <svg style="color:#10b981;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <span style="font-size:13px; color:#64748b;">SSL Encrypted Payment</span>
+                    </div>
+                    <div style="flex:1; padding:20px; background:white; border:1px solid #e2e8f0; border-radius:16px; display:flex; align-items:center; gap:12px;">
+                        <svg style="color:#2563eb;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        <span style="font-size:13px; color:#64748b;">Instant Activation</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="payment-sidebar">
+                    <div class="secure-badge">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        SECURE CHECKOUT
+                    </div>
+                    <p style="font-size:13px; font-weight:600; color:#64748b; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Pay Via</p>
+                    <div class="paystack-option">
+                        <div style="width:24px; height:24px; background:#2563eb; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                            <div style="width:8px; height:8px; background:white; border-radius:50%;"></div>
+                        </div>
+                        <div>
+                            <p style="font-size:15px; font-weight:600; color:#0f172a;">Paystack</p>
+                            <p style="font-size:12px; color:#64748b;">Cards, Transfer, USSD</p>
+                        </div>
+                    </div>
+                    <button id="payNowBtn" class="btn-pay">
+                        <span>Pay ₦<span id="btnAmount">0</span></span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                    <p style="font-size:11px; color:#64748b; text-align:center; margin-top:20px; line-height:1.5;">
+                        MaestroHR uses Paystack for secure transactions. Your card details are never stored on our servers.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // Use global MaestroHR helpers
+        const token = MaestroHR.token;
+        const apiCall = MaestroHR.apiCall.bind(MaestroHR);
+        const showToast = MaestroHR.showToast.bind(MaestroHR);
+        const escapeHtml = MaestroHR.escapeHtml.bind(MaestroHR); // kept for consistency, though not heavily used here
+
+        // Plan price mapping (in kobo)
+        const priceMap = {
+            'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 },
+            'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 },
+            'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 },
+            'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 }
+        };
+
+        const planNames = {
+            'FREE_TRIAL': 'Free Trial',
+            'BASIC': 'Basic',
+            'PROFESSIONAL': 'Professional',
+            'ENTERPRISE': 'Enterprise'
+        };
+
+        const periodLabels = {
+            'MONTHLY': 'Monthly Billing',
+            'QUARTERLY': 'Quarterly Billing',
+            'ANNUALLY': 'Annual Billing'
+        };
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const selectedPlan = urlParams.get('plan') || 'PROFESSIONAL';
+        const period = urlParams.get('period') || 'MONTHLY';
+        const amount = priceMap[selectedPlan]?.[period.toLowerCase()] || 0;
+        const formattedAmount = (amount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        // Update UI
+        document.getElementById('plan-badge').textContent = planNames[selectedPlan] || selectedPlan;
+        document.getElementById('billing-cycle').textContent = periodLabels[period] || period;
+        document.getElementById('topAmount').innerHTML = '₦' + formattedAmount;
+        document.getElementById('subtotalAmount').innerHTML = '₦' + formattedAmount;
+        document.getElementById('totalAmount').innerHTML = '₦' + formattedAmount;
+        document.getElementById('btnAmount').innerHTML = formattedAmount;
+
+        // Payment button handler
+        const payBtn = document.getElementById('payNowBtn');
+        payBtn.addEventListener('click', async () => {
+            payBtn.disabled = true;
+            payBtn.classList.add('processing');
+            payBtn.querySelector('span').innerHTML = 'Initializing Secure Payment...';
+
+            try {
+                const response = await apiCall('/api/payment/initialize', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        plan: selectedPlan,
+                        period: period,
+                        amount: amount
+                    })
+                });
+                const result = await response.json();
+                if (result.success && result.data?.authorization_url) {
+                    window.location.href = result.data.authorization_url;
+                } else {
+                    throw new Error(result.message || 'Initialization failed');
+                }
+            } catch (error) {
+                console.error('Checkout Error:', error);
+                showToast('Could not initialize payment. Please try again.', 'error');
+                payBtn.disabled = false;
+                payBtn.classList.remove('processing');
+                payBtn.querySelector('span').innerHTML = `Pay ₦${formattedAmount}`;
+            }
+        });
+    })();
+</script>

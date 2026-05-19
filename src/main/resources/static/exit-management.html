@@ -1,0 +1,302 @@
+<!-- exit-management.html – content partial only -->
+<style>
+    /* Page‑specific styles */
+    .tab-btn {
+        padding: 9px 18px; border-radius: 8px; cursor: pointer;
+        font-size: 13.5px; font-weight: 500; border: none;
+        transition: background 0.15s, color 0.15s;
+        background: #f1f5f9; color: #64748b;
+    }
+    .tab-btn:hover { background: #e2e8f0; }
+    .tab-btn.active { background: #2563eb; color: white; }
+    .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #2563eb; border-radius: 4px; transition: width 0.3s ease; }
+    .btn-success { background: #16a34a; color: white; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+    .btn-success:hover { background: #15803d; }
+
+    /* Ensure modal overlay covers everything and no white box overlaps */
+    #exit-modal, #view-exit-modal {
+        z-index: 1050;
+    }
+    #exit-modal > div, #view-exit-modal > div {
+        z-index: 1051;
+        box-shadow: 0 20px 35px -10px rgba(0,0,0,0.2);
+    }
+    /* Remove white line between table rows */
+    #exit-table-body tr {
+        border-bottom: none !important;
+    }
+</style>
+
+<div>
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Exit Management</h1>
+            <p class="page-subtitle">Manage employee separations, clearance, and final settlements</p>
+        </div>
+        <button id="create-exit-btn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Exit Request
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Pending Exits</div><div id="stats-pending" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">In Clearance</div><div id="stats-clearance" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Completed</div><div id="stats-completed" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Total Payable</div><div id="stats-total-payable" style="font-size:28px;font-weight:600;margin-top:8px;">₦0</div></div>
+    </div>
+
+    <!-- Exit Requests Table -->
+    <div class="card" style="overflow:hidden;">
+        <div class="overflow-x-auto">
+            <table class="data-table" style="width:100%;border-collapse:collapse;">
+                <thead>
+                <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                    <th class="p-3 text-left">Employee</th>
+                    <th class="p-3 text-left">Exit Type</th>
+                    <th class="p-3 text-left">Last Working Day</th>
+                    <th class="p-3 text-left">Status</th>
+                    <th class="p-3 text-left">Clearance Progress</th>
+                    <th class="p-3 text-left">Final Settlement</th>
+                    <th class="p-3 text-center">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="exit-table-body">
+                <tr><td colspan="7" class="p-8 text-center text-gray-400">Loading exit requests...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Exit Request Modal -->
+<div id="exit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1050;display:flex;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:12px;max-width:500px;width:90%;padding:28px;z-index:1051;">
+        <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">New Exit Request</h3>
+        <div style="display:grid;gap:16px;">
+            <select id="exit-employee" class="form-input">
+                <option value="">Select Employee</option>
+            </select>
+            <select id="exit-type" class="form-input">
+                <option value="RESIGNATION">Resignation</option>
+                <option value="RETIREMENT">Retirement</option>
+                <option value="TERMINATION">Termination</option>
+                <option value="CONTRACT_END">Contract End</option>
+                <option value="DEATH">Death</option>
+            </select>
+            <input type="date" id="exit-last-day" class="form-input">
+            <textarea id="exit-reason" placeholder="Reason for exit" rows="3" class="form-input"></textarea>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                <button id="close-exit-modal" class="btn-secondary">Cancel</button>
+                <button id="save-exit-btn" class="btn-primary">Create Request</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Exit Details Modal -->
+<div id="view-exit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1050;display:flex;align-items:center;justify-content:center;overflow-y:auto;">
+    <div style="background:white;border-radius:12px;max-width:700px;width:90%;padding:28px;max-height:90vh;overflow-y:auto;z-index:1051;">
+        <div id="exit-detail-content"></div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // Use global MaestroHR helpers
+        const token = MaestroHR.token;
+        const apiCall = MaestroHR.apiCall.bind(MaestroHR);
+        const showToast = MaestroHR.showToast.bind(MaestroHR);
+        const escapeHtml = MaestroHR.escapeHtml.bind(MaestroHR);
+
+        function formatCurrency(amount) {
+            if (!amount && amount !== 0) return '₦0';
+            return '₦' + amount.toLocaleString('en-NG');
+        }
+
+        // Pre‑load employees once (will be used when modal opens)
+        let employeesLoaded = false;
+        async function loadEmployeesIfNeeded() {
+            if (employeesLoaded) return;
+            try {
+                const res = await apiCall('/api/employees');
+                const result = await res.json();
+                if (result.success && result.data && result.data.content) {
+                    const select = document.getElementById('exit-employee');
+                    select.innerHTML = '<option value="">Select Employee</option>' +
+                        result.data.content.map(emp => `<option value="${emp.id}">${escapeHtml(emp.fullName)} (${emp.employeeNumber})</option>`).join('');
+                    employeesLoaded = true;
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadExitRequests() {
+            try {
+                const res = await apiCall('/api/exit/requests');
+                const result = await res.json();
+                const tbody = document.getElementById('exit-table-body');
+                if (result.success && result.data && result.data.length > 0) {
+                    tbody.innerHTML = result.data.map(exit => {
+                        let badgeClass = 'badge-gray';
+                        let status = exit.status || 'PENDING';
+                        if (status === 'PENDING') badgeClass = 'badge-amber';
+                        else if (status === 'IN_CLEARANCE') badgeClass = 'badge-blue';
+                        else if (status === 'COMPLETED') badgeClass = 'badge-green';
+                        else if (status === 'CANCELLED') badgeClass = 'badge-red';
+
+                        let progress = exit.clearanceProgress || 0;
+                        let settlementStatus = exit.settlementStatus || 'PENDING';
+
+                        return `
+                            <tr>
+                                <td class="p-3 font-medium">${escapeHtml(exit.employeeName)}</td>
+                                <td class="p-3">${escapeHtml(exit.exitType)}</td>
+                                <td class="p-3">${exit.lastWorkingDay ? new Date(exit.lastWorkingDay).toLocaleDateString() : '-'}</td>
+                                <td class="p-3"><span class="badge ${badgeClass}">${status}</span></td>
+                                <td class="p-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="progress-bar flex-1"><div class="progress-fill" style="width: ${progress}%"></div></div>
+                                        <span class="text-xs text-gray-500">${progress}%</span>
+                                    </div>
+                                </td>
+                                <td class="p-3">${settlementStatus === 'PAID' ? '<span class="badge badge-green">Paid</span>' : '<span class="badge badge-amber">Pending</span>'}</td>
+                                <td class="p-3 text-center">
+                                    <button class="view-exit-btn btn-secondary" data-id="${exit.id}" style="font-size:12px;padding:4px 10px;">View</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No exit requests found. Click "New Exit Request" to create one.</td></tr>';
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await apiCall('/api/exit/stats');
+                const result = await res.json();
+                if (result.success && result.data) {
+                    document.getElementById('stats-pending').textContent = result.data.pending || 0;
+                    document.getElementById('stats-clearance').textContent = result.data.inClearance || 0;
+                    document.getElementById('stats-completed').textContent = result.data.completed || 0;
+                    document.getElementById('stats-total-payable').textContent = formatCurrency(result.data.totalPayable);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        // Modal elements
+        const createBtn = document.getElementById('create-exit-btn');
+        const exitModal = document.getElementById('exit-modal');
+        const closeExitModal = document.getElementById('close-exit-modal');
+        const saveExitBtn = document.getElementById('save-exit-btn');
+
+        // Ensure modal is hidden on page load (safety)
+        if (exitModal) exitModal.style.display = 'none';
+
+        if (createBtn) {
+            createBtn.addEventListener('click', async () => {
+                await loadEmployeesIfNeeded();  // load once
+                if (exitModal) exitModal.style.display = 'flex';
+            });
+        }
+        if (closeExitModal) {
+            closeExitModal.addEventListener('click', () => {
+                if (exitModal) exitModal.style.display = 'none';
+            });
+        }
+        if (saveExitBtn) {
+            saveExitBtn.addEventListener('click', async () => {
+                const employeeId = document.getElementById('exit-employee').value;
+                const exitType = document.getElementById('exit-type').value;
+                const lastWorkingDay = document.getElementById('exit-last-day').value;
+                const reason = document.getElementById('exit-reason').value;
+
+                if (!employeeId || !exitType || !lastWorkingDay) {
+                    showToast('Please fill all required fields', 'error');
+                    return;
+                }
+
+                try {
+                    const res = await apiCall('/api/exit/requests', {
+                        method: 'POST',
+                        body: JSON.stringify({ employeeId, exitType, lastWorkingDay, reason })
+                    });
+                    if (res.ok) {
+                        showToast('Exit request created', 'success');
+                        if (exitModal) exitModal.style.display = 'none';
+                        document.getElementById('exit-employee').value = '';
+                        document.getElementById('exit-type').value = 'RESIGNATION';
+                        document.getElementById('exit-last-day').value = '';
+                        document.getElementById('exit-reason').value = '';
+                        loadExitRequests();
+                        loadStats();
+                    } else {
+                        const err = await res.json();
+                        showToast(err.error || 'Failed to create', 'error');
+                    }
+                } catch (err) { showToast('Error creating exit request', 'error'); }
+            });
+        }
+
+        // View exit details modal (event delegation)
+        const viewModal = document.getElementById('view-exit-modal');
+        if (viewModal) viewModal.style.display = 'none';
+
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('view-exit-btn')) {
+                const id = e.target.dataset.id;
+                try {
+                    const res = await apiCall(`/api/exit/requests/${id}`);
+                    const result = await res.json();
+                    if (result.success && result.data) {
+                        const exit = result.data;
+                        document.getElementById('exit-detail-content').innerHTML = `
+                            <h3 class="text-lg font-semibold mb-4">Exit Details</h3>
+                            <div class="grid gap-3">
+                                <div class="flex justify-between p-2 bg-gray-50 rounded"><span class="font-medium">Employee:</span><span>${escapeHtml(exit.employeeName)}</span></div>
+                                <div class="flex justify-between p-2 bg-gray-50 rounded"><span class="font-medium">Exit Type:</span><span>${escapeHtml(exit.exitType)}</span></div>
+                                <div class="flex justify-between p-2 bg-gray-50 rounded"><span class="font-medium">Last Working Day:</span><span>${exit.lastWorkingDay ? new Date(exit.lastWorkingDay).toLocaleDateString() : '-'}</span></div>
+                                <div class="flex justify-between p-2 bg-gray-50 rounded"><span class="font-medium">Reason:</span><span>${escapeHtml(exit.reason || '-')}</span></div>
+                                <div class="flex justify-between p-2 bg-gray-50 rounded"><span class="font-medium">Status:</span><span class="badge badge-amber">${exit.status}</span></div>
+                            </div>
+                            ${exit.settlement ? `
+                            <h4 class="font-semibold mt-4 mb-2">Final Settlement</h4>
+                            <div class="grid gap-2 bg-blue-50 p-3 rounded">
+                                <div class="flex justify-between"><span>Unpaid Salary:</span><span>${formatCurrency(exit.settlement.unpaidSalary)}</span></div>
+                                <div class="flex justify-between"><span>Accrued Leave:</span><span>${formatCurrency(exit.settlement.accruedLeave)}</span></div>
+                                <div class="flex justify-between"><span>Severance Pay:</span><span>${formatCurrency(exit.settlement.severancePay)}</span></div>
+                                <div class="flex justify-between"><span>Other Deductions:</span><span>-${formatCurrency(exit.settlement.otherDeductions)}</span></div>
+                                <div class="flex justify-between pt-2 border-t font-bold"><span>Total Payable:</span><span>${formatCurrency(exit.settlement.totalPayable)}</span></div>
+                                <div class="flex justify-between text-sm"><span>Payment Status:</span><span class="badge ${exit.settlement.paymentStatus === 'PAID' ? 'badge-green' : 'badge-amber'}">${exit.settlement.paymentStatus}</span></div>
+                            </div>
+                            ` : '<p class="text-gray-500 mt-4">Final settlement not yet calculated.</p>'}
+                            <div class="flex justify-end mt-4">
+                                <button id="close-view-modal" class="btn-secondary">Close</button>
+                            </div>
+                        `;
+                        if (viewModal) viewModal.style.display = 'flex';
+                        document.getElementById('close-view-modal').addEventListener('click', () => {
+                            if (viewModal) viewModal.style.display = 'none';
+                        });
+                    }
+                } catch (err) { showToast('Failed to load details', 'error'); }
+            }
+        });
+
+        // Close view modal on background click
+        if (viewModal) {
+            viewModal.addEventListener('click', (e) => {
+                if (e.target === viewModal) viewModal.style.display = 'none';
+            });
+        }
+
+        // Initial load
+        loadExitRequests();
+        loadStats();
+        // Pre‑load employees in background (so they are ready when modal opens)
+        loadEmployeesIfNeeded();
+    })();
+</script>

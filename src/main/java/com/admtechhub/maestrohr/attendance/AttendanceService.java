@@ -16,6 +16,7 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,47 +27,65 @@ public class AttendanceService {
     private final EmployeeRepository employeeRepository;
     private final TenantRepository tenantRepository;
 
-    /**
-     * Get attendance records for a specific date
-     */
+    // Helper method to convert entity to DTO
+    private AttendanceRecordDTO toDto(AttendanceRecord record) {
+        if (record == null) return null;
+        return new AttendanceRecordDTO(
+                record.getId(),
+                record.getEmployee().getId(),
+                record.getEmployee().getFullName(),
+                record.getAttendanceDate(),
+                record.getClockInTime(),
+                record.getClockOutTime(),
+                record.getHoursWorked(),
+                record.getStatus(),
+                record.getCheckInMethod(),
+                record.getNotes()
+        );
+    }
+
+    // Helper for list conversion
+    private List<AttendanceRecordDTO> toDtoList(List<AttendanceRecord> records) {
+        return records.stream().map(this::toDto).collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
-    public List<AttendanceRecord> getAttendanceByDate(LocalDate date) {
+    public List<AttendanceRecordDTO> getAttendanceByDate(LocalDate date) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        return attendanceRepository.findByAttendanceDate(date).stream()
+        List<AttendanceRecord> records = attendanceRepository.findByAttendanceDate(date).stream()
                 .filter(record -> record.getTenant().getId().equals(tenantId))
                 .toList();
+        return toDtoList(records);
     }
 
-    /**
-     * Get attendance for an employee within date range
-     */
     @Transactional(readOnly = true)
-    public List<AttendanceRecord> getEmployeeAttendance(UUID employeeId, LocalDate startDate, LocalDate endDate) {
+    public List<AttendanceRecordDTO> getEmployeeAttendance(UUID employeeId, LocalDate startDate, LocalDate endDate) {
         if (startDate == null) startDate = LocalDate.now().minusMonths(3);
         if (endDate == null) endDate = LocalDate.now();
-        return attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, startDate, endDate);
+        List<AttendanceRecord> records = attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, startDate, endDate);
+        return toDtoList(records);
     }
 
-    /**
-     * Get attendance for a specific employee on a specific date
-     */
     @Transactional(readOnly = true)
-    public AttendanceRecord getAttendanceByEmployeeAndDate(UUID employeeId, LocalDate date) {
-        return attendanceRepository.findByEmployeeIdAndAttendanceDate(employeeId, date).orElse(null);
+    public AttendanceRecordDTO getAttendanceByEmployeeAndDate(UUID employeeId, LocalDate date) {
+        AttendanceRecord record = attendanceRepository.findByEmployeeIdAndAttendanceDate(employeeId, date).orElse(null);
+        return toDto(record);
     }
 
-    /**
-     * Mark attendance for an employee
-     */
     @Transactional
-    public AttendanceRecord markAttendance(UUID employeeId, LocalDate date, AttendanceStatus status,
-                                           String clockInTimeStr, String clockOutTimeStr) {
+    public AttendanceRecordDTO markAttendance(UUID employeeId, LocalDate date, AttendanceStatus status,
+                                              String clockInTimeStr, String clockOutTimeStr) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
 
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
+
+        // Check if attendance already exists for this employee on this date
+        AttendanceRecord record = attendanceRepository
+                .findByEmployeeIdAndAttendanceDate(employeeId, date)
+                .orElse(null);
 
         LocalTime clockIn = clockInTimeStr != null ? LocalTime.parse(clockInTimeStr) : null;
         LocalTime clockOut = clockOutTimeStr != null ? LocalTime.parse(clockOutTimeStr) : null;
@@ -77,29 +96,34 @@ public class AttendanceService {
             hoursWorked = BigDecimal.valueOf(minutes / 60.0).setScale(2, java.math.RoundingMode.HALF_UP);
         }
 
-        AttendanceRecord record = AttendanceRecord.builder()
-                .tenant(tenant)
-                .employee(employee)
-                .attendanceDate(date)
-                .clockInTime(clockIn)
-                .clockOutTime(clockOut)
-                .hoursWorked(hoursWorked)
-                .status(status)
-                .checkInMethod("MANUAL")
-                .build();
+        if (record == null) {
+            // Create new record
+            record = AttendanceRecord.builder()
+                    .tenant(tenant)
+                    .employee(employee)
+                    .attendanceDate(date)
+                    .clockInTime(clockIn)
+                    .clockOutTime(clockOut)
+                    .hoursWorked(hoursWorked)
+                    .status(status)
+                    .checkInMethod("MANUAL")
+                    .build();
+        } else {
+            // Update existing record
+            record.setStatus(status);
+            if (clockIn != null) record.setClockInTime(clockIn);
+            if (clockOut != null) record.setClockOutTime(clockOut);
+            record.setHoursWorked(hoursWorked);
+        }
 
         AttendanceRecord saved = attendanceRepository.save(record);
-        log.info("Attendance marked for employee {} on {}: {}", employeeId, date, status);
-
-        return saved;
+        log.info("Attendance marked/updated for employee {} on {}: {}", employeeId, date, status);
+        return toDto(saved);
     }
 
-    /**
-     * Update attendance record by ID
-     */
     @Transactional
-    public AttendanceRecord updateAttendance(UUID recordId, AttendanceStatus status,
-                                             String clockInTimeStr, String clockOutTimeStr) {
+    public AttendanceRecordDTO updateAttendance(UUID recordId, AttendanceStatus status,
+                                                String clockInTimeStr, String clockOutTimeStr) {
         AttendanceRecord record = attendanceRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Attendance record not found"));
 
@@ -115,13 +139,9 @@ public class AttendanceService {
 
         AttendanceRecord updated = attendanceRepository.save(record);
         log.info("Attendance record {} updated", recordId);
-
-        return updated;
+        return toDto(updated);
     }
 
-    /**
-     * Get monthly attendance summary for an employee
-     */
     @Transactional(readOnly = true)
     public long getPresentDaysInMonth(UUID employeeId, int year, int month) {
         LocalDate startDate = LocalDate.of(year, month, 1);

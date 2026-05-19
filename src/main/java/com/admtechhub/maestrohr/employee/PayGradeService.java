@@ -75,17 +75,33 @@ public class PayGradeService {
         return grade;
     }
 
+    // Replace the update method:
     @Transactional
-    public PayGrade update(UUID id, String name, Long basicSalary,
-                           Long housingAllowance, Long transportAllowance,
-                           Long otherAllowances) {
+    public PayGradeDTO update(UUID id, String name, Long basicSalary,
+                              Long housingAllowance, Long transportAllowance,
+                              Long otherAllowances) {
         PayGrade grade = findById(id);
         grade.setName(name);
         grade.setBasicSalary(basicSalary);
         grade.setHousingAllowance(housingAllowance);
         grade.setTransportAllowance(transportAllowance);
         grade.setOtherAllowances(otherAllowances);
-        return payGradeRepository.save(grade);
+        PayGrade saved = payGradeRepository.save(grade);
+        return toDto(saved);
+    }
+
+    // Add this method in PayGradeService
+    private PayGradeDTO toDto(PayGrade grade) {
+        return new PayGradeDTO(
+                grade.getId(),
+                grade.getName(),
+                grade.getBasicSalary(),
+                grade.getHousingAllowance(),
+                grade.getTransportAllowance(),
+                grade.getOtherAllowances(),
+                grade.getIsActive(),
+                grade.getGrossSalary()
+        );
     }
 
     @Transactional

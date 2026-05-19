@@ -1,11 +1,10 @@
 package com.admtechhub.maestrohr.search;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
-import com.admtechhub.maestrohr.employee.DepartmentRepository;
-import com.admtechhub.maestrohr.employee.Employee;
-import com.admtechhub.maestrohr.employee.EmployeeRepository;
-import com.admtechhub.maestrohr.employee.PayGradeRepository;
+import com.admtechhub.maestrohr.employee.*;
+import com.admtechhub.maestrohr.leave.LeaveRequest;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
+import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -14,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -35,30 +33,29 @@ public class SearchService {
         }
 
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        String term = normalized.toLowerCase(Locale.ROOT);
+        String term = normalized;
         List<SearchResult> results = new ArrayList<>();
 
-        employeeRepository.searchEmployees(normalized, PageRequest.of(0, 6)).getContent().forEach(employee ->
-                results.add(new SearchResult(
+        // Employees – already efficient (uses DB LIKE via existing method)
+        employeeRepository.searchEmployees(term, PageRequest.of(0, 6))
+                .forEach(emp -> results.add(new SearchResult(
                         "Employee",
-                        employee.getFullName(),
-                        employee.getEmployeeNumber() + " · " + employee.getEmail(),
-                        "/employees/" + employee.getId()
+                        emp.getFullName(),
+                        emp.getEmployeeNumber() + " · " + emp.getEmail(),
+                        "/htmx/employee-view?id=" + emp.getId()
                 )));
 
-        departmentRepository.findAllByTenantId(tenantId).stream()
-                .filter(department -> department.getName().toLowerCase(Locale.ROOT).contains(term))
-                .limit(4)
-                .forEach(department -> results.add(new SearchResult(
+        // Departments – new DB query
+        departmentRepository.searchDepartments(tenantId, term, PageRequest.of(0, 4))
+                .forEach(dept -> results.add(new SearchResult(
                         "Department",
-                        department.getName(),
-                        "Department directory",
+                        dept.getName(),
+                        "Department",
                         "/departments"
                 )));
 
-        payGradeRepository.findAllByTenantIdAndIsActive(tenantId, true).stream()
-                .filter(grade -> grade.getName().toLowerCase(Locale.ROOT).contains(term))
-                .limit(4)
+        // Pay grades – new DB query
+        payGradeRepository.searchPayGrades(tenantId, term, PageRequest.of(0, 4))
                 .forEach(grade -> results.add(new SearchResult(
                         "Pay Grade",
                         grade.getName(),
@@ -66,9 +63,8 @@ public class SearchService {
                         "/pay-grades"
                 )));
 
-        payrollRunRepository.findAllByTenant_IdOrderByCreatedAtDesc(tenantId).stream()
-                .filter(run -> run.getPeriod().toLowerCase(Locale.ROOT).contains(term) || run.getStatus().name().toLowerCase(Locale.ROOT).contains(term))
-                .limit(5)
+        // Payroll runs – new DB query
+        payrollRunRepository.searchPayrollRuns(tenantId, term, PageRequest.of(0, 5))
                 .forEach(run -> results.add(new SearchResult(
                         "Payroll",
                         run.getPeriod(),
@@ -76,15 +72,15 @@ public class SearchService {
                         "/payroll/" + run.getId()
                 )));
 
-        leaveRequestRepository.findAll().stream()
-                .filter(request -> matchesLeave(request, term))
-                .limit(5)
-                .forEach(request -> {
-                    Employee employee = request.getEmployee();
+        // Leave requests – new DB query (now tenant‑filtered)
+        leaveRequestRepository.searchLeaveRequests(tenantId, term, PageRequest.of(0, 5))
+                .forEach(req -> {
+                    String employeeName = req.getEmployee().getFullName();
+                    String details = req.getLeaveType().getName() + " · " + req.getStatus().name();
                     results.add(new SearchResult(
                             "Leave",
-                            employee.getFullName(),
-                            request.getLeaveType().getName() + " · " + request.getStatus().name(),
+                            employeeName,
+                            details,
                             "/leave"
                     ));
                 });
@@ -92,14 +88,6 @@ public class SearchService {
         return new SearchResponse(results.stream().limit(15).toList());
     }
 
-    private boolean matchesLeave(com.admtechhub.maestrohr.leave.LeaveRequest request, String term) {
-        return request.getEmployee().getFullName().toLowerCase(Locale.ROOT).contains(term)
-                || request.getLeaveType().getName().toLowerCase(Locale.ROOT).contains(term)
-                || request.getStatus().name().toLowerCase(Locale.ROOT).contains(term)
-                || request.getReason().toLowerCase(Locale.ROOT).contains(term);
-    }
-
     public record SearchResponse(List<SearchResult> results) {}
-
     public record SearchResult(String type, String title, String subtitle, String url) {}
 }

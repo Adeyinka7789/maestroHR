@@ -31,6 +31,16 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
                                                      @Param("startDate") LocalDate startDate,
                                                      @Param("endDate") LocalDate endDate);
 
+    @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId " +
+            "AND (LOWER(CONCAT(l.employee.firstName, ' ', l.employee.lastName)) LIKE LOWER(CONCAT('%', :term, '%')) " +
+            "OR LOWER(l.leaveType.name) LIKE LOWER(CONCAT('%', :term, '%')) " +
+            "OR LOWER(l.status) LIKE LOWER(CONCAT('%', :term, '%')) " +
+            "OR LOWER(l.reason) LIKE LOWER(CONCAT('%', :term, '%'))) " +
+            "ORDER BY l.createdAt DESC")
+    List<LeaveRequest> searchLeaveRequests(@Param("tenantId") UUID tenantId,
+                                           @Param("term") String term,
+                                           Pageable pageable);
+
     @Query("SELECT COALESCE(SUM(l.daysRequested), 0) FROM LeaveRequest l " +
             "WHERE l.employee.id = :employeeId " +
             "AND l.leaveType.id = :leaveTypeId " +

@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -438,10 +439,17 @@ public class PayrollRunService {
         return payrollRuns.stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
     public byte[] exportPayrollToExcel(UUID payrollRunId) {
         PayrollRun payrollRun = payrollRunRepository.findById(payrollRunId)
-                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
+
         List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+
+        // Defensive: ensure entries is never null
+        if (entries == null) {
+            entries = Collections.emptyList();
+        }
 
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Payroll - " + payrollRun.getPeriod());
@@ -465,12 +473,23 @@ public class PayrollRunService {
                 cell.setCellStyle(headerStyle);
             }
 
-            // Data rows
+            // Data rows with null-safe handling
             int rowNum = 1;
             for (PayrollEntry entry : entries) {
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(entry.getEmployee().getEmployeeNumber());
-                row.createCell(1).setCellValue(entry.getEmployee().getFullName());
+
+                // Handle missing employee gracefully
+                Employee employee = entry.getEmployee();
+                if (employee == null) {
+                    row.createCell(0).setCellValue("DELETED");
+                    row.createCell(1).setCellValue("Deleted employee (entry ID: " + entry.getId() + ")");
+                } else {
+                    // Employee exists – safe to access fields
+                    row.createCell(0).setCellValue(employee.getEmployeeNumber() != null ? employee.getEmployeeNumber() : "");
+                    row.createCell(1).setCellValue(employee.getFullName() != null ? employee.getFullName() : "");
+                }
+
+                // All monetary fields are handled via formatAmount (null safe)
                 row.createCell(2).setCellValue(formatAmount(entry.getBasicSalary()));
                 row.createCell(3).setCellValue(formatAmount(entry.getHousingAllowance()));
                 row.createCell(4).setCellValue(formatAmount(entry.getTransportAllowance()));
@@ -483,6 +502,7 @@ public class PayrollRunService {
                 row.createCell(11).setCellValue(formatAmount(entry.getNetSalary()));
             }
 
+            // Auto-size columns
             for (int i = 0; i < columns.length; i++) {
                 sheet.autoSizeColumn(i);
             }
@@ -492,7 +512,9 @@ public class PayrollRunService {
             return out.toByteArray();
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to generate Excel export", e);
+            // Log the full root cause for debugging
+            log.error("Failed to generate Excel export for payroll run: {}", payrollRunId, e);
+            throw new RuntimeException("Failed to generate Excel export: " + e.getMessage(), e);
         }
     }
 

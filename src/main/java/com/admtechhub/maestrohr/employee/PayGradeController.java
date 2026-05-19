@@ -67,10 +67,10 @@ public class PayGradeController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<PayGrade>> update(
+    public ResponseEntity<ApiResponse<PayGradeDTO>> update(
             @PathVariable UUID id,
             @Valid @RequestBody PayGradeRequest request) {
-        PayGrade updated = payGradeService.update(
+        PayGradeDTO updated = payGradeService.update(
                 id,
                 request.getName(),
                 request.getBasicSalary(),

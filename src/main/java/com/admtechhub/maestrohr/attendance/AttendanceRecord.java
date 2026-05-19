@@ -54,4 +54,5 @@ public class AttendanceRecord extends BaseEntity {
 
     @Column(name = "notes")
     private String notes;
+
 }

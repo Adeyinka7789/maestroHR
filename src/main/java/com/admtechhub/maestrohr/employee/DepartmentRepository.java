@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.employee;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,4 +20,17 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     // ADD THIS METHOD - count departments by tenant
     @Query("SELECT COUNT(d) FROM Department d WHERE d.tenant.id = :tenantId")
     long countByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query("SELECT new com.admtechhub.maestrohr.employee.DepartmentDTO(d.id, d.name, d.createdAt, COUNT(e.id)) " +
+            "FROM Department d LEFT JOIN Employee e ON e.department.id = d.id " +
+            "WHERE d.tenant.id = :tenantId " +
+            "GROUP BY d.id, d.name, d.createdAt")
+    List<DepartmentDTO> findAllWithEmployeeCountByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query("SELECT d FROM Department d WHERE d.tenant.id = :tenantId " +
+            "AND LOWER(d.name) LIKE LOWER(CONCAT('%', :term, '%')) " +
+            "ORDER BY d.name")
+    List<Department> searchDepartments(@Param("tenantId") UUID tenantId,
+                                       @Param("term") String term,
+                                       Pageable pageable);
 }

@@ -90,4 +90,17 @@ public class DepartmentService {
         Department department = findById(id);
         departmentRepository.delete(department);
     }
+
+    @Transactional(readOnly = true)
+    public List<DepartmentDTO> findAllEmployeeCount(){
+        UUID tenantID = UUID.fromString(TenantContext.getCurrentTenant());
+        return departmentRepository.findAllWithEmployeeCountByTenantId(tenantID);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DepartmentDTO> findAllWithEmployeeCount() {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        return departmentRepository.findAllWithEmployeeCountByTenantId(tenantId);
+    }
+
 }

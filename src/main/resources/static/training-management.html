@@ -1,0 +1,307 @@
+<!-- training-management.html – content partial only -->
+<style>
+    /* Page‑specific styles (tab buttons) */
+    .tab-btn {
+        padding: 9px 18px; border-radius: 8px; cursor: pointer;
+        font-size: 13.5px; font-weight: 500; border: none;
+        transition: background 0.15s, color 0.15s;
+        background: #f1f5f9; color: #64748b;
+    }
+    .tab-btn:hover { background: #e2e8f0; }
+    .tab-btn.active { background: #2563eb; color: white; }
+
+    /* Ensure modal overlay covers everything */
+    #training-modal {
+        z-index: 1050;
+    }
+    #training-modal > div {
+        z-index: 1051;
+        box-shadow: 0 20px 35px -10px rgba(0,0,0,0.2);
+    }
+    /* Remove white line between table rows */
+    #programs-table-body tr,
+    #certifications-table-body tr {
+        border-bottom: none !important;
+    }
+</style>
+
+<div>
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Training Management</h1>
+            <p class="page-subtitle">Manage employee training programs and certifications</p>
+        </div>
+        <button id="create-training-btn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Training Program
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Training Programs</div><div id="stats-programs" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Active Enrollments</div><div id="stats-enrollments" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+        <div class="stat-card"><div style="font-size:12px;color:#64748b;text-transform:uppercase;">Certifications</div><div id="stats-certifications" style="font-size:28px;font-weight:600;margin-top:8px;">0</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #e2e8f0;padding-bottom:12px;">
+        <button id="tab-programs" class="tab-btn active">📋 Training Programs</button>
+        <button id="tab-certifications" class="tab-btn">🎓 Certifications</button>
+    </div>
+
+    <!-- Training Programs List -->
+    <div id="programs-view">
+        <div class="card" style="overflow:hidden;">
+            <div class="overflow-x-auto">
+                <table class="data-table" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                    <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                        <th class="p-3 text-left">Title</th>
+                        <th class="p-3 text-left">Category</th>
+                        <th class="p-3 text-left">Trainer</th>
+                        <th class="p-3 text-left">Duration (hrs)</th>
+                        <th class="p-3 text-center">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="programs-table-body">
+                    <tr><td colspan="5" class="p-8 text-center text-gray-400">Loading training programs...</span></td>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Certifications List (hidden by default) -->
+    <div id="certifications-view" style="display:none;">
+        <div class="card" style="overflow:hidden;">
+            <div class="overflow-x-auto">
+                <table class="data-table" style="width:100%;border-collapse:collapse;">
+                    <thead>
+                    <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                        <th class="p-3 text-left">Employee</th>
+                        <th class="p-3 text-left">Certification</th>
+                        <th class="p-3 text-left">Issuing Body</th>
+                        <th class="p-3 text-left">Issue Date</th>
+                        <th class="p-3 text-left">Expiry Date</th>
+                        <th class="p-3 text-center">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="certifications-table-body">
+                    <td><td colspan="6" class="p-8 text-center text-gray-400">Loading certifications...</span></td>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Training Modal -->
+<div id="training-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1050;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:12px;max-width:500px;width:90%;padding:28px;">
+        <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">Add Training Program</h3>
+        <div style="display:grid;gap:16px;">
+            <input type="text" id="training-title" placeholder="Training Title" class="form-input">
+            <input type="text" id="training-category" placeholder="Category (e.g., Technical, Soft Skills)" class="form-input">
+            <input type="text" id="training-trainer" placeholder="Trainer Name" class="form-input">
+            <input type="number" id="training-duration" placeholder="Duration (hours)" class="form-input">
+            <textarea id="training-description" placeholder="Description" rows="3" class="form-input"></textarea>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                <button id="close-modal-btn" class="btn-secondary">Cancel</button>
+                <button id="save-training-btn" class="btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // Use global MaestroHR helpers
+        const token = MaestroHR.token;
+        const apiCall = MaestroHR.apiCall.bind(MaestroHR);
+        const showToast = MaestroHR.showToast.bind(MaestroHR);
+        const escapeHtml = MaestroHR.escapeHtml.bind(MaestroHR);
+
+        // Ensure modal is hidden on page load (safety)
+        const trainingModal = document.getElementById('training-modal');
+        if (trainingModal) trainingModal.style.display = 'none';
+
+        // Tab switching
+        document.getElementById('tab-programs').addEventListener('click', () => {
+            document.getElementById('programs-view').style.display = 'block';
+            document.getElementById('certifications-view').style.display = 'none';
+            document.getElementById('tab-programs').classList.add('active');
+            document.getElementById('tab-certifications').classList.remove('active');
+            loadPrograms();
+        });
+        document.getElementById('tab-certifications').addEventListener('click', () => {
+            document.getElementById('programs-view').style.display = 'none';
+            document.getElementById('certifications-view').style.display = 'block';
+            document.getElementById('tab-certifications').classList.add('active');
+            document.getElementById('tab-programs').classList.remove('active');
+            loadCertifications();
+        });
+
+        async function loadPrograms() {
+            try {
+                const res = await apiCall('/api/training/programs');
+                const result = await res.json();
+                const tbody = document.getElementById('programs-table-body');
+                if (result.success && result.data && result.data.content) {
+                    const programs = result.data.content;
+                    if (programs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400">No training programs found. Click "Add Training Program" to create one.</span></td>';
+                        return;
+                    }
+                    tbody.innerHTML = programs.map(program => `
+                        <tr>
+                            <td class="p-3 font-medium">${escapeHtml(program.title)}</td>
+                            <td class="p-3">${escapeHtml(program.category || '-')}</td>
+                            <td class="p-3">${escapeHtml(program.trainerName || '-')}</td>
+                            <td class="p-3">${program.durationHours || '-'}</td>
+                            <td class="p-3 text-center">
+                                <button class="delete-program-btn btn-danger" data-id="${program.id}" style="font-size:12px;padding:4px 10px;">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400">No training programs found.</span></td>';
+                }
+                document.getElementById('stats-programs').textContent = result.data?.totalElements || 0;
+            } catch (err) {
+                console.error('Failed to load programs', err);
+            }
+        }
+
+        async function loadCertifications() {
+            try {
+                const res = await apiCall('/api/training/certifications');
+                const result = await res.json();
+                const tbody = document.getElementById('certifications-table-body');
+                if (result.success && result.data && result.data.content) {
+                    const certs = result.data.content;
+                    if (certs.length === 0) {
+                        tbody.innerHTML = '<td><td colspan="6" class="p-8 text-center text-gray-400">No certifications found.</span></td>';
+                        return;
+                    }
+                    tbody.innerHTML = certs.map(cert => `
+                        <tr>
+                            <td class="p-3">${escapeHtml(cert.employee?.fullName || '-')}</td>
+                            <td class="p-3 font-medium">${escapeHtml(cert.name)}</td>
+                            <td class="p-3">${escapeHtml(cert.issuingBody || '-')}</td>
+                            <td class="p-3">${cert.issueDate ? new Date(cert.issueDate).toLocaleDateString() : '-'}</td>
+                            <td class="p-3 ${cert.expiryDate && new Date(cert.expiryDate) < new Date() ? 'text-red-600 font-semibold' : ''}">${cert.expiryDate ? new Date(cert.expiryDate).toLocaleDateString() : 'Never'}</td>
+                            <td class="p-3 text-center">
+                                <button class="delete-cert-btn btn-danger" data-id="${cert.id}" style="font-size:12px;padding:4px 10px;">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+                document.getElementById('stats-certifications').textContent = result.data?.totalElements || 0;
+            } catch (err) {
+                console.error('Failed to load certifications', err);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await apiCall('/api/training/stats');
+                const result = await res.json();
+                if (result.success && result.data) {
+                    document.getElementById('stats-programs').textContent = result.data.totalTrainings || 0;
+                    document.getElementById('stats-enrollments').textContent = result.data.activeEnrollments || 0;
+                    document.getElementById('stats-certifications').textContent = result.data.certifications || 0;
+                }
+            } catch (err) {
+                console.error('Failed to load stats', err);
+            }
+        }
+
+        // Create Training Modal – only open on button click
+        const createBtn = document.getElementById('create-training-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const saveBtn = document.getElementById('save-training-btn');
+
+        if (createBtn) {
+            createBtn.addEventListener('click', () => {
+                if (trainingModal) trainingModal.style.display = 'flex';
+            });
+        }
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => {
+                if (trainingModal) trainingModal.style.display = 'none';
+            });
+        }
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const title = document.getElementById('training-title').value.trim();
+                if (!title) {
+                    showToast('Training title is required', 'error');
+                    return;
+                }
+                const program = {
+                    title: title,
+                    category: document.getElementById('training-category').value,
+                    trainerName: document.getElementById('training-trainer').value,
+                    durationHours: parseInt(document.getElementById('training-duration').value) || null,
+                    description: document.getElementById('training-description').value
+                };
+                try {
+                    const res = await apiCall('/api/training/programs', {
+                        method: 'POST',
+                        body: JSON.stringify(program)
+                    });
+                    const result = await res.json();
+                    if (res.ok) {
+                        showToast('Training program created', 'success');
+                        if (trainingModal) trainingModal.style.display = 'none';
+                        document.getElementById('training-title').value = '';
+                        document.getElementById('training-category').value = '';
+                        document.getElementById('training-trainer').value = '';
+                        document.getElementById('training-duration').value = '';
+                        document.getElementById('training-description').value = '';
+                        loadPrograms();
+                        loadStats();
+                    } else {
+                        showToast(result.error || 'Failed to create', 'error');
+                    }
+                } catch (err) {
+                    showToast('Error creating training', 'error');
+                }
+            });
+        }
+
+        // Delete handlers (event delegation)
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('delete-program-btn')) {
+                const id = e.target.dataset.id;
+                if (!confirm('Delete this training program?')) return;
+                const res = await apiCall(`/api/training/programs/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Training program deleted', 'success');
+                    loadPrograms();
+                    loadStats();
+                } else {
+                    showToast('Failed to delete', 'error');
+                }
+            }
+            if (e.target.classList.contains('delete-cert-btn')) {
+                const id = e.target.dataset.id;
+                if (!confirm('Delete this certification?')) return;
+                const res = await apiCall(`/api/training/certifications/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Certification deleted', 'success');
+                    loadCertifications();
+                    loadStats();
+                } else {
+                    showToast('Failed to delete', 'error');
+                }
+            }
+        });
+
+        // Initial load
+        loadPrograms();
+        loadCertifications();
+        loadStats();
+    })();
+</script>

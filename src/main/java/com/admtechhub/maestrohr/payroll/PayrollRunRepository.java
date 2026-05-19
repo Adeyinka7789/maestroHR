@@ -40,6 +40,14 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
     @Query("SELECT p FROM PayrollRun p WHERE p.payrollYear = :year ORDER BY p.payrollMonth DESC")
     List<PayrollRun> findByYear(@Param("year") Integer year);
 
+    @Query("SELECT p FROM PayrollRun p WHERE p.tenant.id = :tenantId " +
+            "AND (LOWER(CONCAT(p.payrollYear, '-', p.payrollMonth)) LIKE LOWER(CONCAT('%', :term, '%')) " +
+            "OR LOWER(p.status) LIKE LOWER(CONCAT('%', :term, '%'))) " +
+            "ORDER BY p.createdAt DESC")
+    List<PayrollRun> searchPayrollRuns(@Param("tenantId") UUID tenantId,
+                                       @Param("term") String term,
+                                       Pageable pageable);
+
     // Get latest payroll run
     Optional<PayrollRun> findTopByOrderByCreatedAtDesc();
     Optional<PayrollRun> findTopByTenant_IdOrderByCreatedAtDesc(UUID tenantId);

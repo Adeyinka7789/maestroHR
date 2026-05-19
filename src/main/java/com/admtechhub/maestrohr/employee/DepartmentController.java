@@ -38,10 +38,11 @@ public class DepartmentController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<Department>>> findAll() {
+    public ResponseEntity<ApiResponse<List<DepartmentDTO>>> findAll() {
+        // Now returns DTOs with employeeCount
+        List<DepartmentDTO> departments = departmentService.findAllWithEmployeeCount();
         return ResponseEntity.ok(
-                ApiResponse.success("Departments retrieved",
-                        departmentService.findAll()));
+                ApiResponse.success("Departments retrieved", departments));
     }
 
     @PutMapping("/{id}")

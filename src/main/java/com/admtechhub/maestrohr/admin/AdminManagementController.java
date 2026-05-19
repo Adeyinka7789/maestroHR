@@ -7,6 +7,7 @@ import com.admtechhub.maestrohr.common.ApiResponse;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
+import com.admtechhub.maestrohr.tenant.TenantWithUserCountDTO;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -30,8 +31,9 @@ public class AdminManagementController {
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/tenants")
-    public ResponseEntity<ApiResponse<List<Tenant>>> tenants() {
-        return ResponseEntity.ok(ApiResponse.success("Tenants retrieved", tenantRepository.findAllByOrderByCreatedAtDesc()));
+    public ResponseEntity<ApiResponse<List<TenantWithUserCountDTO>>> tenants() {
+        List<TenantWithUserCountDTO> tenants = tenantRepository.findAllWithUserCount();
+        return ResponseEntity.ok(ApiResponse.success("Tenants retrieved", tenants));
     }
 
     @PostMapping("/tenants")

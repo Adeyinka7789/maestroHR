@@ -22,4 +22,11 @@ public interface PayGradeRepository extends JpaRepository<PayGrade, UUID> {
 
     @Query("SELECT p FROM PayGrade p WHERE p.tenant.id = :tenantId")
     Page<PayGrade> findAllByTenantId(@Param("tenantId") UUID tenantId, Pageable pageable);
+
+    @Query("SELECT p FROM PayGrade p WHERE p.tenant.id = :tenantId AND p.isActive = true " +
+            "AND LOWER(p.name) LIKE LOWER(CONCAT('%', :term, '%')) " +
+            "ORDER BY p.name")
+    List<PayGrade> searchPayGrades(@Param("tenantId") UUID tenantId,
+                                   @Param("term") String term,
+                                   Pageable pageable);
 }
