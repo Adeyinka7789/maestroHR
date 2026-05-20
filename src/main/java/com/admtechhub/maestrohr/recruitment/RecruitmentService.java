@@ -1,10 +1,7 @@
 package com.admtechhub.maestrohr.recruitment;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
-import com.admtechhub.maestrohr.employee.Employee;
-import com.admtechhub.maestrohr.employee.EmployeeRepository;
-import com.admtechhub.maestrohr.employee.EmployeeRequest;
-import com.admtechhub.maestrohr.employee.EmployeeService;
+import com.admtechhub.maestrohr.employee.*;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +18,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,10 +36,59 @@ public class RecruitmentService {
 
     private static final String RESUME_UPLOAD_DIR = "uploads/resumes/";
 
+    // Helper to convert OffsetDateTime to LocalDateTime
+    private LocalDateTime toLocalDateTime(OffsetDateTime odt) {
+        return odt != null ? odt.toLocalDateTime() : null;
+    }
+
+    // ==================== DTO CONVERSIONS ====================
+
+    private JobPostingDTO toDto(JobPosting posting) {
+        long appCount = jobApplicationRepository.countByJobPostingId(posting.getId());
+        return JobPostingDTO.builder()
+                .id(posting.getId())
+                .title(posting.getTitle())
+                .department(posting.getDepartment())
+                .location(posting.getLocation())
+                .employmentType(posting.getEmploymentType())
+                .salaryRangeMin(posting.getSalaryRangeMin())
+                .salaryRangeMax(posting.getSalaryRangeMax())
+                .description(posting.getDescription())
+                .requirements(posting.getRequirements())
+                .benefits(posting.getBenefits())
+                .status(posting.getStatus())
+                .postedDate(posting.getPostedDate())
+                .closingDate(posting.getClosingDate())
+                .createdBy(posting.getCreatedBy())
+                .createdAt(toLocalDateTime(posting.getCreatedAt()))
+                .applicationCount((int) appCount)
+                .build();
+    }
+
+    private JobApplicationDTO toDto(JobApplication app) {
+        return JobApplicationDTO.builder()
+                .id(app.getId())
+                .jobPostingId(app.getJobPosting().getId())
+                .jobTitle(app.getJobPosting().getTitle())
+                .applicantName(app.getApplicantName())
+                .applicantEmail(app.getApplicantEmail())
+                .applicantPhone(app.getApplicantPhone())
+                .resumeUrl(app.getResumeUrl())
+                .coverLetter(app.getCoverLetter())
+                .status(app.getStatus())
+                .source(app.getSource())
+                .notes(app.getNotes())
+                .interviewDate(app.getInterviewDate())
+                .rating(app.getRating())
+                .convertedToEmployeeId(app.getConvertedToEmployeeId())
+                .createdAt(toLocalDateTime(app.getCreatedAt()))
+                .build();
+    }
+
     // ==================== JOB POSTING METHODS ====================
 
     @Transactional
-    public JobPosting createJobPosting(JobPosting jobPosting, String createdBy) {
+    public JobPostingDTO createJobPosting(JobPosting jobPosting, String createdBy) {
         UUID tenantId = getCurrentTenantId();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
@@ -52,11 +100,12 @@ public class RecruitmentService {
             jobPosting.setPostedDate(LocalDate.now());
         }
 
-        return jobPostingRepository.save(jobPosting);
+        JobPosting saved = jobPostingRepository.save(jobPosting);
+        return toDto(saved);
     }
 
     @Transactional
-    public JobPosting updateJobPosting(UUID id, JobPosting updatedJob) {
+    public JobPostingDTO updateJobPosting(UUID id, JobPosting updatedJob) {
         JobPosting existing = jobPostingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Job posting not found"));
 
@@ -76,25 +125,29 @@ public class RecruitmentService {
             existing.setPostedDate(LocalDate.now());
         }
 
-        return jobPostingRepository.save(existing);
+        JobPosting saved = jobPostingRepository.save(existing);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
-    public Page<JobPosting> getJobPostings(Pageable pageable) {
+    public Page<JobPostingDTO> getJobPostings(Pageable pageable) {
         UUID tenantId = getCurrentTenantId();
-        return jobPostingRepository.findByTenantId(tenantId, pageable);
+        Page<JobPosting> page = jobPostingRepository.findByTenantId(tenantId, pageable);
+        return page.map(this::toDto);
     }
 
     @Transactional(readOnly = true)
-    public List<JobPosting> getPublishedJobs() {
+    public List<JobPostingDTO> getPublishedJobs() {
         UUID tenantId = getCurrentTenantId();
-        return jobPostingRepository.findPublishedJobs(tenantId);
+        List<JobPosting> postings = jobPostingRepository.findPublishedJobs(tenantId);
+        return postings.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public JobPosting getJobPostingById(UUID id) {
-        return jobPostingRepository.findById(id)
+    public JobPostingDTO getJobPostingById(UUID id) {
+        JobPosting posting = jobPostingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Job posting not found"));
+        return toDto(posting);
     }
 
     @Transactional
@@ -105,7 +158,7 @@ public class RecruitmentService {
     // ==================== JOB APPLICATION METHODS ====================
 
     @Transactional
-    public JobApplication submitApplication(UUID jobPostingId, JobApplication application, MultipartFile resume) {
+    public JobApplicationDTO submitApplication(UUID jobPostingId, JobApplication application, MultipartFile resume) {
         UUID tenantId = getCurrentTenantId();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
@@ -121,28 +174,32 @@ public class RecruitmentService {
         application.setStatus(JobApplication.ApplicationStatus.NEW);
         application.setSource(JobApplication.ApplicationSource.WEBSITE);
 
-        return jobApplicationRepository.save(application);
+        JobApplication saved = jobApplicationRepository.save(application);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
-    public Page<JobApplication> getApplications(Pageable pageable) {
+    public Page<JobApplicationDTO> getApplications(Pageable pageable) {
         UUID tenantId = getCurrentTenantId();
-        return jobApplicationRepository.findByTenantId(tenantId, pageable);
+        Page<JobApplication> page = jobApplicationRepository.findByTenantId(tenantId, pageable);
+        return page.map(this::toDto);
     }
 
     @Transactional(readOnly = true)
-    public List<JobApplication> getApplicationsByJob(UUID jobPostingId) {
-        return jobApplicationRepository.findByJobPostingId(jobPostingId);
+    public List<JobApplicationDTO> getApplicationsByJob(UUID jobPostingId) {
+        List<JobApplication> apps = jobApplicationRepository.findByJobPostingId(jobPostingId);
+        return apps.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public JobApplication getApplicationById(UUID id) {
-        return jobApplicationRepository.findById(id)
+    public JobApplicationDTO getApplicationById(UUID id) {
+        JobApplication app = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+        return toDto(app);
     }
 
     @Transactional
-    public JobApplication updateApplicationStatus(UUID id, JobApplication.ApplicationStatus status, String notes) {
+    public JobApplicationDTO updateApplicationStatus(UUID id, JobApplication.ApplicationStatus status, String notes) {
         JobApplication application = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found"));
 
@@ -151,11 +208,12 @@ public class RecruitmentService {
             application.setNotes(notes);
         }
 
-        return jobApplicationRepository.save(application);
+        JobApplication saved = jobApplicationRepository.save(application);
+        return toDto(saved);
     }
 
     @Transactional
-    public JobApplication scheduleInterview(UUID id, LocalDateTime interviewDate, String notes) {
+    public JobApplicationDTO scheduleInterview(UUID id, LocalDateTime interviewDate, String notes) {
         JobApplication application = jobApplicationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found"));
 
@@ -165,11 +223,12 @@ public class RecruitmentService {
             application.setNotes(notes);
         }
 
-        return jobApplicationRepository.save(application);
+        JobApplication saved = jobApplicationRepository.save(application);
+        return toDto(saved);
     }
 
     @Transactional
-    public Employee convertToEmployee(UUID applicationId) {
+    public EmployeeDetailsDTO convertToEmployee(UUID applicationId) {
         JobApplication application = jobApplicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found"));
 
@@ -177,7 +236,6 @@ public class RecruitmentService {
             throw new IllegalStateException("Application must be marked as HIRED before converting to employee");
         }
 
-        // Create employee from application data
         EmployeeRequest request = new EmployeeRequest();
         String[] nameParts = application.getApplicantName().split(" ", 2);
         request.setFirstName(nameParts[0]);
@@ -196,17 +254,13 @@ public class RecruitmentService {
         request.setBankAccountNumber("0000000000");
         request.setBankAccountName(application.getApplicantName());
 
-        // Get default department and pay grade
-        // (You may need to set these based on the job posting)
+        EmployeeDetailsDTO employeeDto = employeeService.createEmployee(request);
 
-        Employee employee = employeeService.createEmployee(request);
-
-        application.setConvertedToEmployeeId(employee.getId().toString());
+        application.setConvertedToEmployeeId(employeeDto.getId().toString());
         jobApplicationRepository.save(application);
 
-        log.info("Converted application {} to employee {}", applicationId, employee.getId());
-
-        return employee;
+        log.info("Converted application {} to employee {}", applicationId, employeeDto.getId());
+        return employeeDto;
     }
 
     private String saveResume(MultipartFile file) {
@@ -215,11 +269,9 @@ public class RecruitmentService {
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
-
-            String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
             Path filePath = uploadPath.resolve(filename);
             Files.copy(file.getInputStream(), filePath);
-
             return "/uploads/resumes/" + filename;
         } catch (IOException e) {
             log.error("Failed to save resume: {}", e.getMessage());

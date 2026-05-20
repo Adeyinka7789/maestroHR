@@ -76,7 +76,7 @@ public class EmployeeService {
     }
 
     @Transactional
-    public Employee createEmployee(EmployeeRequest request) {
+    public EmployeeDetailsDTO createEmployee(EmployeeRequest request) {
         UUID tenantId = getCurrentTenantId();
         log.debug("Creating employee for tenant: {}", tenantId);
 
@@ -169,7 +169,7 @@ public class EmployeeService {
             log.error("Failed to send welcome notification: {}", e.getMessage());
         }
 
-        return savedEmployee;
+        return toDetailsDto(savedEmployee);
     }
 
     @Transactional(readOnly = true)
@@ -193,13 +193,14 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public Employee getEmployeeById(UUID id) {
-        return employeeRepository.findById(id)
+    public EmployeeDetailsDTO getEmployeeById(UUID id) {
+        Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+        return toDetailsDto(employee);
     }
 
     @Transactional
-    public Employee updateEmployee(UUID id, EmployeeRequest request) {
+    public EmployeeDetailsDTO updateEmployee(UUID id, EmployeeRequest request) {
         UUID tenantId = getCurrentTenantId();
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
@@ -248,7 +249,7 @@ public class EmployeeService {
         Employee updatedEmployee = employeeRepository.save(employee);
         log.info("Updated employee: {}", id);
 
-        return updatedEmployee;
+        return toDetailsDto(updatedEmployee);
     }
 
     @Transactional
@@ -339,9 +340,10 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public Employee findByEmail(String email) {
-        return employeeRepository.findByEmail(email)
+    public EmployeeDetailsDTO findByEmail(String email) {
+        Employee employee = employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found with email: " + email));
+        return toDetailsDto(employee);
     }
 
     @Transactional(readOnly = true)
@@ -492,5 +494,13 @@ public class EmployeeService {
         result.put("errorCount", errorCount);
         result.put("errors", errors);
         return result;
+    }
+
+    private EmployeeDetailsDTO toDetailsDto(Employee employee) {
+        return new EmployeeDetailsDTO(employee);
+    }
+
+    private EmployeeSummaryDTO toSummaryDto(Employee employee) {
+        return new EmployeeSummaryDTO(employee);
     }
 }

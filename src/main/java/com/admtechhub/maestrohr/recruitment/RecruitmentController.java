@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.recruitment;
 
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,36 +34,39 @@ public class RecruitmentController {
 
     @GetMapping("/jobs")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Page<JobPosting>>> getJobPostings(
+    public ResponseEntity<ApiResponse<Page<JobPostingDTO>>> getJobPostings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return ResponseEntity.ok(ApiResponse.success("Job postings retrieved", recruitmentService.getJobPostings(pageable)));
+        Page<JobPostingDTO> postings = recruitmentService.getJobPostings(pageable);
+        return ResponseEntity.ok(ApiResponse.success("Job postings retrieved", postings));
     }
 
     @GetMapping("/jobs/published")
-    public ResponseEntity<ApiResponse<List<JobPosting>>> getPublishedJobs() {
-        return ResponseEntity.ok(ApiResponse.success("Published jobs retrieved", recruitmentService.getPublishedJobs()));
+    public ResponseEntity<ApiResponse<List<JobPostingDTO>>> getPublishedJobs() {
+        List<JobPostingDTO> jobs = recruitmentService.getPublishedJobs();
+        return ResponseEntity.ok(ApiResponse.success("Published jobs retrieved", jobs));
     }
 
     @GetMapping("/jobs/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<JobPosting>> getJobPosting(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success("Job posting retrieved", recruitmentService.getJobPostingById(id)));
+    public ResponseEntity<ApiResponse<JobPostingDTO>> getJobPosting(@PathVariable UUID id) {
+        JobPostingDTO posting = recruitmentService.getJobPostingById(id);
+        return ResponseEntity.ok(ApiResponse.success("Job posting retrieved", posting));
     }
 
     @PostMapping("/jobs")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<JobPosting>> createJobPosting(@RequestBody JobPosting jobPosting) {
+    public ResponseEntity<ApiResponse<JobPostingDTO>> createJobPosting(@RequestBody JobPosting jobPosting) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        JobPosting created = recruitmentService.createJobPosting(jobPosting, email);
+        JobPostingDTO created = recruitmentService.createJobPosting(jobPosting, email);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Job posting created", created));
     }
 
     @PutMapping("/jobs/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<JobPosting>> updateJobPosting(@PathVariable UUID id, @RequestBody JobPosting jobPosting) {
-        JobPosting updated = recruitmentService.updateJobPosting(id, jobPosting);
+    public ResponseEntity<ApiResponse<JobPostingDTO>> updateJobPosting(@PathVariable UUID id, @RequestBody JobPosting jobPosting) {
+        JobPostingDTO updated = recruitmentService.updateJobPosting(id, jobPosting);
         return ResponseEntity.ok(ApiResponse.success("Job posting updated", updated));
     }
 
@@ -76,27 +81,30 @@ public class RecruitmentController {
 
     @GetMapping("/applications")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Page<JobApplication>>> getApplications(
+    public ResponseEntity<ApiResponse<Page<JobApplicationDTO>>> getApplications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", recruitmentService.getApplications(pageable)));
+        Page<JobApplicationDTO> apps = recruitmentService.getApplications(pageable);
+        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", apps));
     }
 
     @GetMapping("/jobs/{jobId}/applications")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<JobApplication>>> getApplicationsByJob(@PathVariable UUID jobId) {
-        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", recruitmentService.getApplicationsByJob(jobId)));
+    public ResponseEntity<ApiResponse<List<JobApplicationDTO>>> getApplicationsByJob(@PathVariable UUID jobId) {
+        List<JobApplicationDTO> apps = recruitmentService.getApplicationsByJob(jobId);
+        return ResponseEntity.ok(ApiResponse.success("Applications retrieved", apps));
     }
 
     @GetMapping("/applications/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<JobApplication>> getApplication(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success("Application retrieved", recruitmentService.getApplicationById(id)));
+    public ResponseEntity<ApiResponse<JobApplicationDTO>> getApplication(@PathVariable UUID id) {
+        JobApplicationDTO app = recruitmentService.getApplicationById(id);
+        return ResponseEntity.ok(ApiResponse.success("Application retrieved", app));
     }
 
     @PostMapping("/jobs/{jobId}/apply")
-    public ResponseEntity<ApiResponse<JobApplication>> submitApplication(
+    public ResponseEntity<ApiResponse<JobApplicationDTO>> submitApplication(
             @PathVariable UUID jobId,
             @RequestParam String applicantName,
             @RequestParam String applicantEmail,
@@ -111,38 +119,34 @@ public class RecruitmentController {
                 .coverLetter(coverLetter)
                 .build();
 
-        JobApplication submitted = recruitmentService.submitApplication(jobId, application, resume);
+        JobApplicationDTO submitted = recruitmentService.submitApplication(jobId, application, resume);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Application submitted", submitted));
     }
 
     @PatchMapping("/applications/{id}/status")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<JobApplication>> updateApplicationStatus(
+    public ResponseEntity<ApiResponse<JobApplicationDTO>> updateApplicationStatus(
             @PathVariable UUID id,
             @RequestParam JobApplication.ApplicationStatus status,
             @RequestParam(required = false) String notes) {
-        JobApplication updated = recruitmentService.updateApplicationStatus(id, status, notes);
+        JobApplicationDTO updated = recruitmentService.updateApplicationStatus(id, status, notes);
         return ResponseEntity.ok(ApiResponse.success("Application status updated", updated));
     }
 
     @PostMapping("/applications/{id}/schedule-interview")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<JobApplication>> scheduleInterview(
+    public ResponseEntity<ApiResponse<JobApplicationDTO>> scheduleInterview(
             @PathVariable UUID id,
             @RequestParam LocalDateTime interviewDate,
             @RequestParam(required = false) String notes) {
-        JobApplication updated = recruitmentService.scheduleInterview(id, interviewDate, notes);
+        JobApplicationDTO updated = recruitmentService.scheduleInterview(id, interviewDate, notes);
         return ResponseEntity.ok(ApiResponse.success("Interview scheduled", updated));
     }
 
     @PostMapping("/applications/{id}/convert-to-employee")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> convertToEmployee(@PathVariable UUID id) {
-        com.admtechhub.maestrohr.employee.Employee employee = recruitmentService.convertToEmployee(id);
-        Map<String, Object> response = new HashMap<>();
-        response.put("employeeId", employee.getId());
-        response.put("employeeName", employee.getFullName());
-        response.put("message", "Applicant converted to employee successfully");
-        return ResponseEntity.ok(ApiResponse.success("Converted to employee", response));
+    public ResponseEntity<ApiResponse<EmployeeDetailsDTO>> convertToEmployee(@PathVariable UUID id) {
+        EmployeeDetailsDTO employeeDto = recruitmentService.convertToEmployee(id);
+        return ResponseEntity.ok(ApiResponse.success("Converted to employee", employeeDto));
     }
 }

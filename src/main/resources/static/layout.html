@@ -14,12 +14,10 @@
 
 <div class="flex h-screen overflow-hidden">
 
-    <!-- ════════════════════════════════════════════════════════════════
-         SIDEBAR – defined once, identical to your original
-    ════════════════════════════════════════════════════════════════ -->
-    <aside style="width:var(--sidebar-w); background:#0f172a; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; border-right:1px solid #1e293b; transition:width 0.25s ease;">
+    <!-- SIDEBAR -->
+    <aside style="width:var(--sidebar-w); background:#0f172a; flex-shrink:0; display:flex; flex-direction:column; overflow-y:auto; overflow-x:visible; border-right:1px solid #1e293b; transition:width 0.25s ease;">
 
-        <!-- Brand header -->
+        <!-- Brand header with hamburger toggle -->
         <div style="padding:18px 12px 14px; border-bottom:1px solid #1e293b; flex-shrink:0;">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                 <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
@@ -31,52 +29,57 @@
                         <p id="sidebar-tenant" style="font-size:11px; color:#64748b; margin-top:1px;">HR &amp; Payroll</p>
                     </div>
                 </div>
+                <!-- Hamburger menu toggle -->
                 <button id="sidebar-toggle" class="sidebar-toggle">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
                 </button>
             </div>
         </div>
 
-        <!-- Navigation – all routes with HTMX attributes -->
+        <!-- Navigation – all routes with HTMX attributes and data-label for tooltips -->
         <nav style="flex:1; padding:6px 8px; overflow-y:auto; overflow-x:hidden;">
 
             <div class="nav-section"><span class="nav-section-label">Main</span></div>
-            <a href="/dashboard" class="nav-item" data-route="dashboard" data-label="Dashboard"
-               hx-get="/dashboard" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/dashboard" class="nav-item" data-route="dashboard" data-label="Dashboard"
+               hx-get="/htmx/dashboard" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
                 <span class="nav-label">Dashboard</span>
             </a>
-            <a href="/employees" class="nav-item" data-route="employees" data-label="Employees"
-               hx-get="/employees" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/employees" class="nav-item" data-route="employees" data-label="Employees"
+               hx-get="/htmx/employees" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span class="nav-label">Employees</span>
             </a>
-            <a href="/departments" class="nav-item" data-route="departments" data-label="Departments"
-               hx-get="/departments" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/departments" class="nav-item" data-route="departments" data-label="Departments"
+               hx-get="/htmx/departments" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 <span class="nav-label">Departments</span>
             </a>
-            <a href="/pay-grades" class="nav-item" data-route="pay-grades" data-label="Pay Grades"
-               hx-get="/pay-grades" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/pay-grades" class="nav-item" data-route="pay-grades" data-label="Pay Grades"
+               hx-get="/htmx/pay-grades" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 <span class="nav-label">Pay Grades</span>
             </a>
 
             <div class="nav-section"><span class="nav-section-label">Payroll</span></div>
-            <a href="/payroll" class="nav-item" data-route="payroll" data-label="Payroll Runs"
-               hx-get="/payroll" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/payroll" class="nav-item" data-route="payroll" data-label="Payroll Runs"
+               hx-get="/htmx/payroll" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                 <span class="nav-label">Payroll Runs</span>
             </a>
-            <a href="/reports" class="nav-item" data-route="reports" data-label="Reports"
-               hx-get="/reports" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/reports" class="nav-item" data-route="reports" data-label="Reports"
+               hx-get="/htmx/reports" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <span class="nav-label">Reports</span>
             </a>
 
             <div class="nav-section"><span class="nav-section-label">HR</span></div>
-            <a href="/leave" class="nav-item" data-route="leave" data-label="Leave Management"
-               hx-get="/leave" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/leave" class="nav-item" data-route="leave" data-label="Leave Management"
+               hx-get="/htmx/leave" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <span class="nav-label">Leave Management</span>
             </a>
@@ -85,8 +88,8 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span class="nav-label">Attendance</span>
             </a>
-            <a href="/recruitment" class="nav-item" data-route="recruitment" data-label="Recruitment"
-               hx-get="/recruitment" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/recruitment" class="nav-item" data-route="recruitment" data-label="Recruitment"
+               hx-get="/htmx/recruitment" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <span class="nav-label">Recruitment</span>
             </a>
@@ -107,8 +110,8 @@
             </a>
 
             <div class="nav-section"><span class="nav-section-label">System</span></div>
-            <a href="/audit" class="nav-item" data-route="audit" data-label="Audit Logs"
-               hx-get="/audit" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+            <a href="/htmx/audit" class="nav-item" data-route="audit" data-label="Audit Logs"
+               hx-get="/htmx/audit" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span class="nav-label">Audit Logs</span>
             </a>
@@ -120,8 +123,8 @@
 
             <div id="admin-section" style="display:none;">
                 <div class="nav-section"><span class="nav-section-label">Admin</span></div>
-                <a href="/admin" class="nav-item" data-route="admin" data-label="Admin Dashboard"
-                   hx-get="/admin" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+                <a href="/htmx/admin" class="nav-item" data-route="admin" data-label="Admin Dashboard"
+                   hx-get="/htmx/admin" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4.354a4 4 0 1 1 0 5.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/></svg>
                     <span class="nav-label">Admin Dashboard</span>
                 </a>
@@ -158,9 +161,7 @@
         </div>
     </aside>
 
-    <!-- ════════════════════════════════════════════════════════════════
-         MAIN AREA
-    ════════════════════════════════════════════════════════════════ -->
+    <!-- MAIN AREA -->
     <div class="flex flex-col flex-1 overflow-hidden">
 
         <!-- Topbar -->
@@ -192,7 +193,21 @@
 
         <!-- HTMX target: all page partials are injected here -->
         <main id="page-content" class="flex-1 overflow-y-auto" style="padding:24px;">
-            <div style="text-align:center; padding:64px 0; color:#94a3b8;">Loading...</div>
+            <!-- Skeleton loader (replaces old "Loading..." text) -->
+            <div class="space-y-4">
+                <div class="skeleton skeleton-header"></div>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="skeleton skeleton-stat"></div>
+                    <div class="skeleton skeleton-stat"></div>
+                    <div class="skeleton skeleton-stat"></div>
+                    <div class="skeleton skeleton-stat"></div>
+                </div>
+                <div class="skeleton-card mt-6">
+                    <div class="skeleton skeleton-line"></div>
+                    <div class="skeleton skeleton-line"></div>
+                    <div class="skeleton skeleton-line w-3/4"></div>
+                </div>
+            </div>
         </main>
     </div>
 </div>

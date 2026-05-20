@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +30,49 @@ public class TrainingService {
     private final EmployeeRepository employeeRepository;
     private final TenantRepository tenantRepository;
 
+    // Helper to convert OffsetDateTime to LocalDateTime
+    private LocalDateTime toLocalDateTime(OffsetDateTime odt) {
+        return odt != null ? odt.toLocalDateTime() : null;
+    }
+
+    // ==================== DTO CONVERSIONS ====================
+
+    private TrainingProgramDTO toDto(TrainingProgram program) {
+        if (program == null) return null;
+        return TrainingProgramDTO.builder()
+                .id(program.getId())
+                .title(program.getTitle())
+                .description(program.getDescription())
+                .category(program.getCategory())
+                .durationHours(program.getDurationHours())
+                .trainerName(program.getTrainerName())
+                .trainerEmail(program.getTrainerEmail())
+                .maxParticipants(program.getMaxParticipants())
+                .cost(program.getCost())
+                .status(program.getStatus())
+                .createdAt(toLocalDateTime(program.getCreatedAt()))
+                .build();
+    }
+
+    private CertificationDTO toDto(Certification cert) {
+        if (cert == null) return null;
+        Employee emp = cert.getEmployee();
+        return CertificationDTO.builder()
+                .id(cert.getId())
+                .employeeId(emp != null ? emp.getId() : null)
+                .employeeName(emp != null ? emp.getFullName() : null)
+                .employeeNumber(emp != null ? emp.getEmployeeNumber() : null)
+                .name(cert.getName())
+                .issuingBody(cert.getIssuingBody())
+                .issueDate(cert.getIssueDate())
+                .expiryDate(cert.getExpiryDate())
+                .certificateUrl(cert.getCertificateUrl())
+                .reminderSent(cert.getReminderSent())
+                .status(cert.getStatus())
+                .createdAt(toLocalDateTime(cert.getCreatedAt()))
+                .build();
+    }
+
     private UUID getCurrentTenantId() {
         String tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null || tenantId.isBlank()) {
@@ -36,20 +81,23 @@ public class TrainingService {
         return UUID.fromString(tenantId);
     }
 
-    // Training Programs
+    // ==================== TRAINING PROGRAMS (DTO) ====================
+
     @Transactional
-    public TrainingProgram createTrainingProgram(TrainingProgram program) {
+    public TrainingProgramDTO createTrainingProgram(TrainingProgram program) {
         UUID tenantId = getCurrentTenantId();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
         program.setTenant(tenant);
         program.setStatus("ACTIVE");
-        return trainingProgramRepository.save(program);
+        TrainingProgram saved = trainingProgramRepository.save(program);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
-    public Page<TrainingProgram> getTrainingPrograms(Pageable pageable) {
-        return trainingProgramRepository.findByTenantId(getCurrentTenantId(), pageable);
+    public Page<TrainingProgramDTO> getTrainingPrograms(Pageable pageable) {
+        Page<TrainingProgram> page = trainingProgramRepository.findByTenantId(getCurrentTenantId(), pageable);
+        return page.map(this::toDto);
     }
 
     @Transactional
@@ -57,7 +105,8 @@ public class TrainingService {
         trainingProgramRepository.deleteById(id);
     }
 
-    // Employee Enrollments
+    // ==================== EMPLOYEE ENROLLMENTS ====================
+
     @Transactional
     public EmployeeTraining enrollEmployee(UUID employeeId, UUID trainingId) {
         UUID tenantId = getCurrentTenantId();
@@ -91,9 +140,10 @@ public class TrainingService {
         return employeeTrainingRepository.save(enrollment);
     }
 
-    // Certifications
+    // ==================== CERTIFICATIONS (DTO) ====================
+
     @Transactional
-    public Certification addCertification(Certification certification) {
+    public CertificationDTO addCertification(Certification certification) {
         UUID tenantId = getCurrentTenantId();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
@@ -104,15 +154,24 @@ public class TrainingService {
         certification.setEmployee(employee);
         certification.setReminderSent(false);
         certification.setStatus("ACTIVE");
-        return certificationRepository.save(certification);
+        Certification saved = certificationRepository.save(certification);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
-    public Page<Certification> getCertifications(Pageable pageable) {
-        return certificationRepository.findByTenantId(getCurrentTenantId(), pageable);
+    public Page<CertificationDTO> getCertifications(Pageable pageable) {
+        Page<Certification> page = certificationRepository.findByTenantId(getCurrentTenantId(), pageable);
+        return page.map(this::toDto);
     }
 
     @Transactional
+    public void deleteCertification(UUID id) {
+        certificationRepository.deleteById(id);
+    }
+
+    // ==================== DASHBOARD STATS ====================
+
+    @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStats() {
         UUID tenantId = getCurrentTenantId();
         Map<String, Object> stats = new HashMap<>();
@@ -120,12 +179,5 @@ public class TrainingService {
         stats.put("activeEnrollments", employeeTrainingRepository.findByTenantId(tenantId, Pageable.unpaged()).getTotalElements());
         stats.put("certifications", certificationRepository.findByTenantId(tenantId, Pageable.unpaged()).getTotalElements());
         return stats;
-    }
-
-    // ==================== CERTIFICATION METHODS ====================
-
-    @Transactional
-    public void deleteCertification(UUID id) {
-        certificationRepository.deleteById(id);
     }
 }

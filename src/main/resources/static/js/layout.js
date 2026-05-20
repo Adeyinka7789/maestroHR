@@ -97,7 +97,47 @@
         window.location.href = '/login';
     });
 
-    // ── Active nav highlighting (fixed for /htmx/ routes) ─────────
+    // Custom tooltip for collapsed sidebar
+    let tooltipTimeout;
+    const tooltipDiv = document.createElement('div');
+    tooltipDiv.className = 'sidebar-tooltip';
+    tooltipDiv.style.cssText = `
+        position: fixed;
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 5px 11px;
+        border-radius: 6px;
+        font-size: 12.5px;
+        white-space: nowrap;
+        z-index: 10000;
+        pointer-events: none;
+        border: 1px solid #334155;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        display: none;
+        font-family: 'DM Sans', sans-serif;
+    `;
+    document.body.appendChild(tooltipDiv);
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('mouseenter', (e) => {
+            if (!document.body.classList.contains('sidebar-collapsed')) return;
+            const label = item.getAttribute('data-label');
+            if (!label) return;
+            tooltipDiv.textContent = label;
+            const rect = item.getBoundingClientRect();
+            tooltipDiv.style.left = (rect.right + 10) + 'px';
+            tooltipDiv.style.top = (rect.top + (rect.height / 2) - 15) + 'px';
+            tooltipDiv.style.display = 'block';
+            clearTimeout(tooltipTimeout);
+        });
+        item.addEventListener('mouseleave', () => {
+            tooltipTimeout = setTimeout(() => {
+                tooltipDiv.style.display = 'none';
+            }, 100);
+        });
+    });
+
+    // ── Active nav highlighting (for /htmx/ routes) ─────────
     function updateActiveNav() {
         // Get the path without leading slash, and strip /htmx/ prefix if present
         let path = window.location.pathname.replace(/^\//, '');
@@ -264,4 +304,37 @@
             });
         }
     })();
+
+    // ── Skeleton loader on HTMX requests ─────────────────────────────
+    const contentArea = document.getElementById('page-content');
+
+    function showSkeleton() {
+        const skeletonHtml = `
+            <div class="space-y-4">
+                <div class="skeleton skeleton-header"></div>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="skeleton skeleton-stat"></div>
+                    <div class="skeleton skeleton-stat"></div>
+                    <div class="skeleton skeleton-stat"></div>
+                    <div class="skeleton skeleton-stat"></div>
+                </div>
+                <div class="skeleton-card mt-6">
+                    <div class="skeleton skeleton-line"></div>
+                    <div class="skeleton skeleton-line"></div>
+                    <div class="skeleton skeleton-line w-3/4"></div>
+                </div>
+            </div>
+        `;
+        if (contentArea) contentArea.innerHTML = skeletonHtml;
+    }
+
+    // Show skeleton before any HTMX request targeting #page-content
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        const target = evt.detail.target;
+        if (target && (target.id === 'page-content' || target.closest('#page-content'))) {
+            showSkeleton();
+        }
+    });
+
+    // Optional: hide skeleton after swap (not needed because content replaces it)
 })();

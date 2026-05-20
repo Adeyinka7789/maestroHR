@@ -12,11 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +29,11 @@ public class ExitService {
     private final EmployeeRepository employeeRepository;
     private final TenantRepository tenantRepository;
 
+    // Helper to convert OffsetDateTime to LocalDateTime
+    private LocalDateTime toLocalDateTime(OffsetDateTime odt) {
+        return odt != null ? odt.toLocalDateTime() : null;
+    }
+
     private UUID getCurrentTenantId() {
         String tenantId = TenantContext.getCurrentTenant();
         if (tenantId == null || tenantId.isBlank()) {
@@ -39,9 +42,70 @@ public class ExitService {
         return UUID.fromString(tenantId);
     }
 
-    // ---------- Exit Requests ----------
+    // ---------- DTO Conversions ----------
+    private ExitRequestDTO toDto(ExitRequest req, Integer progress, String settlementStatus,
+                                 List<EmployeeClearanceDTO> clearances, FinalSettlementDTO settlement) {
+        return ExitRequestDTO.builder()
+                .id(req.getId())
+                .employeeId(req.getEmployee().getId())
+                .employeeName(req.getEmployee().getFullName())
+                .employeeNumber(req.getEmployee().getEmployeeNumber())
+                .exitType(req.getExitType())
+                .lastWorkingDay(req.getLastWorkingDay())
+                .reason(req.getReason())
+                .status(req.getStatus())
+                .createdBy(req.getCreatedBy())
+                .createdAt(toLocalDateTime(req.getCreatedAt()))
+                .clearanceProgress(progress != null ? progress : 0)
+                .settlementStatus(settlementStatus != null ? settlementStatus : "PENDING")
+                .clearanceItems(clearances != null ? clearances : List.of())
+                .settlement(settlement)
+                .build();
+    }
+
+    private EmployeeClearanceDTO toDto(EmployeeClearance ec) {
+        return EmployeeClearanceDTO.builder()
+                .id(ec.getId())
+                .exitRequestId(ec.getExitRequest().getId())
+                .clearanceItemId(ec.getClearanceItem().getId())
+                .clearanceItemName(ec.getClearanceItem().getName())
+                .status(ec.getStatus())
+                .clearedBy(ec.getClearedBy())
+                .clearedAt(toLocalDateTime(ec.getClearedAt()))
+                .notes(ec.getNotes())
+                .build();
+    }
+
+    private FinalSettlementDTO toDto(FinalSettlement fs) {
+        return FinalSettlementDTO.builder()
+                .id(fs.getId())
+                .exitRequestId(fs.getExitRequest().getId())
+                .unpaidSalary(fs.getUnpaidSalary())
+                .accruedLeave(fs.getAccruedLeave())
+                .severancePay(fs.getSeverancePay())
+                .otherDeductions(fs.getOtherDeductions())
+                .totalPayable(fs.getTotalPayable())
+                .paymentStatus(fs.getPaymentStatus())
+                .paymentDate(fs.getPaymentDate())
+                .notes(fs.getNotes())
+                .build();
+    }
+
+    private List<ClearanceItemDTO> getClearanceItemDtos(UUID tenantId) {
+        return clearanceItemRepository.findByTenantId(tenantId).stream()
+                .map(item -> ClearanceItemDTO.builder()
+                        .id(item.getId())
+                        .name(item.getName())
+                        .department(item.getDepartment())
+                        .sortOrder(item.getSortOrder())
+                        .isRequired(item.getIsRequired())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    // ---------- Business Methods (return DTOs) ----------
     @Transactional
-    public ExitRequest createExitRequest(UUID employeeId, String exitType, LocalDate lastWorkingDay, String reason) {
+    public ExitRequestDTO createExitRequest(UUID employeeId, String exitType, LocalDate lastWorkingDay, String reason) {
         UUID tenantId = getCurrentTenantId();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
@@ -55,79 +119,47 @@ public class ExitService {
                 .lastWorkingDay(lastWorkingDay)
                 .reason(reason)
                 .status("PENDING")
-                .createdBy(TenantContext.getCurrentTenant()) // or get current user email
+                .createdBy(TenantContext.getCurrentTenant()) // or better: current user email
                 .build();
 
-        return exitRequestRepository.save(request);
+        ExitRequest saved = exitRequestRepository.save(request);
+        return toDto(saved, 0, "PENDING", List.of(), null);
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getAllExitRequests() {
+    public List<ExitRequestDTO> getAllExitRequests() {
         UUID tenantId = getCurrentTenantId();
         List<ExitRequest> requests = exitRequestRepository.findByTenantId(tenantId);
+        List<ClearanceItem> allItems = clearanceItemRepository.findByTenantId(tenantId);
+        int totalItems = allItems.size();
+
         return requests.stream().map(req -> {
-            Map<String, Object> dto = new HashMap<>();
-            dto.put("id", req.getId());
-            dto.put("employeeName", req.getEmployee().getFullName());
-            dto.put("exitType", req.getExitType());
-            dto.put("lastWorkingDay", req.getLastWorkingDay());
-            dto.put("status", req.getStatus());
-
-            // Clearance progress
             long cleared = employeeClearanceRepository.countClearedByExitRequestId(req.getId());
-            long total = clearanceItemRepository.findByTenantId(tenantId).size();
-            int progress = total == 0 ? 0 : (int) (cleared * 100 / total);
-            dto.put("clearanceProgress", progress);
-
-            // Settlement status
-            finalSettlementRepository.findByExitRequestId(req.getId()).ifPresent(settlement -> {
-                dto.put("settlementStatus", settlement.getPaymentStatus());
-            });
-            if (!dto.containsKey("settlementStatus")) dto.put("settlementStatus", "PENDING");
-
-            return dto;
+            int progress = totalItems == 0 ? 0 : (int) (cleared * 100 / totalItems);
+            String settlementStatus = finalSettlementRepository.findByExitRequestId(req.getId())
+                    .map(FinalSettlement::getPaymentStatus).orElse("PENDING");
+            return toDto(req, progress, settlementStatus, List.of(), null);
         }).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getExitRequestById(UUID id) {
+    public ExitRequestDTO getExitRequestById(UUID id) {
         ExitRequest req = exitRequestRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Exit request not found"));
-        Map<String, Object> dto = new HashMap<>();
-        dto.put("id", req.getId());
-        dto.put("employeeName", req.getEmployee().getFullName());
-        dto.put("exitType", req.getExitType());
-        dto.put("lastWorkingDay", req.getLastWorkingDay());
-        dto.put("reason", req.getReason());
-        dto.put("status", req.getStatus());
+        UUID tenantId = getCurrentTenantId();
+        List<ClearanceItem> allItems = clearanceItemRepository.findByTenantId(tenantId);
+        int totalItems = allItems.size();
+        long cleared = employeeClearanceRepository.countClearedByExitRequestId(req.getId());
+        int progress = totalItems == 0 ? 0 : (int) (cleared * 100 / totalItems);
+        String settlementStatus = finalSettlementRepository.findByExitRequestId(req.getId())
+                .map(FinalSettlement::getPaymentStatus).orElse("PENDING");
 
-        // Clearance items
-        List<ClearanceItem> items = clearanceItemRepository.findByTenantId(getCurrentTenantId());
-        List<EmployeeClearance> clearances = employeeClearanceRepository.findByExitRequestId(id);
-        Map<UUID, String> clearanceStatus = clearances.stream()
-                .collect(Collectors.toMap(ec -> ec.getClearanceItem().getId(), EmployeeClearance::getStatus));
-        List<Map<String, Object>> clearanceList = items.stream().map(item -> {
-            Map<String, Object> itemDto = new HashMap<>();
-            itemDto.put("id", item.getId());
-            itemDto.put("name", item.getName());
-            itemDto.put("status", clearanceStatus.getOrDefault(item.getId(), "PENDING"));
-            return itemDto;
-        }).collect(Collectors.toList());
-        dto.put("clearance", clearanceList);
+        List<EmployeeClearanceDTO> clearanceDtos = employeeClearanceRepository.findByExitRequestId(id).stream()
+                .map(this::toDto).collect(Collectors.toList());
+        FinalSettlementDTO settlementDto = finalSettlementRepository.findByExitRequestId(req.getId())
+                .map(this::toDto).orElse(null);
 
-        // Settlement
-        finalSettlementRepository.findByExitRequestId(id).ifPresent(settlement -> {
-            Map<String, Object> settlementDto = new HashMap<>();
-            settlementDto.put("unpaidSalary", settlement.getUnpaidSalary());
-            settlementDto.put("accruedLeave", settlement.getAccruedLeave());
-            settlementDto.put("severancePay", settlement.getSeverancePay());
-            settlementDto.put("otherDeductions", settlement.getOtherDeductions());
-            settlementDto.put("totalPayable", settlement.getTotalPayable());
-            settlementDto.put("paymentStatus", settlement.getPaymentStatus());
-            dto.put("settlement", settlementDto);
-        });
-
-        return dto;
+        return toDto(req, progress, settlementStatus, clearanceDtos, settlementDto);
     }
 
     @Transactional
@@ -141,11 +173,11 @@ public class ExitService {
         ec.setClearedAt(OffsetDateTime.now());
         employeeClearanceRepository.save(ec);
 
-        // If all cleared, update exit request status to IN_CLEARANCE (or COMPLETED if also settlement done)
+        // Update exit request status if all cleared
         ExitRequest exitRequest = exitRequestRepository.findById(exitRequestId).orElseThrow();
         long total = clearanceItemRepository.findByTenantId(getCurrentTenantId()).size();
         long cleared = employeeClearanceRepository.countClearedByExitRequestId(exitRequestId);
-        if (cleared == total) {
+        if (cleared == total && total > 0) {
             exitRequest.setStatus("IN_CLEARANCE");
             exitRequestRepository.save(exitRequest);
         }

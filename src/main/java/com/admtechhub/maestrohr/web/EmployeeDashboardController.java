@@ -1,6 +1,6 @@
 package com.admtechhub.maestrohr.web;
 
-import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.leave.LeaveService;
@@ -65,14 +65,14 @@ public class EmployeeDashboardController {
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate,
             @RequestParam String reason) {
-        Employee employee = getCurrentEmployee();
+        EmployeeDetailsDTO employee = getCurrentEmployee();
         leaveService.submitLeaveRequest(employee.getId(), leaveTypeId, startDate, endDate, reason, null);
         return "redirect:/employee/leave";
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private Employee getCurrentEmployee() {
+    private EmployeeDetailsDTO getCurrentEmployee() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return employeeService.findByEmail(email);
     }

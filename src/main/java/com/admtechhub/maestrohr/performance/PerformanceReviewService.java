@@ -12,7 +12,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,28 +38,69 @@ public class PerformanceReviewService {
         return UUID.fromString(tenantId);
     }
 
+    private LocalDateTime toLocalDateTime(OffsetDateTime odt) {
+        return odt != null ? odt.toLocalDateTime() : null;
+    }
+
+    // ==================== DTO CONVERSIONS ====================
+
+    private ReviewTemplateDTO toDto(ReviewTemplate template) {
+        return ReviewTemplateDTO.builder()
+                .id(template.getId())
+                .name(template.getName())
+                .description(template.getDescription())
+                .reviewType(template.getReviewType() != null ? template.getReviewType().name() : null)
+                .status(template.getStatus() != null ? template.getStatus().name() : null)
+                .build();
+    }
+
+    private ReviewCycleDTO toDto(ReviewCycle cycle) {
+        return ReviewCycleDTO.builder()
+                .id(cycle.getId())
+                .employeeId(cycle.getEmployee().getId())
+                .employeeName(cycle.getEmployee().getFullName())
+                .employeeNumber(cycle.getEmployee().getEmployeeNumber())
+                .reviewerId(cycle.getReviewer().getId())
+                .reviewerName(cycle.getReviewer().getFullName())
+                .templateId(cycle.getTemplate().getId())
+                .templateName(cycle.getTemplate().getName())
+                .periodStart(cycle.getPeriodStart())
+                .periodEnd(cycle.getPeriodEnd())
+                .dueDate(cycle.getDueDate())
+                .status(cycle.getStatus())
+                .selfReviewStatus(cycle.getSelfReviewStatus())
+                .managerReviewStatus(cycle.getManagerReviewStatus())
+                .overallRating(cycle.getOverallRating())
+                .createdBy(cycle.getCreatedBy())
+                .createdAt(toLocalDateTime(cycle.getCreatedAt()))
+                .build();
+    }
+
     // ==================== TEMPLATE METHODS ====================
 
     @Transactional
-    public ReviewTemplate createTemplate(ReviewTemplate template) {
+    public ReviewTemplateDTO createTemplate(ReviewTemplate template) {
         UUID tenantId = getCurrentTenantId();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
         template.setTenant(tenant);
         template.setStatus(ReviewTemplate.TemplateStatus.ACTIVE);
-        return reviewTemplateRepository.save(template);
+        ReviewTemplate saved = reviewTemplateRepository.save(template);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)
-    public List<ReviewTemplate> getAllTemplates() {
+    public List<ReviewTemplateDTO> getAllTemplates() {
         UUID tenantId = getCurrentTenantId();
-        return reviewTemplateRepository.findAllByTenantId(tenantId);
+        List<ReviewTemplate> templates = reviewTemplateRepository.findAllByTenantId(tenantId);
+        return templates.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<ReviewTemplate> getActiveTemplates() {
+    public List<ReviewTemplateDTO> getActiveTemplates() {
         UUID tenantId = getCurrentTenantId();
-        return reviewTemplateRepository.findActiveByTenantId(tenantId);
+        List<ReviewTemplate> templates = reviewTemplateRepository.findActiveByTenantId(tenantId);
+        return templates.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     @Transactional
@@ -66,12 +108,13 @@ public class PerformanceReviewService {
         reviewTemplateRepository.deleteById(id);
     }
 
-    // ==================== DASHBOARD STATS ====================
+    // ==================== REVIEW CYCLE METHODS ====================
 
     @Transactional(readOnly = true)
-    public Page<ReviewCycle> getReviewCycles(Pageable pageable) {
+    public Page<ReviewCycleDTO> getReviewCycles(Pageable pageable) {
         UUID tenantId = getCurrentTenantId();
-        return reviewCycleRepository.findByTenantId(tenantId, pageable);
+        Page<ReviewCycle> page = reviewCycleRepository.findByTenantId(tenantId, pageable);
+        return page.map(this::toDto);
     }
 
     @Transactional(readOnly = true)

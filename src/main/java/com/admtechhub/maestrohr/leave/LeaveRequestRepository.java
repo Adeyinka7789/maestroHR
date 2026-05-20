@@ -57,4 +57,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
 
     @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId AND l.status = :status")
     List<LeaveRequest> findByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") LeaveStatus status);
+
+    @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId ORDER BY l.createdAt DESC")
+    Page<LeaveRequest> findByEmployeeTenantId(@Param("tenantId") UUID tenantId, Pageable pageable);
 }

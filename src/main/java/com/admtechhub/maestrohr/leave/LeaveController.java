@@ -2,8 +2,11 @@ package com.admtechhub.maestrohr.leave;
 
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.common.ApiResponse;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,8 +23,6 @@ import java.util.UUID;
 public class LeaveController {
 
     private final LeaveService leaveService;
-    private final LeaveTypeRepository leaveTypeRepository;
-    private final LeaveRequestRepository leaveRequestRepository;
     private final UserRepository userRepository;
 
     private UUID getCurrentUserId() {
@@ -37,16 +38,23 @@ public class LeaveController {
      */
     @GetMapping("/types")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<LeaveType>>> getLeaveTypes() {
-        List<LeaveType> types = leaveTypeRepository.findAll();
+    public ResponseEntity<ApiResponse<List<LeaveTypeDTO>>> getLeaveTypes() {
+        List<LeaveTypeDTO> types = leaveService.getAllLeaveTypes();
         return ResponseEntity.ok(ApiResponse.success("Leave types retrieved", types));
     }
 
+    /**
+     * Get all leave requests (paginated, tenant‑filtered)
+     * GET /api/leave/requests?page=0&size=20
+     */
     @GetMapping("/requests")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<LeaveRequest>>> getAllLeaveRequests() {
-        List<LeaveRequest> requests = leaveRequestRepository.findAll();
-        return ResponseEntity.ok(ApiResponse.success("All leave requests retrieved", requests));
+    public ResponseEntity<ApiResponse<Page<LeaveRequestDTO>>> getAllLeaveRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<LeaveRequestDTO> pageResult = leaveService.getAllLeaveRequests(pageable);
+        return ResponseEntity.ok(ApiResponse.success("Leave requests retrieved", pageResult));
     }
 
     /**
@@ -55,7 +63,7 @@ public class LeaveController {
      */
     @PostMapping("/requests")
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'DEPT_MANAGER', 'HR_ADMIN')")
-    public ResponseEntity<ApiResponse<LeaveRequest>> submitLeaveRequest(
+    public ResponseEntity<ApiResponse<LeaveRequestDTO>> submitLeaveRequest(
             @RequestParam UUID employeeId,
             @RequestParam UUID leaveTypeId,
             @RequestParam LocalDate startDate,
@@ -63,9 +71,8 @@ public class LeaveController {
             @RequestParam String reason,
             @RequestParam(required = false) UUID coverOfficerId) {
 
-        LeaveRequest request = leaveService.submitLeaveRequest(
+        LeaveRequestDTO request = leaveService.submitLeaveRequest(
                 employeeId, leaveTypeId, startDate, endDate, reason, coverOfficerId);
-
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Leave request submitted", request));
     }
@@ -76,8 +83,8 @@ public class LeaveController {
      */
     @GetMapping("/requests/employee/{employeeId}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'DEPT_MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<ApiResponse<List<LeaveRequest>>> getEmployeeLeaveRequests(@PathVariable UUID employeeId) {
-        List<LeaveRequest> requests = leaveRequestRepository.findByEmployeeId(employeeId);
+    public ResponseEntity<ApiResponse<List<LeaveRequestDTO>>> getEmployeeLeaveRequests(@PathVariable UUID employeeId) {
+        List<LeaveRequestDTO> requests = leaveService.getEmployeeLeaveRequests(employeeId);
         return ResponseEntity.ok(ApiResponse.success("Leave requests retrieved", requests));
     }
 
@@ -87,9 +94,9 @@ public class LeaveController {
      */
     @GetMapping("/requests/pending")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'DEPT_MANAGER')")
-    public ResponseEntity<ApiResponse<List<LeaveRequest>>> getPendingRequests() {
-        List<LeaveRequest> requests = leaveRequestRepository.findByStatus(LeaveStatus.PENDING);
-        return ResponseEntity.ok(ApiResponse.success("Pending leave requests", requests));
+    public ResponseEntity<ApiResponse<List<LeaveRequestDTO>>> getPendingRequests() {
+        List<LeaveRequestDTO> pending = leaveService.getPendingRequests();
+        return ResponseEntity.ok(ApiResponse.success("Pending leave requests", pending));
     }
 
     /**
@@ -98,12 +105,12 @@ public class LeaveController {
      */
     @PostMapping("/requests/{requestId}/approve")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'DEPT_MANAGER')")
-    public ResponseEntity<ApiResponse<LeaveRequest>> approveRequest(
+    public ResponseEntity<ApiResponse<LeaveRequestDTO>> approveRequest(
             @PathVariable UUID requestId,
             @RequestParam(required = false) String comment) {
 
         UUID approverId = getCurrentUserId();
-        LeaveRequest request = leaveService.approveLeaveRequest(requestId, approverId, comment);
+        LeaveRequestDTO request = leaveService.approveLeaveRequest(requestId, approverId, comment);
         return ResponseEntity.ok(ApiResponse.success("Leave request approved", request));
     }
 
@@ -113,11 +120,11 @@ public class LeaveController {
      */
     @PostMapping("/requests/{requestId}/reject")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'DEPT_MANAGER')")
-    public ResponseEntity<ApiResponse<LeaveRequest>> rejectRequest(
+    public ResponseEntity<ApiResponse<LeaveRequestDTO>> rejectRequest(
             @PathVariable UUID requestId,
             @RequestParam String reason) {
 
-        LeaveRequest request = leaveService.rejectLeaveRequest(requestId, reason);
+        LeaveRequestDTO request = leaveService.rejectLeaveRequest(requestId, reason);
         return ResponseEntity.ok(ApiResponse.success("Leave request rejected", request));
     }
 

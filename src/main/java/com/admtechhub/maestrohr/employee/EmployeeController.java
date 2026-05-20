@@ -1,6 +1,5 @@
 package com.admtechhub.maestrohr.employee;
 
-import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,13 +11,8 @@ import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ContentDisposition;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -34,8 +28,8 @@ public class EmployeeController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Employee>> createEmployee(@Valid @RequestBody EmployeeRequest request) {
-        Employee created = employeeService.createEmployee(request);
+    public ResponseEntity<ApiResponse<EmployeeDetailsDTO>> createEmployee(@Valid @RequestBody EmployeeRequest request) {
+        EmployeeDetailsDTO created = employeeService.createEmployee(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Employee created successfully", created));
     }
@@ -70,41 +64,31 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
     public ResponseEntity<?> getCurrentEmployee(@AuthenticationPrincipal UserDetails userDetails) {
         if (userDetails == null) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("success", false);
-            error.put("error", "User not authenticated");
-            return ResponseEntity.status(401).body(error);
+            return ResponseEntity.status(401).body(Map.of("success", false, "error", "User not authenticated"));
         }
 
         String email = userDetails.getUsername();
-        Employee employee = employeeService.findByEmail(email);
+        EmployeeDetailsDTO employee = employeeService.findByEmail(email);
         if (employee == null) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("success", false);
-            error.put("error", "Employee not found for email: " + email);
-            return ResponseEntity.status(404).body(error);
+            return ResponseEntity.status(404).body(Map.of("success", false, "error", "Employee not found for email: " + email));
         }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("data", new EmployeeSummaryDTO(employee));
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("success", true, "data", employee));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'EMPLOYEE', 'SUPER_ADMIN')")
-    @Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<EmployeeSummaryDTO>> getEmployeeById(@PathVariable UUID id) {
-        Employee employee = employeeService.getEmployeeById(id);
-        return ResponseEntity.ok(ApiResponse.success("Employee retrieved successfully", new EmployeeSummaryDTO(employee)));
+    public ResponseEntity<ApiResponse<EmployeeDetailsDTO>> getEmployeeById(@PathVariable UUID id) {
+        EmployeeDetailsDTO employee = employeeService.getEmployeeById(id);
+        return ResponseEntity.ok(ApiResponse.success("Employee retrieved successfully", employee));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Employee>> updateEmployee(
+    public ResponseEntity<ApiResponse<EmployeeDetailsDTO>> updateEmployee(
             @PathVariable UUID id,
             @Valid @RequestBody EmployeeRequest request) {
-        Employee updated = employeeService.updateEmployee(id, request);
+        EmployeeDetailsDTO updated = employeeService.updateEmployee(id, request);
         return ResponseEntity.ok(ApiResponse.success("Employee updated successfully", updated));
     }
 
@@ -121,13 +105,11 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> exportEmployeesToExcel() {
         byte[] excelData = employeeService.exportEmployeesToExcel();
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename("employees-" + LocalDate.now() + ".xlsx")
                 .build());
-
         return ResponseEntity.ok().headers(headers).body(excelData);
     }
 

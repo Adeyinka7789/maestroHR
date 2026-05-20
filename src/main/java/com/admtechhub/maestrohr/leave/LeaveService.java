@@ -11,6 +11,8 @@ import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,9 +38,51 @@ public class LeaveService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
-    /**
-     * Create default leave types for a new tenant
-     */
+    // ==================== DTO CONVERSIONS ====================
+
+    private LeaveRequestDTO toDto(LeaveRequest request) {
+        if (request == null) return null;
+        return LeaveRequestDTO.builder()
+                .id(request.getId())
+                .employeeId(request.getEmployee().getId())
+                .employeeName(request.getEmployee().getFullName())
+                .employeeNumber(request.getEmployee().getEmployeeNumber())
+                .leaveTypeId(request.getLeaveType().getId())
+                .leaveTypeName(request.getLeaveType().getName())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .daysRequested(request.getDaysRequested())
+                .reason(request.getReason())
+                .coverOfficerId(request.getCoverOfficer() != null ? request.getCoverOfficer().getId() : null)
+                .coverOfficerName(request.getCoverOfficer() != null ? request.getCoverOfficer().getFullName() : null)
+                .status(request.getStatus())
+                .rejectionReason(request.getRejectionReason())
+                .approvalComment(request.getApprovalComment())
+                .approvedAt(request.getApprovedAt())
+                .approvedByEmail(request.getApprovedBy() != null ? request.getApprovedBy().getEmail() : null)
+                .createdAt(request.getCreatedAt() != null ? request.getCreatedAt().toLocalDateTime() : null)
+                .build();
+    }
+
+    private List<LeaveRequestDTO> toDtoList(List<LeaveRequest> requests) {
+        return requests.stream().map(this::toDto).toList();
+    }
+
+    private LeaveTypeDTO toDto(LeaveType type) {
+        return LeaveTypeDTO.builder()
+                .id(type.getId())
+                .name(type.getName())
+                .code(type.getCode())
+                .maxDaysPerYear(type.getMaxDaysPerYear())
+                .isPaid(type.getIsPaid())
+                .requiresApproval(type.getRequiresApproval())
+                .carryOverAllowed(type.getCarryOverAllowed())
+                .maxCarryOverDays(type.getMaxCarryOverDays())
+                .build();
+    }
+
+    // ==================== DEFAULT LEAVE TYPES ====================
+
     @Transactional
     public void createDefaultLeaveTypes(UUID tenantId) {
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -78,13 +122,12 @@ public class LeaveService {
                 .build();
     }
 
-    /**
-     * Submit a leave request
-     */
+    // ==================== LEAVE REQUEST OPERATIONS (RETURNS DTOs) ====================
+
     @Transactional
-    public LeaveRequest submitLeaveRequest(UUID employeeId, UUID leaveTypeId,
-                                           LocalDate startDate, LocalDate endDate,
-                                           String reason, UUID coverOfficerId) {
+    public LeaveRequestDTO submitLeaveRequest(UUID employeeId, UUID leaveTypeId,
+                                              LocalDate startDate, LocalDate endDate,
+                                              String reason, UUID coverOfficerId) {
 
         String tenantIdStr = TenantContext.getCurrentTenant();
         UUID tenantId = UUID.fromString(tenantIdStr);
@@ -96,8 +139,8 @@ public class LeaveService {
                 .orElseThrow(() -> new IllegalArgumentException("Leave type not found"));
 
         long daysRequested = calculateWorkingDays(startDate, endDate);
-
         int currentYear = LocalDate.now().getYear();
+
         LeaveBalance balance = leaveBalanceRepository
                 .findByEmployeeIdAndLeaveTypeIdAndYear(employeeId, leaveTypeId, currentYear)
                 .orElse(null);
@@ -137,15 +180,11 @@ public class LeaveService {
                 "/leave"
         );
         log.info("Leave request submitted: {} for employee {}", saved.getId(), employeeId);
-
-        return saved;
+        return toDto(saved);
     }
 
-    /**
-     * Approve leave request with SMS and Email
-     */
     @Transactional
-    public LeaveRequest approveLeaveRequest(UUID requestId, UUID approverUserId, String comment) {
+    public LeaveRequestDTO approveLeaveRequest(UUID requestId, UUID approverUserId, String comment) {
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found"));
 
@@ -207,14 +246,11 @@ public class LeaveService {
         }
 
         log.info("Leave request {} approved, SMS sent to {}", requestId, employee.getPhone());
-        return updated;
+        return toDto(updated);
     }
 
-    /**
-     * Reject leave request with SMS
-     */
     @Transactional
-    public LeaveRequest rejectLeaveRequest(UUID requestId, String reason) {
+    public LeaveRequestDTO rejectLeaveRequest(UUID requestId, String reason) {
         LeaveRequest request = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Leave request not found"));
 
@@ -250,12 +286,39 @@ public class LeaveService {
         }
 
         log.info("Leave request {} rejected: {}, SMS sent to {}", requestId, reason, employee.getPhone());
-        return updated;
+        return toDto(updated);
     }
 
-    /**
-     * Get leave balance for an employee
-     */
+    // ==================== QUERY METHODS (RETURNS DTOs) ====================
+
+    @Transactional(readOnly = true)
+    public List<LeaveTypeDTO> getAllLeaveTypes() {
+        List<LeaveType> types = leaveTypeRepository.findAll();
+        return types.stream().map(this::toDto).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LeaveRequestDTO> getAllLeaveRequests(Pageable pageable) {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        Page<LeaveRequest> page = leaveRequestRepository.findByEmployeeTenantId(tenantId, pageable);
+        return page.map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestDTO> getPendingRequests() {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        List<LeaveRequest> pending = leaveRequestRepository.findByTenantIdAndStatus(tenantId, LeaveStatus.PENDING);
+        return toDtoList(pending);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestDTO> getEmployeeLeaveRequests(UUID employeeId) {
+        List<LeaveRequest> requests = leaveRequestRepository.findByEmployeeId(employeeId);
+        return toDtoList(requests);
+    }
+
+    // ==================== LEAVE BALANCE ====================
+
     @Transactional(readOnly = true)
     public LeaveBalance getLeaveBalance(UUID employeeId, UUID leaveTypeId, Integer year) {
         return leaveBalanceRepository
@@ -263,9 +326,6 @@ public class LeaveService {
                 .orElse(null);
     }
 
-    /**
-     * Initialize leave balance for a new employee
-     */
     @Transactional
     public void initializeLeaveBalance(Employee employee, LeaveType leaveType, Integer year) {
         if (!leaveBalanceRepository.findByEmployeeIdAndLeaveTypeIdAndYear(
@@ -285,7 +345,6 @@ public class LeaveService {
                 .daysCarriedOver(0)
                 .daysRemaining(leaveType.getMaxDaysPerYear())
                 .build();
-
         return leaveBalanceRepository.save(balance);
     }
 

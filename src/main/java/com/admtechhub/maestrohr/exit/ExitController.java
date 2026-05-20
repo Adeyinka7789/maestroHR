@@ -24,26 +24,28 @@ public class ExitController {
 
     @GetMapping("/requests")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getExitRequests() {
-        return ResponseEntity.ok(ApiResponse.success("Exit requests retrieved", exitService.getAllExitRequests()));
+    public ResponseEntity<ApiResponse<List<ExitRequestDTO>>> getExitRequests() {
+        List<ExitRequestDTO> requests = exitService.getAllExitRequests();
+        return ResponseEntity.ok(ApiResponse.success("Exit requests retrieved", requests));
     }
 
     @GetMapping("/requests/{id}")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getExitRequest(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success("Exit request details", exitService.getExitRequestById(id)));
+    public ResponseEntity<ApiResponse<ExitRequestDTO>> getExitRequest(@PathVariable UUID id) {
+        ExitRequestDTO dto = exitService.getExitRequestById(id);
+        return ResponseEntity.ok(ApiResponse.success("Exit request details", dto));
     }
 
     @PostMapping("/requests")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<ExitRequest>> createExitRequest(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<ApiResponse<ExitRequestDTO>> createExitRequest(@RequestBody Map<String, Object> payload) {
         UUID employeeId = UUID.fromString((String) payload.get("employeeId"));
         String exitType = (String) payload.get("exitType");
         LocalDate lastWorkingDay = LocalDate.parse((String) payload.get("lastWorkingDay"));
         String reason = (String) payload.get("reason");
-        ExitRequest request = exitService.createExitRequest(employeeId, exitType, lastWorkingDay, reason);
+        ExitRequestDTO dto = exitService.createExitRequest(employeeId, exitType, lastWorkingDay, reason);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Exit request created", request));
+                .body(ApiResponse.success("Exit request created", dto));
     }
 
     @PutMapping("/clearance/{exitRequestId}/{itemId}")
@@ -51,7 +53,8 @@ public class ExitController {
     public ResponseEntity<ApiResponse<Void>> updateClearance(@PathVariable UUID exitRequestId,
                                                              @PathVariable UUID itemId,
                                                              @RequestParam String status) {
-        exitService.updateClearanceItem(exitRequestId, itemId, status, "admin@example.com"); // replace with actual user
+        // TODO: replace "system" with actual user email/name from security context
+        exitService.updateClearanceItem(exitRequestId, itemId, status, "system");
         return ResponseEntity.ok(ApiResponse.success("Clearance updated", null));
     }
 
@@ -70,6 +73,7 @@ public class ExitController {
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getStats() {
-        return ResponseEntity.ok(ApiResponse.success("Exit stats retrieved", exitService.getStats()));
+        Map<String, Object> stats = exitService.getStats();
+        return ResponseEntity.ok(ApiResponse.success("Exit stats retrieved", stats));
     }
 }

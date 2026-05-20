@@ -28,22 +28,22 @@ public class PerformanceReviewController {
 
     @GetMapping("/templates")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'DEPT_MANAGER')")
-    public ResponseEntity<ApiResponse<List<ReviewTemplate>>> getTemplates() {
-        List<ReviewTemplate> templates = performanceReviewService.getAllTemplates();
+    public ResponseEntity<ApiResponse<List<ReviewTemplateDTO>>> getTemplates() {
+        List<ReviewTemplateDTO> templates = performanceReviewService.getAllTemplates();
         return ResponseEntity.ok(ApiResponse.success("Templates retrieved", templates));
     }
 
     @GetMapping("/templates/active")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'DEPT_MANAGER', 'EMPLOYEE')")
-    public ResponseEntity<ApiResponse<List<ReviewTemplate>>> getActiveTemplates() {
-        List<ReviewTemplate> templates = performanceReviewService.getActiveTemplates();
+    public ResponseEntity<ApiResponse<List<ReviewTemplateDTO>>> getActiveTemplates() {
+        List<ReviewTemplateDTO> templates = performanceReviewService.getActiveTemplates();
         return ResponseEntity.ok(ApiResponse.success("Active templates retrieved", templates));
     }
 
     @PostMapping("/templates")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<ReviewTemplate>> createTemplate(@RequestBody ReviewTemplate template) {
-        ReviewTemplate created = performanceReviewService.createTemplate(template);
+    public ResponseEntity<ApiResponse<ReviewTemplateDTO>> createTemplate(@RequestBody ReviewTemplate template) {
+        ReviewTemplateDTO created = performanceReviewService.createTemplate(template);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Template created", created));
     }
@@ -55,7 +55,7 @@ public class PerformanceReviewController {
         return ResponseEntity.ok(ApiResponse.success("Template deleted", null));
     }
 
-    // ==================== DASHBOARD ENDPOINTS ====================
+    // ==================== DASHBOARD STATS ====================
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'DEPT_MANAGER')")
@@ -68,22 +68,11 @@ public class PerformanceReviewController {
 
     @GetMapping("/cycles")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'DEPT_MANAGER')")
-    public ResponseEntity<ApiResponse<Page<ReviewCycle>>> getReviewCycles(
+    public ResponseEntity<ApiResponse<Page<ReviewCycleDTO>>> getReviewCycles(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<ReviewCycle> cycles = performanceReviewService.getReviewCycles(pageable);
-
-        // Enhance with employee and template names
-        cycles.getContent().forEach(cycle -> {
-            if (cycle.getEmployee() != null) {
-                cycle.getEmployee().getFullName();
-            }
-            if (cycle.getTemplate() != null) {
-                cycle.getTemplate().getName();
-            }
-        });
-
+        Page<ReviewCycleDTO> cycles = performanceReviewService.getReviewCycles(pageable);
         return ResponseEntity.ok(ApiResponse.success("Review cycles retrieved", cycles));
     }
 }
