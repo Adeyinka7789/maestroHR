@@ -11,8 +11,8 @@ import org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 @Configuration
 public class DataSourceConfig {
@@ -43,15 +43,17 @@ public class DataSourceConfig {
                 return conn;
             }
 
+            // Always write app.current_tenant, even when there is no tenant (writes '').
+            // This clears any stale value left by a previous request on the same pooled
+            // connection. The RLS policies use NULLIF(..., '') so an empty string is
+            // treated the same as "no tenant" — no rows are visible.
             private void setTenantContext(Connection conn) throws SQLException {
                 String tenant = TenantContext.getCurrentTenant();
-                if (tenant != null && !tenant.isBlank()) {
-                    try (Statement stmt = conn.createStatement()) {
-                        stmt.execute(
-                                "SELECT set_config('app.current_tenant', '"
-                                        + tenant + "', true)"
-                        );
-                    }
+                String value  = (tenant != null && !tenant.isBlank()) ? tenant : "";
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT set_config('app.current_tenant', ?, false)")) {
+                    ps.setString(1, value);
+                    ps.execute();
                 }
             }
         };

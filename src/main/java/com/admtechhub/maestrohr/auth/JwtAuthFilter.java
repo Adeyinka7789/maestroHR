@@ -20,6 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -49,9 +50,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String email = jwtService.extractEmail(token);
+            String email    = jwtService.extractEmail(token);
             String tenantId = jwtService.extractTenantId(token);
-            String role = jwtService.extractRole(token);
+            String role     = jwtService.extractRole(token);
+
+            // Reject tokens whose tenantId claim is missing or not a valid UUID.
+            // This is an early 401 so callers get an actionable error rather than a
+            // silent empty-result caused by a null TenantContext further down the chain.
+            if (tenantId == null || tenantId.isBlank()) {
+                log.warn("JWT rejected: missing tenantId claim for email={}", email);
+                writeUnauthorized(response, "Invalid token: missing tenant context");
+                return;
+            }
+            try {
+                UUID.fromString(tenantId);
+            } catch (IllegalArgumentException e) {
+                log.warn("JWT rejected: malformed tenantId claim '{}' for email={}", tenantId, email);
+                writeUnauthorized(response, "Invalid token: malformed tenant identifier");
+                return;
+            }
 
             TenantContext.setCurrentTenant(tenantId);
             MDC.put("tenantId", tenantId);
@@ -94,10 +111,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return null;
         }
         for (Cookie cookie : request.getCookies()) {
-            if ("maestrohr_token".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+            if ("maestrohr_token".equals(cookie.getName())
+                    && cookie.getValue() != null
+                    && !cookie.getValue().isBlank()) {
                 return cookie.getValue();
             }
         }
         return null;
+    }
+
+    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"" + message + "\",\"status\":401}");
     }
 }

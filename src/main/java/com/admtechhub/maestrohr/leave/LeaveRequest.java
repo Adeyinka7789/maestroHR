@@ -6,6 +6,7 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
 public class LeaveRequest extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

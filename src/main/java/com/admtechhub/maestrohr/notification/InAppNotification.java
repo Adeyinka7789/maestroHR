@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
 public class InAppNotification extends BaseEntity {
 
     @Column(name = "tenant_id")

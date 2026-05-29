@@ -28,17 +28,12 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
 
     Page<PayrollRun> findByStatus(PayrollStatus status, Pageable pageable);
 
-    // Find pending approvals
-    @Query("SELECT p FROM PayrollRun p WHERE p.status = 'PENDING_APPROVAL' ORDER BY p.createdAt DESC")
-    List<PayrollRun> findPendingApprovals();
-
     // Check if payroll exists for month/year
-    boolean existsByPayrollMonthAndPayrollYear(Integer month, Integer year);
     boolean existsByTenant_IdAndPayrollMonthAndPayrollYear(UUID tenantId, Integer month, Integer year);
 
-    // Get payroll runs for a specific period
-    @Query("SELECT p FROM PayrollRun p WHERE p.payrollYear = :year ORDER BY p.payrollMonth DESC")
-    List<PayrollRun> findByYear(@Param("year") Integer year);
+    // Get payroll runs for a specific year, scoped to tenant
+    @Query("SELECT p FROM PayrollRun p WHERE p.tenant.id = :tenantId AND p.payrollYear = :year ORDER BY p.payrollMonth DESC")
+    List<PayrollRun> findByTenantIdAndYear(@Param("tenantId") UUID tenantId, @Param("year") Integer year);
 
     @Query("SELECT p FROM PayrollRun p WHERE p.tenant.id = :tenantId " +
             "AND (LOWER(CONCAT(p.payrollYear, '-', p.payrollMonth)) LIKE LOWER(CONCAT('%', :term, '%')) " +

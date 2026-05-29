@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "review_templates")
@@ -12,6 +13,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
 public class ReviewTemplate extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

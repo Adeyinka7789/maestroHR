@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLRestriction;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
 public class JobPosting extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

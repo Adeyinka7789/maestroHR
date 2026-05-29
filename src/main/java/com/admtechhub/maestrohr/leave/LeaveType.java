@@ -5,6 +5,7 @@ import com.admtechhub.maestrohr.tenant.Tenant;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "leave_types")
@@ -14,6 +15,7 @@ import lombok.*;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "tenant"})
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
 public class LeaveType extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

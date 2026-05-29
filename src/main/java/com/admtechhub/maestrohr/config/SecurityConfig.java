@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.config;
 
 import com.admtechhub.maestrohr.auth.JwtAuthFilter;
+import com.admtechhub.maestrohr.auth.TenantValidationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,7 +51,8 @@ public class SecurityConfig {
 
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new TenantValidationFilter(), JwtAuthFilter.class);
 
         return http.build();
     }

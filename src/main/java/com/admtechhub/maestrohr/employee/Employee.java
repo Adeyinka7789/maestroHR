@@ -19,7 +19,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-//@SQLRestriction("tenant_id = current_setting('app.current_tenant', true)::uuid")
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
 public class Employee extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

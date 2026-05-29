@@ -105,9 +105,7 @@ public class PayrollRunService {
             payrollEntryRepository.deleteAll(existingEntries);
         }
 
-        List<Employee> activeEmployees = employeeRepository.findByStatus(EmployeeStatus.ACTIVE).stream()
-                .filter(employee -> employee.getTenant() != null && tenantId.equals(employee.getTenant().getId()))
-                .toList();
+        List<Employee> activeEmployees = employeeRepository.findByStatus(EmployeeStatus.ACTIVE);
 
         if (activeEmployees.isEmpty()) {
             throw new IllegalStateException("No active employees found for payroll");
