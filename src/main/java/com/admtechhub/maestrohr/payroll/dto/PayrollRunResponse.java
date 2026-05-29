@@ -63,8 +63,12 @@ public class PayrollRunResponse {
         private Long pensionEmployer;
         private Long nhfDeduction;
         private Long payeTax;
+        private Long unpaidLeaveDeduction;
+        private Long attendanceDeduction;
         private Long netSalary;
         private String employeeName;
         private String employeeNumber;
+        /** Informational: LATE attendance records in the period. No deduction applied. */
+        private Integer lateDaysInPeriod;
     }
 }

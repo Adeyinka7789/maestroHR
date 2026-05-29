@@ -1,11 +1,13 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
+import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
@@ -21,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +40,8 @@ public class PayrollRunService {
     private final UserRepository userRepository;
     private final PayrollEngine payrollEngine;
     private final NotificationService notificationService;
+    private final LeaveService leaveService;
+    private final AttendanceService attendanceService;
 
     private static final int DEFAULT_WORKING_DAYS = 22;
 
@@ -113,6 +116,9 @@ public class PayrollRunService {
 
         int workingDays = getWorkingDays(payrollRun.getPayrollMonth(), payrollRun.getPayrollYear());
 
+        LocalDate periodStart = LocalDate.of(payrollRun.getPayrollYear(), payrollRun.getPayrollMonth(), 1);
+        LocalDate periodEnd   = periodStart.plusMonths(1).minusDays(1);
+
         List<PayrollEntry> entries = new ArrayList<>();
         long totalGross = 0;
         long totalNet = 0;
@@ -124,8 +130,12 @@ public class PayrollRunService {
         for (Employee employee : activeEmployees) {
             int daysWorked = workingDays;
 
+            int unpaidLeaveDays = leaveService.getUnpaidLeaveDays(employee.getId(), periodStart, periodEnd);
+            int absentDays      = attendanceService.getAbsentDays(employee.getId(), periodStart, periodEnd);
+            int lateDays        = attendanceService.getLateDays(employee.getId(), periodStart, periodEnd);
+
             PayrollEngine.PayrollResult result = payrollEngine.calculateEmployeePayroll(
-                    employee, daysWorked, workingDays);
+                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays);
 
             PayrollEntry entry = PayrollEntry.builder()
                     .tenant(employee.getTenant())
@@ -141,6 +151,9 @@ public class PayrollRunService {
                     .nhfDeduction(result.getNhfDeduction())
                     .payeTax(result.getPayeTax())
                     .otherDeductions(result.getOtherDeductions())
+                    .unpaidLeaveDeduction(result.getUnpaidLeaveDeduction())
+                    .attendanceDeduction(result.getAttendanceDeduction())
+                    .lateDaysInPeriod(lateDays)
                     .netSalary(result.getNetSalary())
                     .daysWorked(result.getDaysWorked())
                     .workingDays(result.getWorkingDays())
@@ -364,6 +377,9 @@ public class PayrollRunService {
                         .pensionEmployer(entry.getPensionEmployer())
                         .nhfDeduction(entry.getNhfDeduction())
                         .payeTax(entry.getPayeTax())
+                        .unpaidLeaveDeduction(entry.getUnpaidLeaveDeduction())
+                        .attendanceDeduction(entry.getAttendanceDeduction())
+                        .lateDaysInPeriod(entry.getLateDaysInPeriod())
                         .netSalary(entry.getNetSalary())
                         .employeeName(entry.getEmployee().getFullName())
                         .employeeNumber(entry.getEmployee().getEmployeeNumber())
@@ -424,6 +440,9 @@ public class PayrollRunService {
                 .pensionEmployer(entry.getPensionEmployer())
                 .nhfDeduction(entry.getNhfDeduction())
                 .payeTax(entry.getPayeTax())
+                .unpaidLeaveDeduction(entry.getUnpaidLeaveDeduction())
+                .attendanceDeduction(entry.getAttendanceDeduction())
+                .lateDaysInPeriod(entry.getLateDaysInPeriod())
                 .netSalary(entry.getNetSalary())
                 .employeeName(entry.getEmployee().getFullName())
                 .employeeNumber(entry.getEmployee().getEmployeeNumber())

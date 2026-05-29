@@ -19,13 +19,17 @@ public class PayrollEngine {
     private final PAYECalculator payeCalculator;
 
     /**
-     * Calculate complete payroll for a single employee
-     * @param employee Employee with pay grade
-     * @param daysWorked Days worked in month (for proration)
-     * @param workingDays Total working days in month
-     * @return Complete PayrollResult
+     * Calculate complete payroll for a single employee.
+     *
+     * @param employee        Employee with pay grade
+     * @param daysWorked      Days worked in month (for mid-month joiner proration)
+     * @param workingDays     Total working days in month
+     * @param unpaidLeaveDays Approved unpaid leave days in the period — deducted post-statutory
+     * @param absentDays      ABSENT attendance records in the period — deducted post-statutory
+     * @return Complete PayrollResult including separate deduction line items
      */
-    public PayrollResult calculateEmployeePayroll(Employee employee, int daysWorked, int workingDays) {
+    public PayrollResult calculateEmployeePayroll(Employee employee, int daysWorked, int workingDays,
+                                                  int unpaidLeaveDays, int absentDays) {
         PayGrade payGrade = employee.getPayGrade();
 
         // Get base salaries from pay grade (all in kobo)
@@ -62,16 +66,23 @@ public class PayrollEngine {
         // Step 5: Calculate NSITF (Employer only)
         Long nsitfEmployer = nsitfCalculator.calculateEmployerContribution(grossSalary);
 
-        // Step 6: Calculate Net Salary
-        Long totalDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeResult.getMonthlyPAYE();
-        Long netSalary = grossSalary - totalDeductions;
+        // Step 6: Calculate post-statutory deductions (unpaid leave + unexcused absence).
+        // Daily rate uses integer division — no floating point; small rounding difference is
+        // acceptable and consistent with how proration is applied elsewhere in this engine.
+        Long dailyRateKobo       = grossSalary / workingDays;
+        Long unpaidLeaveDeduction = dailyRateKobo * unpaidLeaveDays;
+        Long attendanceDeduction  = dailyRateKobo * absentDays;
 
-        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}",
+        // Step 7: Calculate Net Salary
+        Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeResult.getMonthlyPAYE();
+        Long netSalary = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction;
+
+        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}",
                 employee.getFullName(), grossSalary, netSalary, payeResult.getMonthlyPAYE(),
-                pensionResult.getEmployeeContribution(), nhfDeduction);
+                pensionResult.getEmployeeContribution(), nhfDeduction, unpaidLeaveDeduction, attendanceDeduction);
 
         return PayrollResult.builder()
-                .employeeId(employee.getId())  // UUID type
+                .employeeId(employee.getId())
                 .employeeName(employee.getFullName())
                 .employeeNumber(employee.getEmployeeNumber())
                 .basicSalary(basicSalary)
@@ -85,6 +96,8 @@ public class PayrollEngine {
                 .nsitfEmployer(nsitfEmployer)
                 .payeTax(payeResult.getMonthlyPAYE())
                 .otherDeductions(0L)
+                .unpaidLeaveDeduction(unpaidLeaveDeduction)
+                .attendanceDeduction(attendanceDeduction)
                 .netSalary(netSalary)
                 .daysWorked(daysWorked)
                 .workingDays(workingDays)
@@ -97,7 +110,7 @@ public class PayrollEngine {
     @lombok.Builder
     @lombok.Data
     public static class PayrollResult {
-        private UUID employeeId;  // Changed from Long to UUID
+        private UUID employeeId;
         private String employeeName;
         private String employeeNumber;
         private Long basicSalary;
@@ -111,6 +124,8 @@ public class PayrollEngine {
         private Long nsitfEmployer;
         private Long payeTax;
         private Long otherDeductions;
+        private Long unpaidLeaveDeduction;
+        private Long attendanceDeduction;
         private Long netSalary;
         private Integer daysWorked;
         private Integer workingDays;

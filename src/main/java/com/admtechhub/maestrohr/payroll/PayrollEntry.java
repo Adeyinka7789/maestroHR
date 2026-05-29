@@ -69,6 +69,19 @@ public class PayrollEntry extends BaseEntity {
     @Builder.Default
     private Long otherDeductions = 0L;
 
+    @Column(name = "unpaid_leave_deduction", nullable = false)
+    @Builder.Default
+    private Long unpaidLeaveDeduction = 0L;
+
+    @Column(name = "attendance_deduction", nullable = false)
+    @Builder.Default
+    private Long attendanceDeduction = 0L;
+
+    /** LATE records in the period — informational, not deducted automatically. */
+    @Column(name = "late_days_in_period", nullable = false)
+    @Builder.Default
+    private Integer lateDaysInPeriod = 0;
+
     @Column(name = "net_salary", nullable = false)
     private Long netSalary;
 

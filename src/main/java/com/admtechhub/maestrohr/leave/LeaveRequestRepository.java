@@ -60,4 +60,14 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
 
     @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId ORDER BY l.createdAt DESC")
     Page<LeaveRequest> findByEmployeeTenantId(@Param("tenantId") UUID tenantId, Pageable pageable);
+
+    // Returns approved unpaid leave requests that overlap the given payroll period.
+    // Callers must clamp each result to the period boundaries before summing days.
+    @Query("SELECT l FROM LeaveRequest l WHERE l.employee.id = :employeeId " +
+            "AND l.status = 'APPROVED' AND l.leaveType.isPaid = false " +
+            "AND l.startDate <= :periodEnd AND l.endDate >= :periodStart")
+    List<LeaveRequest> findApprovedUnpaidLeavesInRange(
+            @Param("employeeId") UUID employeeId,
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd);
 }

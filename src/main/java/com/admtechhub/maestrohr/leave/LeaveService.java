@@ -348,6 +348,25 @@ public class LeaveService {
         return leaveBalanceRepository.save(balance);
     }
 
+    /**
+     * Returns the total number of working days (Mon–Sat) covered by approved
+     * unpaid leave requests for this employee that overlap the payroll period.
+     * Leave requests that straddle a period boundary are clamped so only the
+     * portion inside the period is counted.
+     */
+    @Transactional(readOnly = true)
+    public int getUnpaidLeaveDays(UUID employeeId, LocalDate periodStart, LocalDate periodEnd) {
+        List<LeaveRequest> unpaidLeaves = leaveRequestRepository
+                .findApprovedUnpaidLeavesInRange(employeeId, periodStart, periodEnd);
+        int totalDays = 0;
+        for (LeaveRequest leave : unpaidLeaves) {
+            LocalDate effectiveStart = leave.getStartDate().isBefore(periodStart) ? periodStart : leave.getStartDate();
+            LocalDate effectiveEnd   = leave.getEndDate().isAfter(periodEnd)       ? periodEnd   : leave.getEndDate();
+            totalDays += (int) calculateWorkingDays(effectiveStart, effectiveEnd);
+        }
+        return totalDays;
+    }
+
     private long calculateWorkingDays(LocalDate startDate, LocalDate endDate) {
         long days = 0;
         LocalDate date = startDate;

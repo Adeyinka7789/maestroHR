@@ -28,4 +28,19 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
 
     @Query("SELECT a FROM AttendanceRecord a WHERE a.attendanceDate = :date AND a.status = 'ABSENT'")
     List<AttendanceRecord> findAbsenteesOnDate(@Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId " +
+            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "AND a.status = 'ABSENT'")
+    long countAbsentDays(@Param("employeeId") UUID employeeId,
+                         @Param("startDate") LocalDate startDate,
+                         @Param("endDate") LocalDate endDate);
+
+    // LATE records carry no automatic deduction — count is surfaced for HR review only.
+    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId " +
+            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "AND a.status = 'LATE'")
+    long countLateDays(@Param("employeeId") UUID employeeId,
+                       @Param("startDate") LocalDate startDate,
+                       @Param("endDate") LocalDate endDate);
 }

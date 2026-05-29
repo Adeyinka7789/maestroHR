@@ -148,4 +148,16 @@ public class AttendanceService {
         LocalDate endDate = startDate.plusMonths(1).minusDays(1);
         return attendanceRepository.countPresentDays(employeeId, startDate, endDate);
     }
+
+    /** Count of ABSENT records in the period — used to calculate attendance deduction in kobo. */
+    @Transactional(readOnly = true)
+    public int getAbsentDays(UUID employeeId, LocalDate periodStart, LocalDate periodEnd) {
+        return (int) attendanceRepository.countAbsentDays(employeeId, periodStart, periodEnd);
+    }
+
+    /** Count of LATE records in the period — informational only, no automatic deduction applied. */
+    @Transactional(readOnly = true)
+    public int getLateDays(UUID employeeId, LocalDate periodStart, LocalDate periodEnd) {
+        return (int) attendanceRepository.countLateDays(employeeId, periodStart, periodEnd);
+    }
 }
