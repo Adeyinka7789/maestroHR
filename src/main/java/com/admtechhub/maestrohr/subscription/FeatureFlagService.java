@@ -26,10 +26,7 @@ public class FeatureFlagService {
 
     public void requireFeature(SubscriptionFeature feature) {
         if (!isEnabled(feature)) {
-            throw new IllegalStateException(
-                    "This feature is not available in your current subscription plan. " +
-                            "Please upgrade to access this feature."
-            );
+            throw new FeatureNotAvailableException(feature);
         }
     }
 }

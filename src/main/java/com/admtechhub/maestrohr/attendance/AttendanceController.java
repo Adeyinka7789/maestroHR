@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.attendance;
 
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.subscription.RequiresFeature;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import java.util.UUID;
 @RequestMapping("/api/attendance")
 @RequiredArgsConstructor
 @Slf4j
+@RequiresFeature(SubscriptionFeature.ATTENDANCE_TRACKING)
 public class AttendanceController {
 
     private final AttendanceService attendanceService;

@@ -6,6 +6,8 @@ import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.DepartmentRepository;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
+import com.admtechhub.maestrohr.subscription.RequiresFeature;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +21,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
+@RequiresFeature(SubscriptionFeature.CUSTOM_REPORTING)
 public class ReportsApiController {
 
     private final EmployeeRepository employeeRepository;

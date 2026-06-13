@@ -2,6 +2,8 @@ package com.admtechhub.maestrohr.leave;
 
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.subscription.RequiresFeature;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +22,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/leave")
 @RequiredArgsConstructor
+@RequiresFeature(SubscriptionFeature.LEAVE_MANAGEMENT)
 public class LeaveController {
 
     private final LeaveService leaveService;

@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.common;
 
+import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,6 +67,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred"));
+    }
+
+    @ExceptionHandler(FeatureNotAvailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFeatureNotAvailable(
+            FeatureNotAvailableException ex) {
+        log.info("Feature gated: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.PAYMENT_REQUIRED)
+                .body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(TenantNotFoundException.class)
