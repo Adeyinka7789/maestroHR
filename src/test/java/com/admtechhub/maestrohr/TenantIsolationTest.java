@@ -1,11 +1,11 @@
 package com.admtechhub.maestrohr;
 
 import com.admtechhub.maestrohr.auth.JwtService;
-import com.admtechhub.maestrohr.employee.EmployeeController;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,7 +17,17 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(EmployeeController.class)
+/**
+ * Tenant-isolation checks against the real security filter chain. Uses {@code @SpringBootTest}
+ * (not {@code @WebMvcTest}): these assertions depend on our custom filters — {@code JwtAuthFilter},
+ * {@code TenantValidationFilter}, {@code LapsedAccessFilter} — and the {@code @SQLRestriction}
+ * scoping, none of which load in a web slice (which falls back to Spring Security's default chain).
+ * Loads the full context against the {@code .env} Postgres, like the other integration tests.
+ * {@code JwtService} and {@code EmployeeService} are mocked to forge tokens and isolate the
+ * controller from the data layer.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
 class TenantIsolationTest {
 
     @Autowired
