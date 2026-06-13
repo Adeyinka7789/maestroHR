@@ -10,7 +10,9 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # Phase E4a: schema is owned entirely by Flyway. `validate` fails fast on any
+      # entity/schema drift instead of silently mutating the database at boot.
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
