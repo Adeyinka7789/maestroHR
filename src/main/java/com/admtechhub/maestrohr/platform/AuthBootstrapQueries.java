@@ -44,6 +44,20 @@ public class AuthBootstrapQueries {
         return rows.stream().findFirst();
     }
 
+    /**
+     * The same authentication projection, resolved by primary key across all tenants. Used by
+     * the admin user-update write path to read the current row before merging partial changes
+     * (the scoped JPA read would see nothing under {@code maestro_app} for a cross-tenant user).
+     */
+    public Optional<UserAuthRow> findUserById(UUID id) {
+        List<UserAuthRow> rows = jdbc.query(
+                "SELECT id, tenant_id, email, password_hash, role, is_active, "
+                        + "failed_login_attempts, locked_until "
+                        + "FROM users WHERE id = ?",
+                USER_AUTH_ROW, id);
+        return rows.stream().findFirst();
+    }
+
     /** Cross-tenant email-uniqueness check used by registration / admin user creation (op 2). */
     public boolean existsUserByEmail(String email) {
         Boolean exists = jdbc.queryForObject(

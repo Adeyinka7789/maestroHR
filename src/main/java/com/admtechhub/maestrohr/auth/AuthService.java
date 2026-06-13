@@ -1,48 +1,66 @@
 package com.admtechhub.maestrohr.auth;
 
 import com.admtechhub.maestrohr.platform.AuthBootstrapQueries;
+import com.admtechhub.maestrohr.platform.LoginAttemptWrites;
+import com.admtechhub.maestrohr.platform.TenantUserWrites;
+import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
-import com.admtechhub.maestrohr.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 
+/**
+ * Registration and login both run with no tenant session bound, so every database operation
+ * here goes through the privileged datasource (the cross-tenant reads in
+ * {@link AuthBootstrapQueries}, the lockout write-backs in {@link LoginAttemptWrites}, and the
+ * provisioning inserts in {@link TenantUserWrites}). None touch the RLS-enforced primary pool,
+ * so neither method is {@code @Transactional} — the one place atomicity is required, the
+ * registration tenant+user insert, is handled inside {@link TenantUserWrites#provisionTenantWithAdmin}.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
     private final AuthBootstrapQueries authBootstrapQueries;
-    private final TenantService tenantService;
+    private final LoginAttemptWrites loginAttemptWrites;
+    private final TenantUserWrites tenantUserWrites;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
-    @Transactional
     public AuthResponse register(AuthRequest.Register request) {
-        Tenant tenant = tenantService.registerTenant(
-                request.getCompanyName(),
-                request.getRcNumber(),
-                request.getIndustry(),
-                request.getCompanySize()
-        );
-
-        if (userRepository.existsByEmail(request.getAdminEmail())) {
+        // Cross-tenant uniqueness checks (no tenant session) via the privileged datasource.
+        if (request.getRcNumber() != null && !request.getRcNumber().isBlank()
+                && authBootstrapQueries.existsTenantByRcNumber(request.getRcNumber())) {
+            throw new IllegalArgumentException(
+                    "A company with this RC number is already registered");
+        }
+        if (authBootstrapQueries.existsUserByEmail(request.getAdminEmail())) {
             throw new IllegalArgumentException("Email already registered");
         }
 
+        Tenant tenant = Tenant.builder()
+                .companyName(request.getCompanyName())
+                .rcNumber(request.getRcNumber())
+                .industry(request.getIndustry())
+                .companySize(request.getCompanySize())
+                .subscriptionPlan(SubscriptionPlan.FREE_TRIAL)
+                .subscriptionExpiresAt(OffsetDateTime.now().plusDays(30))
+                .isActive(true)
+                .build();
+
         User user = User.builder()
-                .tenantId(tenant.getId())
                 .email(request.getAdminEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(UserRole.HR_ADMIN)
                 .build();
 
-        userRepository.save(user);
+        // Atomically inserts the tenant then its admin user (wiring user.tenant_id to the new
+        // tenant id) on the privileged datasource; both objects get their generated ids back.
+        tenantUserWrites.provisionTenantWithAdmin(tenant, user);
 
         String accessToken = jwtService.generateToken(
                 user.getEmail(),
@@ -67,7 +85,6 @@ public class AuthService {
                 .build();
     }
 
-    @Transactional
     public AuthResponse login(AuthRequest.Login request) {
         // Bootstrap read (op 1): resolve the user across all tenants with no tenant session
         // bound. Under the RLS-enforced maestro_app primary role the scoped JPA lookup would
@@ -119,24 +136,17 @@ public class AuthService {
     }
 
     /**
-     * E4c-i: the login failed-attempt / reset write-backs still target the JPA {@code users}
-     * table on the primary (now {@code maestro_app}) pool. Login binds no tenant session, so
-     * under {@code maestro_app} the RLS-scoped {@code findById} matches no row and the write
-     * is a silent no-op — lockout tracking is therefore temporarily inert under the flipped
-     * role (it still works under the postgres test role, which bypasses RLS). Re-binding the
-     * resolved user's tenant session before the write is deferred to E4c-ii.
+     * Failed-attempt / reset write-backs go through the privileged datasource (E4c-ii). Login
+     * binds no tenant session, so under {@code maestro_app} a scoped {@code users} write would
+     * match no row and no-op; and because login throws an unchecked exception to signal bad
+     * credentials, a write on the primary transaction would also be rolled back. The privileged
+     * template's own auto-commit connection sidesteps both — the counter genuinely persists.
      */
     private void recordFailedAttempt(AuthBootstrapQueries.UserAuthRow auth) {
-        userRepository.findById(auth.id()).ifPresent(user -> {
-            user.incrementFailedAttempts();
-            userRepository.save(user);
-        });
+        loginAttemptWrites.recordFailedLogin(auth.id(), auth.failedLoginAttempts());
     }
 
     private void resetFailedAttempts(AuthBootstrapQueries.UserAuthRow auth) {
-        userRepository.findById(auth.id()).ifPresent(user -> {
-            user.resetFailedAttempts();
-            userRepository.save(user);
-        });
+        loginAttemptWrites.resetFailedLogin(auth.id());
     }
 }

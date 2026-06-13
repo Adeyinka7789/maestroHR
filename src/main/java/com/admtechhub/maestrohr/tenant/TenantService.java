@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Slf4j
@@ -15,31 +14,9 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
 
-    @Transactional
-    public Tenant registerTenant(String companyName, String rcNumber,
-                                 String industry, String companySize) {
-
-        if (rcNumber != null && tenantRepository.existsByRcNumber(rcNumber)) {
-            throw new IllegalArgumentException(
-                    "A company with this RC number is already registered"
-            );
-        }
-
-        Tenant tenant = Tenant.builder()
-                .companyName(companyName)
-                .rcNumber(rcNumber)
-                .industry(industry)
-                .companySize(companySize)
-                .subscriptionPlan(SubscriptionPlan.FREE_TRIAL)
-                .subscriptionExpiresAt(OffsetDateTime.now().plusDays(30))
-                .isActive(true)
-                .build();
-
-        Tenant saved = tenantRepository.save(tenant);
-        log.info("New tenant registered: {} with id: {}",
-                companyName, saved.getId());
-        return saved;
-    }
+    // Tenant provisioning (registration / admin create) is a cross-tenant write performed with
+    // no tenant session, so it runs on the privileged datasource via
+    // com.admtechhub.maestrohr.platform.TenantUserWrites — not through this scoped JPA service.
 
     @Transactional(readOnly = true)
     public Tenant findById(UUID id) {

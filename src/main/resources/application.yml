@@ -45,15 +45,12 @@ privileged:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    # Flyway MUST run as the owner/superuser (postgres), NOT the primary runtime role.
-    # The primary datasource now connects as the NOBYPASSRLS, DML-only `maestro_app`
-    # role (see above), which owns nothing and cannot run DDL or the role management in
-    # V24 (CREATE/ALTER ROLE, REVOKE on flyway_schema_history). Pinning Flyway's own
-    # credentials here makes Spring Boot build it a dedicated datasource from these
-    # creds + the primary URL, so migrations keep applying as the owner regardless of
-    # the runtime-role flip.
-    user: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    # Flyway MUST run as the owner/superuser (postgres), NOT the primary runtime role
+    # (NOBYPASSRLS, DML-only `maestro_app`, which cannot create flyway_schema_history on a
+    # fresh DB or run V24's role management). The owner-credentialed datasource is supplied
+    # explicitly by the @FlywayDataSource bean in config.FlywayConfig — setting
+    # spring.flyway.user/password (or even url) here is NOT enough, because with a custom
+    # @Primary datasource Boot reuses that (maestro_app) pool for Flyway and ignores them.
     # The two settings below exist SPECIFICALLY for V18_1__add_clearance_items_updated_at.sql
     # — a back-dated migration (version 18.1) slotted between V18 and V19 to fix the fresh-DB
     # break (V19's INSERT referenced a column V18 never created). On databases already
