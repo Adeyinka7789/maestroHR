@@ -39,7 +39,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String token = extractToken(request);
 
-        if (isPublicPath(path) && (token == null || !jwtService.isTokenValid(token))) {
+        if (PublicPaths.isNoTenant(path) && (token == null || !jwtService.isTokenValid(token))) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -91,15 +91,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             TenantContext.clear();
             MDC.remove("tenantId");
         }
-    }
-
-    private boolean isPublicPath(String path) {
-        return path.startsWith("/login") ||
-                path.startsWith("/register") ||
-                path.equals("/") ||
-                path.startsWith("/css/") ||
-                path.startsWith("/js/") ||
-                path.startsWith("/images/");
     }
 
     private String extractToken(HttpServletRequest request) {

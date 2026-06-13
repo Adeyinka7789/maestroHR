@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.config;
 
 import com.admtechhub.maestrohr.auth.JwtAuthFilter;
 import com.admtechhub.maestrohr.auth.LapsedAccessFilter;
+import com.admtechhub.maestrohr.auth.PublicPaths;
 import com.admtechhub.maestrohr.auth.TenantValidationFilter;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -32,26 +33,13 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ── Public API endpoints ──────────────────────────────────────
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/api/pricing/public",          // ← public pricing for plans page
-                                "/api/webhooks/**",             // ← Paystack webhooks: no JWT, HMAC-verified instead
-                                "/actuator/health",
-                                "/actuator/info"
-                        ).permitAll()
+                        // ── Public endpoints ──────────────────────────────────────────
+                        // NO_TENANT (truly public APIs + static) ∪ UI_SHELL (Thymeleaf pages,
+                        // auth handled client-side via JWT). Single source of truth: PublicPaths.
+                        .requestMatchers(PublicPaths.permitAllPatterns()).permitAll()
 
                         // ── Actuator (super admin only) ───────────────────────────────
                         .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
-
-                        // ── Thymeleaf UI pages (auth handled client-side via JWT) ─────
-                        .requestMatchers(
-                                "/employees/**", "/departments/**", "/pay-grades/**",
-                                "/payroll/**", "/leave/**", "/attendance/**", "/reports/**",
-                                "/subscription/**",
-                                "/dashboard", "/", "/login", "/register",
-                                "/css/**", "/js/**", "/images/**"
-                        ).permitAll()
 
                         .anyRequest().authenticated()
                 )

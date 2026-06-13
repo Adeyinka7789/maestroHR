@@ -8,7 +8,6 @@ import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Set;
 
 /**
  * Runs after JwtAuthFilter in the Spring Security filter chain.
@@ -22,27 +21,6 @@ import java.util.Set;
  */
 public class TenantValidationFilter extends OncePerRequestFilter {
 
-    // Paths exempt from tenant-context enforcement.
-    // Keep in sync with SecurityConfig.permitAll() and JwtAuthFilter.isPublicPath().
-    private static final Set<String> EXACT_PUBLIC = Set.of(
-            "/", "/login", "/register", "/dashboard",
-            "/actuator/health", "/actuator/info",
-            "/api/pricing/public"
-    );
-
-    private static final Set<String> PREFIX_PUBLIC = Set.of(
-            "/api/auth/",
-            "/api/webhooks/",   // Paystack webhooks have no tenant context; resolved per-event instead
-            "/actuator/health",
-            "/actuator/info",
-            "/css/",
-            "/js/",
-            "/images/",
-            "/swagger-ui",
-            "/v3/api-docs",
-            "/favicon"
-    );
-
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -52,7 +30,7 @@ public class TenantValidationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        if (isPublicPath(path)) {
+        if (PublicPaths.isNoTenant(path)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -66,17 +44,5 @@ public class TenantValidationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private boolean isPublicPath(String path) {
-        if (EXACT_PUBLIC.contains(path)) {
-            return true;
-        }
-        for (String prefix : PREFIX_PUBLIC) {
-            if (path.startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
     }
 }

@@ -84,9 +84,6 @@ public class LapsedAccessFilter extends OncePerRequestFilter {
             return true;
         }
 
-        String path = request.getRequestURI();
-        return path.startsWith("/api/payment/")
-                || path.startsWith("/api/webhooks/")
-                || path.startsWith("/api/auth/");
+        return PublicPaths.isWriteExempt(request.getRequestURI());
     }
 }
