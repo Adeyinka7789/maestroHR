@@ -8,6 +8,20 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
+# Phase E4b: a second, privileged datasource for the handful of bootstrap and
+# cross-tenant read operations that must see every tenant's rows (login lookups,
+# webhook tenant-resolution, the lapse sweep, admin aggregates). It connects as the
+# table owner / superuser (no set_config wrapper) so it bypasses RLS. Today it shares
+# the primary's postgres credentials; it intentionally keeps its own connection
+# settings so it stays postgres after E4c flips the PRIMARY datasource to maestro_app.
+privileged:
+  datasource:
+    hikari:
+      jdbc-url: ${PRIVILEGED_DB_URL:${DB_URL}}
+      username: ${PRIVILEGED_DB_USERNAME:${DB_USERNAME}}
+      password: ${PRIVILEGED_DB_PASSWORD:${DB_PASSWORD}}
+      driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       # Phase E4a: schema is owned entirely by Flyway. `validate` fails fast on any
