@@ -1,7 +1,9 @@
 package com.admtechhub.maestrohr.config;
 
 import com.admtechhub.maestrohr.auth.JwtAuthFilter;
+import com.admtechhub.maestrohr.auth.LapsedAccessFilter;
 import com.admtechhub.maestrohr.auth.TenantValidationFilter;
+import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final SubscriptionService subscriptionService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -53,7 +56,10 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(new TenantValidationFilter(), JwtAuthFilter.class);
+                .addFilterAfter(new TenantValidationFilter(), JwtAuthFilter.class)
+                // After tenant context is validated: freeze lapsed (EXPIRED) tenants to
+                // read-only until they pay to reactivate.
+                .addFilterAfter(new LapsedAccessFilter(subscriptionService), TenantValidationFilter.class);
 
         return http.build();
     }

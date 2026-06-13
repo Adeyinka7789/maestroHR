@@ -104,6 +104,50 @@ public class SubscriptionService {
         return plan != null && plan.hasFeature(feature);
     }
 
+    /**
+     * Flip a tenant's subscription from {@code ACTIVE} to {@code EXPIRED} if its billing
+     * period has elapsed. Idempotent and defensive: re-reads the row under the bound
+     * tenant session and only transitions a row that is still {@code ACTIVE} with a
+     * {@code currentPeriodEnd} in the past — so a renewal that landed between the job's
+     * candidate scan and this call is never clobbered. Returns {@code true} iff a
+     * transition was made (for logging/metrics).
+     *
+     * <p>Called once per candidate tenant by {@code SubscriptionLapseJob}, which sets and
+     * clears {@link com.admtechhub.maestrohr.auth.TenantContext} around each invocation.
+     */
+    @Transactional
+    public boolean lapseExpired(UUID tenantId) {
+        bindTenantSession(tenantId);
+        TenantSubscription subscription = tenantSubscriptionRepository.findByTenantId(tenantId)
+                .orElse(null);
+
+        if (subscription == null || subscription.getStatus() != SubscriptionStatus.ACTIVE) {
+            return false;
+        }
+        OffsetDateTime periodEnd = subscription.getCurrentPeriodEnd();
+        if (periodEnd == null || !periodEnd.isBefore(OffsetDateTime.now())) {
+            return false;
+        }
+
+        subscription.setStatus(SubscriptionStatus.EXPIRED);
+        tenantSubscriptionRepository.save(subscription);
+        log.info("Subscription lapsed for tenant {} (period ended {})", tenantId, periodEnd);
+        return true;
+    }
+
+    /**
+     * The tenant's current subscription lifecycle status, or {@code null} if it has no
+     * subscription row. Read-only; binds the tenant session so the scoped lookup resolves.
+     * Used by {@code LapsedAccessFilter} to gate write access on an EXPIRED subscription.
+     */
+    @Transactional(readOnly = true)
+    public SubscriptionStatus getStatus(UUID tenantId) {
+        bindTenantSession(tenantId);
+        return tenantSubscriptionRepository.findByTenantId(tenantId)
+                .map(TenantSubscription::getStatus)
+                .orElse(null);
+    }
+
     @Transactional
     public void renewSubscription(UUID tenantId) {
         bindTenantSession(tenantId);
