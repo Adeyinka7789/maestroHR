@@ -1,0 +1,22 @@
+-- V18_1__add_clearance_items_updated_at.sql
+--
+-- Phase E4a.1: unblocks building the schema from scratch.
+--
+-- V18 creates `clearance_items` WITHOUT an `updated_at` column. V19 then re-issues a
+-- `CREATE TABLE IF NOT EXISTS clearance_items (... updated_at ...)` that no-ops (the table
+-- already exists from V18, so its `updated_at` is never added) and immediately runs an
+-- INSERT that references `updated_at` — so on an EMPTY database Flyway halts at V19's
+-- INSERT and never reaches V20+. (On existing databases this was masked: ddl-auto=update
+-- added the column on an earlier boot, and V26 later declares it for validate.)
+--
+-- The fix must add the column BEFORE V19's INSERT runs, so it carries version 18.1 to sort
+-- strictly between V18 and V19. V18 and V19 are left untouched (no checksum change, no
+-- `flyway repair`). The column definition mirrors V26's exactly so it converges to the same
+-- schema; on any database that already has the column this ALTER is a harmless no-op.
+--
+-- NOTE: applying this to an ALREADY-MIGRATED database (e.g. the dev DB at a higher version)
+-- relies on `spring.flyway.out-of-order=true` — see the comment beside that setting in
+-- application.yml. The table is empty when this runs on a fresh build, so NOT NULL DEFAULT
+-- NOW() back-fills nothing and cannot fail.
+
+ALTER TABLE clearance_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
