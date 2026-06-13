@@ -2,10 +2,19 @@ spring:
   application:
     name: maestrohr
 
+  # Phase E4c-i: the PRIMARY runtime datasource now connects as the least-privilege,
+  # NOBYPASSRLS `maestro_app` role (created in V24), so PostgreSQL Row Level Security
+  # actually applies to every JPA/repository read and write. The `set_config` wrapper in
+  # DataSourceConfig binds `app.current_tenant` on each connection exactly as before —
+  # `maestro_app` may set that custom GUC in its own session with no extra grant.
+  # Bootstrap / cross-tenant reads that must see every tenant (login, webhooks, lapse
+  # sweep, admin aggregates) deliberately go through the separate privileged datasource
+  # below; un-migrated WRITE paths (registration inserts, admin write CRUD, login
+  # failed-attempt write-backs) remain on this pool and are deferred to E4c-ii.
   datasource:
     url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: ${APP_DB_USERNAME}
+    password: ${APP_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
 # Phase E4b: a second, privileged datasource for the handful of bootstrap and
@@ -36,6 +45,15 @@ privileged:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Flyway MUST run as the owner/superuser (postgres), NOT the primary runtime role.
+    # The primary datasource now connects as the NOBYPASSRLS, DML-only `maestro_app`
+    # role (see above), which owns nothing and cannot run DDL or the role management in
+    # V24 (CREATE/ALTER ROLE, REVOKE on flyway_schema_history). Pinning Flyway's own
+    # credentials here makes Spring Boot build it a dedicated datasource from these
+    # creds + the primary URL, so migrations keep applying as the owner regardless of
+    # the runtime-role flip.
+    user: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     # The two settings below exist SPECIFICALLY for V18_1__add_clearance_items_updated_at.sql
     # — a back-dated migration (version 18.1) slotted between V18 and V19 to fix the fresh-DB
     # break (V19's INSERT referenced a column V18 never created). On databases already

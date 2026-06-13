@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.payment;
 
 import com.admtechhub.maestrohr.payment.dto.PaystackWebhookPayload;
+import com.admtechhub.maestrohr.platform.WebhookTenantResolver;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
 import com.admtechhub.maestrohr.tenant.*;
@@ -23,6 +24,7 @@ public class PaymentWebhookService {
     private final SubscriptionService subscriptionService;
     private final PricingService pricingService;
     private final InvoiceRepository invoiceRepository;
+    private final WebhookTenantResolver webhookTenantResolver;
     private final EntityManager entityManager;
 
     /**
@@ -36,15 +38,18 @@ public class PaymentWebhookService {
         String subscriptionCode = data.getSubscriptionCode();
         String customerCode = data.getCustomer().getCustomerCode();
 
-        // Find tenant by customer code
-        Optional<Tenant> tenantOpt = tenantRepository.findByPaystackCustomerCode(customerCode);
-
-        if (tenantOpt.isEmpty()) {
+        // Resolve the owning tenant WITHOUT a tenant session (webhooks have none) through the
+        // privileged datasource, then bind that tenant's session so the scoped JPA mutation
+        // below resolves under the RLS-enforced primary role.
+        Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByCustomerCode(customerCode);
+        if (tenantIdOpt.isEmpty()) {
             log.warn("No tenant found for customer code: {}", customerCode);
             return;
         }
-
-        Tenant tenant = tenantOpt.get();
+        UUID tenantId = tenantIdOpt.get();
+        bindTenantSession(tenantId);
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
 
         // Determine plan from amount
         SubscriptionPlan plan = determinePlanFromAmount(data.getAmount());
@@ -88,10 +93,11 @@ public class PaymentWebhookService {
             return;
         }
 
-        // Resolve the owning tenant WITHOUT a tenant session (webhooks have none); this
-        // native lookup bypasses @SQLRestriction. Then bind the session so the scoped
-        // repositories below resolve to the correct tenant.
-        Optional<UUID> tenantIdOpt = invoiceRepository.findTenantIdByPaystackReference(reference);
+        // Resolve the owning tenant WITHOUT a tenant session (webhooks have none) through the
+        // privileged datasource — under the RLS-enforced primary role the scoped lookup would
+        // see nothing. Then bind the session so the scoped repositories below resolve to the
+        // correct tenant.
+        Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByInvoiceReference(reference);
         if (tenantIdOpt.isEmpty()) {
             log.warn("charge.success for unknown reference {} — no matching invoice", reference);
             return;
@@ -145,14 +151,17 @@ public class PaymentWebhookService {
         var data = payload.getData();
         String subscriptionCode = data.getSubscriptionCode();
 
-        Optional<Tenant> tenantOpt = tenantRepository.findByPaystackSubscriptionCode(subscriptionCode);
-
-        if (tenantOpt.isEmpty()) {
+        // Privileged resolve (no tenant session) → bind → scoped JPA mutation.
+        Optional<UUID> tenantIdOpt =
+                webhookTenantResolver.findTenantIdBySubscriptionCode(subscriptionCode);
+        if (tenantIdOpt.isEmpty()) {
             log.warn("No tenant found for subscription code: {}", subscriptionCode);
             return;
         }
-
-        Tenant tenant = tenantOpt.get();
+        UUID tenantId = tenantIdOpt.get();
+        bindTenantSession(tenantId);
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
 
         // Downgrade to FREE_TRIAL but mark as inactive
         tenant.setSubscriptionPlan(SubscriptionPlan.FREE_TRIAL);
@@ -187,14 +196,15 @@ public class PaymentWebhookService {
         var data = payload.getData();
         String customerCode = data.getCustomer().getCustomerCode();
 
-        Optional<Tenant> tenantOpt = tenantRepository.findByPaystackCustomerCode(customerCode);
+        // Privileged resolve (no tenant session); syncSubscriptionState binds the tenant
+        // session itself before its scoped upsert.
+        Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByCustomerCode(customerCode);
 
-        if (tenantOpt.isPresent()) {
-            Tenant tenant = tenantOpt.get();
-            log.warn("Payment failed for tenant {}. Subscription may be disabled soon.",
-                    tenant.getId());
+        if (tenantIdOpt.isPresent()) {
+            UUID tenantId = tenantIdOpt.get();
+            log.warn("Payment failed for tenant {}. Subscription may be disabled soon.", tenantId);
 
-            subscriptionService.syncSubscriptionState(tenant.getId(), SubscriptionStatus.PAST_DUE);
+            subscriptionService.syncSubscriptionState(tenantId, SubscriptionStatus.PAST_DUE);
 
             // Send notification to tenant (implement later)
         }

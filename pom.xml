@@ -186,6 +186,19 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Phase E4c-i: activate the `test` profile for the whole suite so
+					     application-test.yml pins the datasource to postgres (strategy A).
+					     The production application.yml runs the primary datasource as the
+					     RLS-enforced maestro_app role. -->
+					<systemPropertyVariables>
+						<spring.profiles.active>test</spring.profiles.active>
+					</systemPropertyVariables>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<executions>
 					<execution>

@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.platform.AdminStatsQueries;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
@@ -28,11 +29,15 @@ public class AdminManagementController {
 
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
+    // Cross-tenant admin LISTS go through the privileged datasource; under the RLS-enforced
+    // primary role they would otherwise return only the (absent) current tenant's rows. The
+    // write CRUD below still uses the scoped JPA repositories and is deferred to E4c-ii.
+    private final AdminStatsQueries adminStatsQueries;
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/tenants")
     public ResponseEntity<ApiResponse<List<TenantWithUserCountDTO>>> tenants() {
-        List<TenantWithUserCountDTO> tenants = tenantRepository.findAllWithUserCount();
+        List<TenantWithUserCountDTO> tenants = adminStatsQueries.findAllTenantsWithUserCount();
         return ResponseEntity.ok(ApiResponse.success("Tenants retrieved", tenants));
     }
 
@@ -69,8 +74,9 @@ public class AdminManagementController {
     }
 
     @GetMapping("/users")
-    public ResponseEntity<ApiResponse<List<User>>> users() {
-        return ResponseEntity.ok(ApiResponse.success("Users retrieved", userRepository.findAll()));
+    public ResponseEntity<ApiResponse<List<AdminStatsQueries.AdminUserRow>>> users() {
+        return ResponseEntity.ok(
+                ApiResponse.success("Users retrieved", adminStatsQueries.findAllUsers()));
     }
 
     @PostMapping("/users")

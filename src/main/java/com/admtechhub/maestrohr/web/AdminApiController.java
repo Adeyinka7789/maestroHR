@@ -1,7 +1,6 @@
 package com.admtechhub.maestrohr.web;
 
-import com.admtechhub.maestrohr.auth.UserRepository;
-import com.admtechhub.maestrohr.tenant.TenantService;
+import com.admtechhub.maestrohr.platform.AdminStatsQueries;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,15 +14,17 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminApiController {
 
-    private final TenantService tenantService;
-    private final UserRepository userRepository;
+    // SUPER_ADMIN console aggregates span ALL tenants, so they must go through the
+    // privileged datasource — under the RLS-enforced primary role these counts would
+    // collapse to the (absent) current tenant.
+    private final AdminStatsQueries adminStatsQueries;
 
     @GetMapping("/stats")
     public ResponseEntity<?> getAdminStats() {
-        long totalTenants = tenantService.countAll();
-        long activeTenants = tenantService.countActive();
-        long totalUsers = userRepository.count();
-        long lockedUsers = userRepository.countLockedUsers();
+        long totalTenants = adminStatsQueries.countTenants();
+        long activeTenants = adminStatsQueries.countActiveTenants();
+        long totalUsers = adminStatsQueries.countUsers();
+        long lockedUsers = adminStatsQueries.countLockedUsers();
 
         Map<String, Object> stats = Map.of(
                 "tenants", totalTenants,

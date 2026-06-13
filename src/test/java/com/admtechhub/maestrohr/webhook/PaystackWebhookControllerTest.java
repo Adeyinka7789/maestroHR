@@ -3,43 +3,50 @@ package com.admtechhub.maestrohr.webhook;
 import com.admtechhub.maestrohr.payment.Invoice;
 import com.admtechhub.maestrohr.payment.InvoiceRepository;
 import com.admtechhub.maestrohr.payment.PaymentStatus;
-import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
-import com.admtechhub.maestrohr.subscription.TenantSubscription;
-import com.admtechhub.maestrohr.subscription.TenantSubscriptionRepository;
 import com.admtechhub.maestrohr.tenant.PaymentPeriod;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
-import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.Optional;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Phase B webhook tests. Exercise the controller method directly (rather than through
- * MockMvc) so the whole flow runs inside the test's transaction — that way the PENDING
- * invoice the test inserts is visible to {@code handleChargeSuccess}, and {@code @Transactional}
- * rolls everything back afterwards. The HMAC signature is computed with the same secret
- * the bean is configured with via {@link TestPropertySource}.
+ * Phase B webhook tests, updated for E4c-i.
  *
- * <p>Fixtures are tagged {@code TEST-PHASE-B …} for identifiability if a row ever survives.
+ * <p><b>Why no longer {@code @Transactional}.</b> {@code handleChargeSuccess} now resolves the
+ * owning tenant through the <em>privileged</em> datasource (a separate connection pool), which
+ * cannot see rows from an uncommitted test transaction. Fixtures are therefore committed here
+ * (the repository {@code saveAndFlush} calls run in their own transactions with no ambient test
+ * transaction) and removed in {@link #cleanup()} via the privileged template, which bypasses
+ * {@code @SQLRestriction} and RLS. Post-webhook state is asserted with the same privileged
+ * template, so no tenant session needs binding to read it back. Mirrors {@code PrivilegedQueriesTest}.
+ *
+ * <p>The HMAC signature is computed with the same secret the bean is configured with via
+ * {@link TestPropertySource}. Fixtures are tagged {@code TEST-PHASE-B …} for identifiability if
+ * a row ever survives a failed cleanup.
  */
 @SpringBootTest
-@Transactional
 @TestPropertySource(properties = {
         "paystack.webhook.verify-signature=true",
         "paystack.secret-key=sk_test_phaseb_secret"
@@ -51,16 +58,22 @@ class PaystackWebhookControllerTest {
     @Autowired private PaystackWebhookController controller;
     @Autowired private TenantRepository tenantRepository;
     @Autowired private InvoiceRepository invoiceRepository;
-    @Autowired private TenantSubscriptionRepository tenantSubscriptionRepository;
-    @Autowired private EntityManager entityManager;
+    @Autowired @Qualifier("privilegedJdbcTemplate") private JdbcTemplate privilegedJdbc;
 
-    // ── helpers ───────────────────────────────────────────────────────────────
-    private void bindTenant(UUID tenantId) {
-        entityManager.createNativeQuery("SELECT set_config('app.current_tenant', :tid, true)")
-                .setParameter("tid", tenantId.toString())
-                .getSingleResult();
+    private final List<UUID> createdTenantIds = new ArrayList<>();
+
+    @AfterEach
+    void cleanup() {
+        // Privileged template bypasses @SQLRestriction + RLS, so DELETEs hit every row.
+        for (UUID tenantId : createdTenantIds) {
+            privilegedJdbc.update("DELETE FROM invoices WHERE tenant_id = ?", tenantId);
+            privilegedJdbc.update("DELETE FROM tenant_subscriptions WHERE tenant_id = ?", tenantId);
+            privilegedJdbc.update("DELETE FROM tenants WHERE id = ?", tenantId);
+        }
+        createdTenantIds.clear();
     }
 
+    // ── helpers ───────────────────────────────────────────────────────────────
     private String sign(String payload) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA512");
         mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
@@ -73,20 +86,22 @@ class PaystackWebhookControllerTest {
                 + ",\"customer\":{\"customer_code\":\"CUS_phaseb\"}}}";
     }
 
+    /** Commits a tenant fixture (no ambient test transaction) and tracks it for cleanup. */
     private Tenant persistTenant() {
-        Tenant tenant = Tenant.builder()
+        Tenant tenant = tenantRepository.saveAndFlush(Tenant.builder()
                 .companyName("TEST-PHASE-B Webhook Tenant")
                 .industry("TEST")
                 .companySize("1-10")
                 .subscriptionPlan(SubscriptionPlan.FREE_TRIAL)
                 .paymentPeriod(PaymentPeriod.MONTHLY)
                 .subscriptionExpiresAt(OffsetDateTime.now().minusDays(1)) // expired trial
-                .build();
-        return tenantRepository.saveAndFlush(tenant);
+                .build());
+        createdTenantIds.add(tenant.getId());
+        return tenant;
     }
 
-    private Invoice persistPendingInvoice(Tenant tenant, String reference, long amountKobo) {
-        return invoiceRepository.saveAndFlush(Invoice.builder()
+    private void persistPendingInvoice(Tenant tenant, String reference, long amountKobo) {
+        invoiceRepository.saveAndFlush(Invoice.builder()
                 .tenant(tenant)
                 .paystackReference(reference)
                 .amountKobo(amountKobo)
@@ -96,11 +111,25 @@ class PaystackWebhookControllerTest {
                 .build());
     }
 
+    private String invoiceStatus(String reference) {
+        return privilegedJdbc.queryForObject(
+                "SELECT status FROM invoices WHERE paystack_reference = ?", String.class, reference);
+    }
+
+    private Timestamp invoicePaidAt(String reference) {
+        return privilegedJdbc.queryForObject(
+                "SELECT paid_at FROM invoices WHERE paystack_reference = ?", Timestamp.class, reference);
+    }
+
+    private List<Map<String, Object>> subscriptionsFor(UUID tenantId) {
+        return privilegedJdbc.queryForList(
+                "SELECT status, plan FROM tenant_subscriptions WHERE tenant_id = ?", tenantId);
+    }
+
     // ── valid signature + new reference → invoice SUCCESS, subscription ACTIVE, 200 ──
     @Test
     void validSignature_newReference_marksInvoiceSuccessAndActivatesSubscription() throws Exception {
         Tenant tenant = persistTenant();
-        bindTenant(tenant.getId());
         String reference = "TEST-PHASE-B-NEW-001";
         persistPendingInvoice(tenant, reference, 7_500_000L);
 
@@ -109,22 +138,19 @@ class PaystackWebhookControllerTest {
 
         assertEquals(200, response.getStatusCode().value(), "accepted webhook returns 200");
 
-        bindTenant(tenant.getId());
+        assertEquals("SUCCESS", invoiceStatus(reference), "invoice flipped to SUCCESS");
+        assertNotNull(invoicePaidAt(reference), "paidAt set");
 
-        Invoice updated = invoiceRepository.findByPaystackReference(reference).orElseThrow();
-        assertEquals(PaymentStatus.SUCCESS, updated.getStatus(), "invoice flipped to SUCCESS");
-        assertTrue(updated.getPaidAt() != null, "paidAt set");
-
-        TenantSubscription sub = tenantSubscriptionRepository.findByTenantId(tenant.getId()).orElseThrow();
-        assertEquals(SubscriptionStatus.ACTIVE, sub.getStatus(), "subscription activated");
-        assertEquals(SubscriptionPlan.PROFESSIONAL, sub.getPlan(), "plan from invoice applied");
+        List<Map<String, Object>> subs = subscriptionsFor(tenant.getId());
+        assertEquals(1, subs.size(), "one subscription created");
+        assertEquals("ACTIVE", subs.get(0).get("status"), "subscription activated");
+        assertEquals("PROFESSIONAL", subs.get(0).get("plan"), "plan from invoice applied");
     }
 
     // ── valid signature + duplicate delivery → idempotent (no second mutation), 200 ──
     @Test
     void validSignature_duplicateDelivery_isIdempotent() throws Exception {
         Tenant tenant = persistTenant();
-        bindTenant(tenant.getId());
         String reference = "TEST-PHASE-B-DUP-001";
         persistPendingInvoice(tenant, reference, 7_500_000L);
 
@@ -133,19 +159,14 @@ class PaystackWebhookControllerTest {
 
         ResponseEntity<String> first = controller.handlePaystackWebhook(payload, signature);
         assertEquals(200, first.getStatusCode().value());
-
-        bindTenant(tenant.getId());
-        OffsetDateTime paidAtAfterFirst =
-                invoiceRepository.findByPaystackReference(reference).orElseThrow().getPaidAt();
+        Timestamp paidAtAfterFirst = invoicePaidAt(reference);
 
         // Replay the exact same webhook.
         ResponseEntity<String> second = controller.handlePaystackWebhook(payload, signature);
         assertEquals(200, second.getStatusCode().value(), "duplicate still returns 200");
 
-        bindTenant(tenant.getId());
-        Invoice updated = invoiceRepository.findByPaystackReference(reference).orElseThrow();
-        assertEquals(PaymentStatus.SUCCESS, updated.getStatus());
-        assertEquals(paidAtAfterFirst, updated.getPaidAt(),
+        assertEquals("SUCCESS", invoiceStatus(reference));
+        assertEquals(paidAtAfterFirst, invoicePaidAt(reference),
                 "paidAt unchanged on replay — second delivery was a no-op");
     }
 
@@ -153,7 +174,6 @@ class PaystackWebhookControllerTest {
     @Test
     void invalidSignature_returns401_andWritesNothing() throws Exception {
         Tenant tenant = persistTenant();
-        bindTenant(tenant.getId());
         String reference = "TEST-PHASE-B-BADSIG-001";
         persistPendingInvoice(tenant, reference, 7_500_000L);
 
@@ -163,11 +183,9 @@ class PaystackWebhookControllerTest {
 
         assertEquals(401, response.getStatusCode().value(), "forged signature rejected");
 
-        bindTenant(tenant.getId());
-        Invoice untouched = invoiceRepository.findByPaystackReference(reference).orElseThrow();
-        assertEquals(PaymentStatus.PENDING, untouched.getStatus(), "invoice left untouched");
-        Optional<TenantSubscription> sub = tenantSubscriptionRepository.findByTenantId(tenant.getId());
-        assertTrue(sub.isEmpty(), "no subscription created on rejected webhook");
+        assertEquals("PENDING", invoiceStatus(reference), "invoice left untouched");
+        assertTrue(subscriptionsFor(tenant.getId()).isEmpty(),
+                "no subscription created on rejected webhook");
     }
 
     // ── missing signature → 401 ─────────────────────────────────────────────────

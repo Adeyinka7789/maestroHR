@@ -1,0 +1,19 @@
+# Phase E4c-i — test-profile datasource override (strategy A: tests run as postgres).
+#
+# The main application.yml flips the PRIMARY runtime datasource to the NOBYPASSRLS
+# `maestro_app` role so RLS is enforced in production. The test suite, however, builds
+# its fixtures with JPA inserts that have no tenant session bound (e.g. registering a
+# tenant before its session exists) — those would be rejected by RLS WITH CHECK under
+# `maestro_app`. For E4c-i we therefore keep the test datasource on the owner/superuser
+# `postgres` role (which bypasses RLS), so the suite proves the read-wiring is correct
+# without re-deriving every fixture under RLS. SQL-level RLS enforcement for
+# `maestro_app` is already proven independently by RawConnectionRlsIsolationTest.
+#
+# This file is profile-specific (application-test.yml) so it layers ADDITIVELY over the
+# base application.yml — only the datasource credentials are overridden; everything else
+# (Flyway already pinned to postgres, privileged datasource, JPA, etc.) is inherited.
+# The `test` profile is activated for all tests via the Surefire config in pom.xml.
+spring:
+  datasource:
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}

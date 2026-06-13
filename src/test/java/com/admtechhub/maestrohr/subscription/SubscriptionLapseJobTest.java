@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.subscription;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.platform.SubscriptionSweepQueries;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +26,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class SubscriptionLapseJobTest {
 
-    @Mock private TenantSubscriptionRepository tenantSubscriptionRepository;
+    @Mock private SubscriptionSweepQueries subscriptionSweepQueries;
     @Mock private SubscriptionService subscriptionService;
 
     @InjectMocks private SubscriptionLapseJob job;
@@ -39,7 +40,7 @@ class SubscriptionLapseJobTest {
     void lapsesEachExpiredCandidate() {
         UUID t1 = UUID.randomUUID();
         UUID t2 = UUID.randomUUID();
-        when(tenantSubscriptionRepository.findExpiredActiveTenantIds())
+        when(subscriptionSweepQueries.findExpiredActiveTenantIds())
                 .thenReturn(List.of(t1, t2));
         when(subscriptionService.lapseExpired(any())).thenReturn(true);
 
@@ -51,7 +52,7 @@ class SubscriptionLapseJobTest {
 
     @Test
     void noCandidates_doesNothing() {
-        when(tenantSubscriptionRepository.findExpiredActiveTenantIds())
+        when(subscriptionSweepQueries.findExpiredActiveTenantIds())
                 .thenReturn(List.of());
 
         job.lapseExpiredSubscriptions();
@@ -63,7 +64,7 @@ class SubscriptionLapseJobTest {
     void bindsCorrectTenantContextPerIteration() {
         UUID t1 = UUID.randomUUID();
         UUID t2 = UUID.randomUUID();
-        when(tenantSubscriptionRepository.findExpiredActiveTenantIds())
+        when(subscriptionSweepQueries.findExpiredActiveTenantIds())
                 .thenReturn(List.of(t1, t2));
         // Assert the context that is active at the moment each tenant is processed.
         when(subscriptionService.lapseExpired(t1)).thenAnswer(inv -> {
@@ -88,7 +89,7 @@ class SubscriptionLapseJobTest {
     void oneTenantFailing_doesNotAbortTheRest() {
         UUID failing = UUID.randomUUID();
         UUID ok = UUID.randomUUID();
-        when(tenantSubscriptionRepository.findExpiredActiveTenantIds())
+        when(subscriptionSweepQueries.findExpiredActiveTenantIds())
                 .thenReturn(List.of(failing, ok));
         doThrow(new RuntimeException("boom")).when(subscriptionService).lapseExpired(failing);
         when(subscriptionService.lapseExpired(ok)).thenReturn(true);

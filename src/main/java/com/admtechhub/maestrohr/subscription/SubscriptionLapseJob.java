@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.subscription;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.platform.SubscriptionSweepQueries;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,8 +16,8 @@ import java.util.UUID;
  * {@code EXPIRED}, after which {@code LapsedAccessFilter} makes the account read-only
  * until the tenant pays to reactivate.
  *
- * <p>Multi-tenant safety: candidate tenant IDs come from a native query that bypasses
- * {@code @SQLRestriction} (the scheduler has no tenant session). The loop then binds
+ * <p>Multi-tenant safety: candidate tenant IDs come from the privileged datasource that
+ * sees every tenant's rows (the scheduler has no tenant session). The loop then binds
  * {@link TenantContext} <em>per tenant</em> and clears it in a {@code finally} for each
  * iteration — never once for the whole job — so one tenant's context can never leak into
  * another's processing, and a failure on one tenant does not abort the rest.
@@ -26,13 +27,17 @@ import java.util.UUID;
 @Slf4j
 public class SubscriptionLapseJob {
 
-    private final TenantSubscriptionRepository tenantSubscriptionRepository;
+    private final SubscriptionSweepQueries subscriptionSweepQueries;
     private final SubscriptionService subscriptionService;
 
     /** Runs at 01:00 every day (server time). */
     @Scheduled(cron = "0 0 1 * * *")
     public void lapseExpiredSubscriptions() {
-        List<UUID> candidates = tenantSubscriptionRepository.findExpiredActiveTenantIds();
+        // Privileged cross-tenant scan: the scheduler has no tenant session, so under the
+        // RLS-enforced primary role the scoped query would return nothing. The candidate scan
+        // therefore goes through the privileged datasource; each candidate is then processed
+        // under its own bound TenantContext below.
+        List<UUID> candidates = subscriptionSweepQueries.findExpiredActiveTenantIds();
         if (candidates.isEmpty()) {
             log.debug("Subscription lapse sweep: no expired-active subscriptions");
             return;

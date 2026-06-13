@@ -83,22 +83,33 @@ public class AdminStatsQueries {
         return value != null ? value : 0L;
     }
 
-    private static final RowMapper<AdminUserRow> ADMIN_USER_ROW = (rs, n) -> new AdminUserRow(
-            rs.getObject("id", UUID.class),
-            rs.getObject("tenant_id", UUID.class),
-            rs.getString("email"),
-            rs.getString("role"),
-            rs.getBoolean("is_active"),
-            rs.getObject("locked_until", OffsetDateTime.class),
-            rs.getObject("created_at", OffsetDateTime.class));
+    private static final RowMapper<AdminUserRow> ADMIN_USER_ROW = (rs, n) -> {
+        OffsetDateTime lockedUntil = rs.getObject("locked_until", OffsetDateTime.class);
+        boolean locked = lockedUntil != null && lockedUntil.isAfter(OffsetDateTime.now());
+        return new AdminUserRow(
+                rs.getObject("id", UUID.class),
+                rs.getObject("tenant_id", UUID.class),
+                rs.getString("email"),
+                rs.getString("role"),
+                rs.getBoolean("is_active"),
+                locked,
+                lockedUntil,
+                rs.getObject("created_at", OffsetDateTime.class));
+    };
 
-    /** Admin-list projection of a {@code users} row. */
+    /**
+     * Admin-list projection of a {@code users} row. {@code locked} is the derived
+     * {@code lockedUntil > now} flag (mirrors {@code User.isLocked()}), kept on the
+     * projection so the admin console's user list keeps the same JSON contract it had when
+     * this endpoint returned the {@code User} entity — and without leaking the password hash.
+     */
     public record AdminUserRow(
             UUID id,
             UUID tenantId,
             String email,
             String role,
             boolean active,
+            boolean locked,
             OffsetDateTime lockedUntil,
             OffsetDateTime createdAt) {
     }
