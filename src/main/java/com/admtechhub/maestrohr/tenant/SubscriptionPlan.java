@@ -74,10 +74,22 @@ public enum SubscriptionPlan {
         return features.contains(feature);
     }
 
+    /**
+     * @deprecated Pricing's single source of truth is the {@code pricing_config} table,
+     * read via {@code PricingService}. The enum's {@code priceKobo} now serves only as
+     * the seed for default pricing; do not use it for billing or UI display.
+     */
+    @Deprecated
     public long getAnnualPriceKobo() {
         return priceKobo * 12;
     }
 
+    /**
+     * @deprecated Pricing's single source of truth is the {@code pricing_config} table,
+     * read via {@code PricingService}. The enum's {@code priceKobo} now serves only as
+     * the seed for default pricing; do not use it for billing or UI display.
+     */
+    @Deprecated
     public long getQuarterlyPriceKobo() {
         return priceKobo * 3;
     }

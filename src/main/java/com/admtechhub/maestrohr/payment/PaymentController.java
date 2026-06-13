@@ -1,10 +1,12 @@
 package com.admtechhub.maestrohr.payment;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.common.ApiResponse;
 import com.admtechhub.maestrohr.payment.dto.PaymentInitializeRequest;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.dto.PlanResponse;
 import com.admtechhub.maestrohr.tenant.PaymentPeriod;
+import com.admtechhub.maestrohr.tenant.PricingService;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
@@ -12,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -30,18 +31,20 @@ public class PaymentController {
     private final PaystackOAuthService paystackOAuthService;
     private final SubscriptionService subscriptionService;
     private final TenantRepository tenantRepository;
+    private final PricingService pricingService;
 
     private UUID getCurrentTenantId() {
-        // Get from SecurityContext or TenantContext
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        // In production, get tenant from user
-        return tenantRepository.findAll().get(0).getId();
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 
     @GetMapping("/plans")
     public ResponseEntity<ApiResponse<List<PlanResponse>>> getPlans() {
         List<PlanResponse> plans = Arrays.stream(SubscriptionPlan.values())
-                .map(PlanResponse::from)
+                .map(plan -> PlanResponse.from(
+                        plan,
+                        pricingService.getPrice(plan.name(), PaymentPeriod.MONTHLY.name()),
+                        pricingService.getPrice(plan.name(), PaymentPeriod.QUARTERLY.name()),
+                        pricingService.getPrice(plan.name(), PaymentPeriod.ANNUALLY.name())))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("Plans retrieved", plans));
     }

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -71,6 +72,21 @@ public class PricingService {
         return pricingConfigRepository.findByPlanNameAndPeriod(planName, period)
                 .map(PricingConfig::getPriceKobo)
                 .orElse(0L);
+    }
+
+    /**
+     * Reverse lookup: find the plan whose configured price (in any period) matches the
+     * given amount in kobo. Used to map a Paystack charge amount back to a plan without
+     * hardcoded magic numbers. Returns empty if no active price row matches.
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> findPlanNameByPrice(Long priceKobo) {
+        if (priceKobo == null) {
+            return Optional.empty();
+        }
+        return pricingConfigRepository.findByPriceKoboAndIsActiveTrue(priceKobo).stream()
+                .map(PricingConfig::getPlanName)
+                .findFirst();
     }
 
     @Transactional(readOnly = true)

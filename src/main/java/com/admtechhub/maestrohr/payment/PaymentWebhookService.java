@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.payment;
 
 import com.admtechhub.maestrohr.payment.dto.PaystackWebhookPayload;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
+import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
 import com.admtechhub.maestrohr.tenant.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ public class PaymentWebhookService {
 
     private final TenantRepository tenantRepository;
     private final SubscriptionService subscriptionService;
+    private final PricingService pricingService;
 
     /**
      * Handle subscription creation event
@@ -55,6 +57,7 @@ public class PaymentWebhookService {
         tenant.setActive(true);
 
         tenantRepository.save(tenant);
+        subscriptionService.syncSubscriptionState(tenant.getId(), SubscriptionStatus.ACTIVE);
 
         log.info("Subscription created for tenant {}: Plan={}, Period={}, Expires={}",
                 tenant.getId(), plan, period, tenant.getSubscriptionExpiresAt());
@@ -88,6 +91,7 @@ public class PaymentWebhookService {
         tenant.setActive(true);
 
         tenantRepository.save(tenant);
+        subscriptionService.syncSubscriptionState(tenant.getId(), SubscriptionStatus.ACTIVE);
 
         log.info("Payment received for tenant {}. New expiry: {}",
                 tenant.getId(), newExpiry);
@@ -118,6 +122,7 @@ public class PaymentWebhookService {
         tenant.setAutoRenew(false);
 
         tenantRepository.save(tenant);
+        subscriptionService.syncSubscriptionState(tenant.getId(), SubscriptionStatus.CANCELLED);
 
         log.info("Subscription disabled for tenant {}", tenant.getId());
     }
@@ -151,22 +156,20 @@ public class PaymentWebhookService {
             log.warn("Payment failed for tenant {}. Subscription may be disabled soon.",
                     tenant.getId());
 
+            subscriptionService.syncSubscriptionState(tenant.getId(), SubscriptionStatus.PAST_DUE);
+
             // Send notification to tenant (implement later)
         }
     }
 
     /**
-     * Determine SubscriptionPlan from amount in kobo
+     * Determine SubscriptionPlan from amount in kobo by reverse-looking-up the price in
+     * pricing_config (the single source of truth for prices), falling back to BASIC.
      */
     private SubscriptionPlan determinePlanFromAmount(Long amountKobo) {
-        if (amountKobo == null) return SubscriptionPlan.BASIC;
-
-        return switch (amountKobo.intValue()) {
-            case 25000 -> SubscriptionPlan.BASIC;
-            case 75000 -> SubscriptionPlan.PROFESSIONAL;
-            case 200000 -> SubscriptionPlan.ENTERPRISE;
-            default -> SubscriptionPlan.BASIC;
-        };
+        return pricingService.findPlanNameByPrice(amountKobo)
+                .map(SubscriptionPlan::valueOf)
+                .orElse(SubscriptionPlan.BASIC);
     }
 
     /**

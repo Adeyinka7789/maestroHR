@@ -20,6 +20,8 @@ public interface PricingConfigRepository extends JpaRepository<PricingConfig, UU
 
     List<PricingConfig> findByIsActiveTrue();
 
+    List<PricingConfig> findByPriceKoboAndIsActiveTrue(Long priceKobo);
+
     @Modifying
     @Transactional
     @Query("UPDATE PricingConfig p SET p.priceKobo = :price WHERE p.planName = :planName AND p.period = :period")

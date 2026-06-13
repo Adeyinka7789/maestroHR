@@ -1,5 +1,8 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.tenant.PaymentPeriod;
+import com.admtechhub.maestrohr.tenant.PricingService;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantService;
@@ -21,9 +24,10 @@ import java.util.UUID;
 public class SubscriptionWebController {
 
     private final TenantService tenantService;
+    private final PricingService pricingService;
 
     private UUID getCurrentTenantId() {
-        return UUID.fromString("0acb1bbb-70a1-4b06-8f1d-331dc620e19a");
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 
     @GetMapping("/plans")
@@ -31,14 +35,15 @@ public class SubscriptionWebController {
         Tenant tenant = tenantService.findById(getCurrentTenantId());
 
         // Build priceMap: { "FREE_TRIAL": { "MONTHLY": 0, "QUARTERLY": 0, "ANNUALLY": 0 }, ... }
-        // Values in NAIRA (divided by 100 from kobo).
+        // Values in NAIRA (divided by 100 from kobo). Prices come from pricing_config
+        // (the single source of truth) via PricingService — not the enum.
         // Thymeleaf writes these into data-* attributes — no fetch needed in the browser.
         Map<String, Map<String, Long>> priceMap = new LinkedHashMap<>();
         for (SubscriptionPlan plan : SubscriptionPlan.values()) {
             Map<String, Long> periods = new LinkedHashMap<>();
-            periods.put("MONTHLY",   plan.getPriceKobo()           / 100L);
-            periods.put("QUARTERLY", plan.getQuarterlyPriceKobo()  / 100L);
-            periods.put("ANNUALLY",  plan.getAnnualPriceKobo()     / 100L);
+            periods.put("MONTHLY",   pricingService.getPrice(plan.name(), PaymentPeriod.MONTHLY.name())   / 100L);
+            periods.put("QUARTERLY", pricingService.getPrice(plan.name(), PaymentPeriod.QUARTERLY.name()) / 100L);
+            periods.put("ANNUALLY",  pricingService.getPrice(plan.name(), PaymentPeriod.ANNUALLY.name())  / 100L);
             priceMap.put(plan.name(), periods);
         }
 
@@ -67,10 +72,11 @@ public class SubscriptionWebController {
     }
 
     private long getAmountForPlan(SubscriptionPlan plan, String period) {
-        return switch (period.toUpperCase()) {
-            case "QUARTERLY" -> plan.getQuarterlyPriceKobo();
-            case "ANNUALLY"  -> plan.getAnnualPriceKobo();
-            default          -> plan.getPriceKobo();
+        String periodName = switch (period.toUpperCase()) {
+            case "QUARTERLY" -> PaymentPeriod.QUARTERLY.name();
+            case "ANNUALLY"  -> PaymentPeriod.ANNUALLY.name();
+            default          -> PaymentPeriod.MONTHLY.name();
         };
+        return pricingService.getPrice(plan.name(), periodName);
     }
 }
