@@ -44,4 +44,15 @@ public class PaystackRequest {
         private String reference;
         private String reason;
     }
+
+    @Data
+    @Builder
+    public static class InitializeTransactionRequest {
+        private String email;
+        private Long amount; // in kobo
+        private String reference;
+        @Builder.Default
+        private String currency = "NGN";
+        private String callback_url;
+    }
 }

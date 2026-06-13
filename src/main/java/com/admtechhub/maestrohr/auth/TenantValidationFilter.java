@@ -32,6 +32,7 @@ public class TenantValidationFilter extends OncePerRequestFilter {
 
     private static final Set<String> PREFIX_PUBLIC = Set.of(
             "/api/auth/",
+            "/api/webhooks/",   // Paystack webhooks have no tenant context; resolved per-event instead
             "/actuator/health",
             "/actuator/info",
             "/css/",

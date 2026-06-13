@@ -62,8 +62,9 @@ paystack:
   client-id: ${PAYSTACK_CLIENT_ID:}
   client-secret: ${PAYSTACK_CLIENT_SECRET:}
   oauth-callback-url: ${PAYSTACK_OAUTH_CALLBACK:http://localhost:8080/api/payment/oauth/callback}
+  transaction-callback-url: ${PAYSTACK_TXN_CALLBACK:http://localhost:8080/dashboard?payment=success}
   webhook:
-    verify-signature: false
+    verify-signature: ${PAYSTACK_VERIFY_WEBHOOK:true}
 
 disbursement:
   default-provider: CSV

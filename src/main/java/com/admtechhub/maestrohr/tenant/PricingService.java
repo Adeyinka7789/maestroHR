@@ -27,22 +27,22 @@ public class PricingService {
 
         log.info("Initializing default pricing...");
 
-        // Default prices in kobo (1 NGN = 100 kobo)
+        // Default prices in kobo (1 NGN = 100 kobo). BASIC = ₦25,000/mo, etc.
         Map<String, Map<String, Long>> defaultPrices = Map.of(
                 "BASIC", Map.of(
-                        "MONTHLY", 25000L,
-                        "QUARTERLY", 71250L,
-                        "ANNUALLY", 270000L
+                        "MONTHLY", 2_500_000L,
+                        "QUARTERLY", 7_125_000L,
+                        "ANNUALLY", 27_000_000L
                 ),
                 "PROFESSIONAL", Map.of(
-                        "MONTHLY", 75000L,
-                        "QUARTERLY", 213750L,
-                        "ANNUALLY", 810000L
+                        "MONTHLY", 7_500_000L,
+                        "QUARTERLY", 21_375_000L,
+                        "ANNUALLY", 81_000_000L
                 ),
                 "ENTERPRISE", Map.of(
-                        "MONTHLY", 200000L,
-                        "QUARTERLY", 570000L,
-                        "ANNUALLY", 2160000L
+                        "MONTHLY", 20_000_000L,
+                        "QUARTERLY", 57_000_000L,
+                        "ANNUALLY", 216_000_000L
                 ),
                 "FREE_TRIAL", Map.of(
                         "MONTHLY", 0L,

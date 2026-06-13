@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/pricing/public",          // ← public pricing for plans page
+                                "/api/webhooks/**",             // ← Paystack webhooks: no JWT, HMAC-verified instead
                                 "/actuator/health",
                                 "/actuator/info"
                         ).permitAll()

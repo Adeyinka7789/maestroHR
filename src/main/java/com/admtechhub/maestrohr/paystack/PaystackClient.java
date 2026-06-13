@@ -20,6 +20,35 @@ public class PaystackClient {
     private final RestTemplate restTemplate;
 
     /**
+     * Initialize a Paystack transaction and return the hosted checkout details
+     * (authorization_url + reference). {@code amountKobo} is sent as-is — Paystack's
+     * amount field is denominated in kobo, so no scaling is applied here.
+     */
+    public PaystackResponse.Data initializeTransaction(String email, Long amountKobo,
+                                                       String reference, String callbackUrl) {
+        String url = paystackConfig.getBaseUrl() + "/transaction/initialize";
+
+        PaystackRequest.InitializeTransactionRequest request = PaystackRequest.InitializeTransactionRequest.builder()
+                .email(email)
+                .amount(amountKobo)
+                .reference(reference)
+                .currency("NGN")
+                .callback_url(callbackUrl)
+                .build();
+
+        HttpEntity<PaystackRequest.InitializeTransactionRequest> entity =
+                new HttpEntity<>(request, createHeaders());
+        ResponseEntity<PaystackResponse> response = restTemplate.exchange(
+                url, HttpMethod.POST, entity, PaystackResponse.class);
+
+        if (response.getBody() != null && response.getBody().isStatus()) {
+            return response.getBody().getData();
+        }
+        throw new RuntimeException("Failed to initialize transaction: "
+                + (response.getBody() != null ? response.getBody().getMessage() : "Unknown error"));
+    }
+
+    /**
      * Resolve bank account to verify account name
      */
     public PaystackResponse.ResolveAccountData resolveAccount(String accountNumber, String bankCode) {

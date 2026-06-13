@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.payment;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -13,4 +15,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     Optional<Invoice> findByPaystackReference(String paystackReference);
 
     boolean existsByPaystackReference(String paystackReference);
+
+    /**
+     * Resolve the owning tenant of an invoice from its Paystack reference, WITHOUT a
+     * tenant session bound. A Paystack webhook arrives with no tenant context, so the
+     * normal {@code @SQLRestriction}-scoped lookups would return nothing. This native
+     * query is not subject to {@code @SQLRestriction}; the result is used to bind the
+     * tenant session before any scoped reads/writes are performed.
+     */
+    @Query(value = "SELECT tenant_id FROM invoices WHERE paystack_reference = :reference",
+            nativeQuery = true)
+    Optional<UUID> findTenantIdByPaystackReference(@Param("reference") String reference);
 }

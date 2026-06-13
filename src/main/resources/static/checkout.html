@@ -100,20 +100,34 @@
 </div>
 
 <script>
-    (function() {
+    (async function() {
         // Use global MaestroHR helpers
         const token = MaestroHR.token;
         const apiCall = MaestroHR.apiCall.bind(MaestroHR);
         const showToast = MaestroHR.showToast.bind(MaestroHR);
         const escapeHtml = MaestroHR.escapeHtml.bind(MaestroHR); // kept for consistency, though not heavily used here
 
-        // Plan price mapping (in kobo)
-        const priceMap = {
-            'FREE_TRIAL': { monthly: 0, quarterly: 0, annually: 0 },
-            'BASIC': { monthly: 25000, quarterly: 71250, annually: 270000 },
-            'PROFESSIONAL': { monthly: 75000, quarterly: 213750, annually: 810000 },
-            'ENTERPRISE': { monthly: 200000, quarterly: 570000, annually: 2160000 }
-        };
+        // Prices (in kobo) come from pricing_config via the public endpoint — the single
+        // source of truth. No hardcoded prices here; that map used to silently drift from
+        // the server (and carried the 100x-too-low values).
+        let priceMap = {};
+        try {
+            const res = await fetch('/api/pricing/public');
+            const body = await res.json();
+            const prices = body?.data?.prices || {};
+            // Normalise server shape { PLAN: { MONTHLY: kobo } } to { PLAN: { monthly: kobo } }.
+            for (const [plan, periods] of Object.entries(prices)) {
+                priceMap[plan] = {
+                    monthly:   periods.MONTHLY   ?? 0,
+                    quarterly: periods.QUARTERLY ?? 0,
+                    annually:  periods.ANNUALLY  ?? 0
+                };
+            }
+        } catch (e) {
+            console.error('Failed to load pricing:', e);
+            showToast('Could not load pricing. Please refresh.', 'error');
+            return;
+        }
 
         const planNames = {
             'FREE_TRIAL': 'Free Trial',

@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.payment.dto.PaystackWebhookPayload;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
 import com.admtechhub.maestrohr.tenant.*;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +22,8 @@ public class PaymentWebhookService {
     private final TenantRepository tenantRepository;
     private final SubscriptionService subscriptionService;
     private final PricingService pricingService;
+    private final InvoiceRepository invoiceRepository;
+    private final EntityManager entityManager;
 
     /**
      * Handle subscription creation event
@@ -64,37 +68,71 @@ public class PaymentWebhookService {
     }
 
     /**
-     * Handle charge success event (payment received)
+     * Handle charge success event (payment received).
+     *
+     * <p>The tenant is resolved from the transaction reference — the {@link Invoice}
+     * created at initialize-time owns that reference. This is more reliable than the
+     * Paystack customer code for the one-off checkout flow (a customer code may not yet
+     * be stored). The operation is idempotent on the reference: Paystack can deliver the
+     * same webhook more than once, and a charge.success for an already-SUCCESS invoice is
+     * a no-op.
      */
     @Transactional
     public void handleChargeSuccess(PaystackWebhookPayload payload) {
         log.info("Processing charge.success event");
 
         var data = payload.getData();
-        String customerCode = data.getCustomer().getCustomerCode();
-
-        Optional<Tenant> tenantOpt = tenantRepository.findByPaystackCustomerCode(customerCode);
-
-        if (tenantOpt.isEmpty()) {
-            log.warn("No tenant found for customer code: {}", customerCode);
+        String reference = data.getReference();
+        if (reference == null || reference.isBlank()) {
+            log.warn("charge.success without a reference; ignoring");
             return;
         }
 
-        Tenant tenant = tenantOpt.get();
+        // Resolve the owning tenant WITHOUT a tenant session (webhooks have none); this
+        // native lookup bypasses @SQLRestriction. Then bind the session so the scoped
+        // repositories below resolve to the correct tenant.
+        Optional<UUID> tenantIdOpt = invoiceRepository.findTenantIdByPaystackReference(reference);
+        if (tenantIdOpt.isEmpty()) {
+            log.warn("charge.success for unknown reference {} — no matching invoice", reference);
+            return;
+        }
+        UUID tenantId = tenantIdOpt.get();
+        bindTenantSession(tenantId);
 
-        // Extend subscription by the period
-        int monthsToAdd = tenant.getPaymentPeriod() != null ?
-                tenant.getPaymentPeriod().getMonths() : 1;
+        Invoice invoice = invoiceRepository.findByPaystackReference(reference).orElse(null);
+        if (invoice == null) {
+            log.warn("charge.success: invoice not visible for reference {} after binding tenant {}",
+                    reference, tenantId);
+            return;
+        }
 
+        // Idempotency: already processed → do nothing, return 200.
+        if (invoice.getStatus() == PaymentStatus.SUCCESS) {
+            log.info("charge.success for {} already processed; ignoring (idempotent)", reference);
+            return;
+        }
+
+        // Mark the invoice paid.
+        invoice.setStatus(PaymentStatus.SUCCESS);
+        invoice.setPaidAt(OffsetDateTime.now());
+        invoiceRepository.save(invoice);
+
+        // Activate / extend the tenant's subscription for the purchased plan + period.
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        tenant.setSubscriptionPlan(invoice.getPlan());
+        tenant.setPaymentPeriod(invoice.getPeriod());
+
+        int monthsToAdd = invoice.getPeriod() != null ? invoice.getPeriod().getMonths() : 1;
         OffsetDateTime newExpiry = OffsetDateTime.now().plusMonths(monthsToAdd);
         tenant.setSubscriptionExpiresAt(newExpiry);
         tenant.setActive(true);
-
         tenantRepository.save(tenant);
-        subscriptionService.syncSubscriptionState(tenant.getId(), SubscriptionStatus.ACTIVE);
 
-        log.info("Payment received for tenant {}. New expiry: {}",
-                tenant.getId(), newExpiry);
+        subscriptionService.syncSubscriptionState(tenantId, SubscriptionStatus.ACTIVE);
+
+        log.info("charge.success processed for tenant {}: plan={}, period={}, expiry={}, reference={}",
+                tenantId, invoice.getPlan(), invoice.getPeriod(), newExpiry, reference);
     }
 
     /**
@@ -170,6 +208,18 @@ public class PaymentWebhookService {
         return pricingService.findPlanNameByPrice(amountKobo)
                 .map(SubscriptionPlan::valueOf)
                 .orElse(SubscriptionPlan.BASIC);
+    }
+
+    /**
+     * Bind {@code app.current_tenant} for the rest of this transaction so the
+     * {@code @SQLRestriction} on billing entities resolves to the target tenant, even
+     * though the webhook request itself carries no tenant context. Transaction-local,
+     * so it reverts on commit/rollback. Mirrors {@code SubscriptionService}.
+     */
+    private void bindTenantSession(UUID tenantId) {
+        entityManager.createNativeQuery("SELECT set_config('app.current_tenant', :tid, true)")
+                .setParameter("tid", tenantId.toString())
+                .getSingleResult();
     }
 
     /**

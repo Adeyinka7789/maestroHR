@@ -22,6 +22,13 @@ public class PaystackResponse {
         private String status;
         private Integer totalAmount;
 
+        // For transaction initialization
+        @JsonProperty("authorization_url")
+        private String authorizationUrl;
+
+        @JsonProperty("access_code")
+        private String accessCode;
+
         @JsonProperty("transfer_codes")
         private List<String> transferCodes;
 

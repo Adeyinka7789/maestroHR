@@ -13,8 +13,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+import java.util.HexFormat;
 
 @RestController
 @RequestMapping("/api/webhooks")
@@ -28,7 +29,7 @@ public class PaystackWebhookController {
     @Value("${paystack.secret-key}")
     private String paystackSecretKey;
 
-    @Value("${paystack.webhook.verify-signature:false}")
+    @Value("${paystack.webhook.verify-signature:true}")
     private boolean verifySignatureEnabled;
 
     @PostMapping("/paystack")
@@ -38,7 +39,8 @@ public class PaystackWebhookController {
 
         log.info("Received Paystack webhook");
 
-        // Only verify signature if enabled
+        // Verify the HMAC signature against the RAW request body before trusting anything.
+        // A forged webhook could otherwise activate subscriptions for free.
         if (verifySignatureEnabled && !verifySignature(payload, signature)) {
             log.error("Invalid webhook signature");
             return ResponseEntity.status(401).body("Invalid signature");
@@ -85,10 +87,13 @@ public class PaystackWebhookController {
     }
 
     /**
-     * Verify Paystack webhook signature for security
+     * Verify the Paystack webhook signature: HMAC-SHA512 of the RAW request body keyed
+     * with the secret key, hex-encoded (lowercase) — this is exactly the format Paystack
+     * sends in {@code X-Paystack-Signature}. The comparison is constant-time to avoid
+     * leaking timing information about how much of the digest matched.
      */
     private boolean verifySignature(String payload, String signature) {
-        if (signature == null) {
+        if (signature == null || signature.isBlank()) {
             return false;
         }
 
@@ -101,9 +106,11 @@ public class PaystackWebhookController {
             sha512Hmac.init(keySpec);
 
             byte[] macData = sha512Hmac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            String computedSignature = Base64.getEncoder().encodeToString(macData);
+            String computedSignature = HexFormat.of().formatHex(macData);
 
-            return computedSignature.equals(signature);
+            return MessageDigest.isEqual(
+                    computedSignature.getBytes(StandardCharsets.UTF_8),
+                    signature.getBytes(StandardCharsets.UTF_8));
 
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             log.error("Signature verification failed: {}", e.getMessage());
