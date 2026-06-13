@@ -20,6 +20,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    placeholders:
+      # Injected into V24__create_app_role.sql as ${app_db_password}.
+      app_db_password: ${APP_DB_PASSWORD}
 
   data:
     redis:
