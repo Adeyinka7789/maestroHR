@@ -1,16 +1,19 @@
 package com.admtechhub.maestrohr.attendance;
 
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +28,7 @@ import java.util.UUID;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
+    private final EmployeeService employeeService;
 
     @GetMapping("/today")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
@@ -129,63 +133,77 @@ public class AttendanceController {
         return ResponseEntity.ok(ApiResponse.success("Monthly summary retrieved", summary));
     }
 
+    /**
+     * Self check-in for the authenticated employee. The {@code employeeId} param is verified
+     * against the caller's own Employee record ({@link #verifyOwnRecord}) — a mismatch is a 403,
+     * so a user can only ever check themselves in (admins check others in via {@code /mark}).
+     * Guards (double check-in) and notes persistence live in {@link AttendanceService#checkIn};
+     * the double-action race throws {@link IllegalStateException}, rendered as a 400 by
+     * {@link #handleSelfActionConflict}.
+     */
     @PostMapping("/check-in")
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecordDTO>> selfCheckIn(
             @RequestParam UUID employeeId,
-            @RequestParam(required = false) String notes) {
+            @RequestParam(required = false) String notes,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
-
-        AttendanceRecordDTO existing = attendanceService.getAttendanceByEmployeeAndDate(employeeId, today);
-        if (existing != null && existing.getClockInTime() != null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Already checked in today"));
+        ResponseEntity<ApiResponse<AttendanceRecordDTO>> denied = verifyOwnRecord(employeeId, userDetails);
+        if (denied != null) {
+            return denied;
         }
 
-        AttendanceRecordDTO record = attendanceService.markAttendance(
-                employeeId, today, AttendanceStatus.PRESENT, now.toString(), null);
-
-        if (notes != null && !notes.isEmpty()) {
-            // We need to update the record with notes; we can call updateAttendance
-            // Since we have the record ID, we can update
-            attendanceService.updateAttendance(record.getId(), record.getStatus(),
-                    record.getClockInTime() != null ? record.getClockInTime().toString() : null,
-                    record.getClockOutTime() != null ? record.getClockOutTime().toString() : null);
-            // Note: setNotes is not in DTO; we need to handle notes separately.
-            // Simpler: fetch the entity again or add notes param to updateAttendance.
-            // For brevity, we'll update without notes for now.
-        }
-
+        AttendanceRecordDTO record = attendanceService.checkIn(employeeId, notes);
         return ResponseEntity.ok(ApiResponse.success("Checked in successfully", record));
     }
 
+    /**
+     * Self check-out for the authenticated employee. Same own-record verification as
+     * {@link #selfCheckIn}; guards (no check-in / already checked out) and notes persistence
+     * live in {@link AttendanceService#checkOut}.
+     */
     @PostMapping("/check-out")
     @PreAuthorize("hasAnyRole('EMPLOYEE', 'HR_ADMIN', 'DEPT_MANAGER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AttendanceRecordDTO>> selfCheckOut(
             @RequestParam UUID employeeId,
-            @RequestParam(required = false) String notes) {
+            @RequestParam(required = false) String notes,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
-
-        AttendanceRecordDTO record = attendanceService.getAttendanceByEmployeeAndDate(employeeId, today);
-        if (record == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("No check-in record found for today"));
+        ResponseEntity<ApiResponse<AttendanceRecordDTO>> denied = verifyOwnRecord(employeeId, userDetails);
+        if (denied != null) {
+            return denied;
         }
 
-        if (record.getClockOutTime() != null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Already checked out today"));
-        }
-
-        // Update with check-out time
-        AttendanceRecordDTO updated = attendanceService.updateAttendance(record.getId(), record.getStatus(),
-                record.getClockInTime() != null ? record.getClockInTime().toString() : null,
-                now.toString());
-
-        // Notes handling can be added similarly
-
+        AttendanceRecordDTO updated = attendanceService.checkOut(employeeId, notes);
         return ResponseEntity.ok(ApiResponse.success("Checked out successfully", updated));
+    }
+
+    /**
+     * Ensures the {@code employeeId} being checked in/out is the caller's own Employee record.
+     * Returns a 403 {@link ResponseEntity} when it isn't, or {@code null} when the caller is
+     * cleared to proceed. Resolving the caller's own id via {@link EmployeeService#findByEmail}
+     * throws {@link IllegalArgumentException} (→ 400) when the authenticated account has no
+     * Employee record — i.e. admin/owner accounts can't self check-in; they use {@code /mark}.
+     */
+    private ResponseEntity<ApiResponse<AttendanceRecordDTO>> verifyOwnRecord(
+            UUID employeeId, UserDetails userDetails) {
+        UUID ownId = employeeService.findByEmail(userDetails.getUsername()).getId();
+        if (!ownId.equals(employeeId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("You can only check in or out for your own employee record"));
+        }
+        return null;
+    }
+
+    /**
+     * Renders the self check-in/out double-action race ({@link IllegalStateException} from
+     * {@link AttendanceService#checkIn}/{@code checkOut}: "Already checked in/out today",
+     * "You haven't checked in today") as a 400 rather than letting it fall through to the
+     * generic 500 + Sentry handler in {@code GlobalExceptionHandler}.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSelfActionConflict(IllegalStateException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
     }
 
     @GetMapping("/calendar/{employeeId}")
