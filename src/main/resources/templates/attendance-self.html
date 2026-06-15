@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<!--
+  attendance-self.html — server-rendered HTMX fragment (Option 3, Step D), the employee
+  self check-in/out card. Rendered by AttendanceSelfController as "attendance-self :: content"
+  and swapped into #page-content in layout.html. Styled with the Stitch design system tokens
+  compiled into /css/dashboard.css (see tailwind.config.js `content`).
+
+  This is the EMPLOYEE-facing surface (distinct from the HR-admin roster in attendance.html):
+  a single card for the authenticated employee's own record for today. The employee is
+  resolved from the session in the controller — never from a request param.
+
+  Two fragments:
+   - content : header + the card container (#attendance-self-card)
+   - card    : the swap target for the Check In / Check Out POSTs — status + times + the
+               optional notes field + the action button. A failed action re-renders this
+               same fragment with an ${error} banner (HTTP 200, so HTMX still swaps).
+
+  State (driven by view.canCheckIn / view.canCheckOut, set from today's clock-in/out):
+   - not checked in → Check In button + editable notes;
+   - checked in     → Check Out button + editable notes (pre-filled with any check-in note);
+   - checked out    → no buttons, recorded notes shown read-only, "done for today".
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document;
+  only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">My Attendance</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant">
+            Check in when you start your day and check out when you finish.
+        </p>
+    </div>
+
+    <!-- Card container — the swap target for check-in / check-out -->
+    <div id="attendance-self-card" th:insert="~{attendance-self :: card}"></div>
+</div>
+
+<!-- ============================= CARD ============================== -->
+<div th:fragment="card">
+
+    <!--
+      In-place error banner. Rendered only when a check-in/out action failed (see
+      AttendanceSelfController#handleActionFailure) — most often the double-click race
+      ("Already checked in/out today" / "You haven't checked in today"). The card below
+      already reflects the now-current state, so this just explains why the click had no effect.
+    -->
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Already checked in today</span>
+    </div>
+
+    <div class="max-w-xl bg-white border border-outline-variant rounded-xl p-lg">
+
+        <!-- Date + status -->
+        <div class="flex items-start justify-between gap-md mb-lg">
+            <div>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Today</p>
+                <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.dateFormatted}">Monday, 15 June 2026</p>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs" th:text="${view.employeeName}">Jane Doe</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap"
+                  th:classappend="${view.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                  th:text="${view.statusLabel}">Not checked in yet</span>
+        </div>
+
+        <!-- Clock-in / clock-out / hours -->
+        <div class="grid grid-cols-3 gap-sm mb-lg">
+            <div class="bg-surface-container-low rounded-lg px-md py-sm">
+                <p class="font-label-sm text-label-sm text-on-surface-variant mb-xs">Clock In</p>
+                <p class="font-table-data text-table-data text-on-surface" th:text="${view.clockInFormatted}">—</p>
+            </div>
+            <div class="bg-surface-container-low rounded-lg px-md py-sm">
+                <p class="font-label-sm text-label-sm text-on-surface-variant mb-xs">Clock Out</p>
+                <p class="font-table-data text-table-data text-on-surface" th:text="${view.clockOutFormatted}">—</p>
+            </div>
+            <div class="bg-surface-container-low rounded-lg px-md py-sm">
+                <p class="font-label-sm text-label-sm text-on-surface-variant mb-xs">Hours</p>
+                <p class="font-table-data text-table-data text-on-surface" th:text="${view.hoursFormatted}">—</p>
+            </div>
+        </div>
+
+        <!-- Editable notes — shown while an action is available (carried to the POST via hx-include) -->
+        <div th:if="${view.canCheckIn or view.canCheckOut}" class="mb-lg">
+            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Notes (optional)</label>
+            <textarea name="notes" rows="2"
+                      placeholder="Anything to note about today…"
+                      th:text="${view.notes}"
+                      class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary resize-none"></textarea>
+        </div>
+
+        <!-- Recorded notes — read-only once the day is done -->
+        <div th:if="${!view.canCheckIn and !view.canCheckOut and view.notes != null and !view.notes.isEmpty()}" class="mb-lg">
+            <p class="font-label-sm text-label-sm text-on-surface-variant mb-xs">Notes</p>
+            <p class="font-body-sm text-body-sm text-on-surface" th:text="${view.notes}">Worked from the Lagos office.</p>
+        </div>
+
+        <!-- Actions -->
+        <button th:if="${view.canCheckIn}" type="button"
+                hx-post="/htmx/attendance/check-in"
+                hx-target="#attendance-self-card" hx-swap="innerHTML"
+                hx-include="[name='notes']"
+                class="flex items-center justify-center gap-xs w-full px-4 py-3 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity cursor-pointer">
+            <span class="material-symbols-outlined text-[20px]">login</span>
+            Check In
+        </button>
+
+        <button th:if="${view.canCheckOut}" type="button"
+                hx-post="/htmx/attendance/check-out"
+                hx-target="#attendance-self-card" hx-swap="innerHTML"
+                hx-include="[name='notes']"
+                class="flex items-center justify-center gap-xs w-full px-4 py-3 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity cursor-pointer">
+            <span class="material-symbols-outlined text-[20px]">logout</span>
+            Check Out
+        </button>
+
+        <!-- Done for the day -->
+        <p th:if="${!view.canCheckIn and !view.canCheckOut}"
+           class="flex items-center justify-center gap-xs font-label-md text-label-md text-on-surface-variant py-2">
+            <span class="material-symbols-outlined text-[20px] text-secondary">task_alt</span>
+            You're all done for today.
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

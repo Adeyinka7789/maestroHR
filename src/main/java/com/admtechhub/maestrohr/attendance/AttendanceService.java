@@ -142,6 +142,98 @@ public class AttendanceService {
         return toDto(updated);
     }
 
+    /**
+     * Self check-in for the given employee on the current day. Single source of truth for
+     * both the server-rendered web flow ({@code AttendanceSelfController}) and the REST
+     * endpoint ({@code AttendanceController.selfCheckIn}); the caller is responsible for
+     * resolving/authorising {@code employeeId} (the web controller resolves it from the
+     * session, the REST controller verifies it matches the authenticated principal).
+     *
+     * Guards the double check-in race by throwing {@link IllegalStateException} when today's
+     * record already has a clock-in — controllers render that in-place (web) or as a 400
+     * (REST) rather than creating a duplicate.
+     *
+     * KNOWN ITEM (intentional, not redesigned here — mirrors {@link #markAttendance} and the
+     * negative-balance leave follow-up): when a record already exists for today without a
+     * clock-in (e.g. an admin pre-marked the employee ABSENT), self check-in flips the status
+     * to PRESENT. That can erase an absent-day payroll deduction. Carried over deliberately;
+     * any policy change belongs in a dedicated step.
+     */
+    @Transactional
+    public AttendanceRecordDTO checkIn(UUID employeeId, String notes) {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
+
+        LocalDate today = LocalDate.now();
+        AttendanceRecord record = attendanceRepository
+                .findByEmployeeIdAndAttendanceDate(employeeId, today)
+                .orElse(null);
+
+        if (record != null && record.getClockInTime() != null) {
+            throw new IllegalStateException("Already checked in today");
+        }
+
+        LocalTime now = LocalTime.now();
+        if (record == null) {
+            record = AttendanceRecord.builder()
+                    .tenant(tenant)
+                    .employee(employee)
+                    .attendanceDate(today)
+                    .clockInTime(now)
+                    .status(AttendanceStatus.PRESENT)
+                    .checkInMethod("SELF_SERVICE")
+                    .build();
+        } else {
+            // Existing record without a clock-in — see KNOWN ITEM above (flips to PRESENT).
+            record.setClockInTime(now);
+            record.setStatus(AttendanceStatus.PRESENT);
+            record.setCheckInMethod("SELF_SERVICE");
+        }
+        if (notes != null && !notes.isBlank()) {
+            record.setNotes(notes.trim());
+        }
+
+        AttendanceRecord saved = attendanceRepository.save(record);
+        log.info("Self check-in for employee {} on {}", employeeId, today);
+        return toDto(saved);
+    }
+
+    /**
+     * Self check-out for the given employee on the current day. Shared by the web and REST
+     * flows like {@link #checkIn}. Recomputes {@code hoursWorked} from the recorded clock-in
+     * to now. Throws {@link IllegalStateException} when the employee never checked in today
+     * or has already checked out (the double-action race), for the controllers to surface.
+     */
+    @Transactional
+    public AttendanceRecordDTO checkOut(UUID employeeId, String notes) {
+        LocalDate today = LocalDate.now();
+        AttendanceRecord record = attendanceRepository
+                .findByEmployeeIdAndAttendanceDate(employeeId, today)
+                .orElseThrow(() -> new IllegalStateException("You haven't checked in today"));
+
+        if (record.getClockInTime() == null) {
+            throw new IllegalStateException("You haven't checked in today");
+        }
+        if (record.getClockOutTime() != null) {
+            throw new IllegalStateException("Already checked out today");
+        }
+
+        LocalTime now = LocalTime.now();
+        record.setClockOutTime(now);
+        long minutes = ChronoUnit.MINUTES.between(record.getClockInTime(), now);
+        record.setHoursWorked(BigDecimal.valueOf(minutes / 60.0).setScale(2, java.math.RoundingMode.HALF_UP));
+        if (notes != null && !notes.isBlank()) {
+            record.setNotes(notes.trim());
+        }
+
+        AttendanceRecord saved = attendanceRepository.save(record);
+        log.info("Self check-out for employee {} on {}", employeeId, today);
+        return toDto(saved);
+    }
+
     @Transactional(readOnly = true)
     public long getPresentDaysInMonth(UUID employeeId, int year, int month) {
         LocalDate startDate = LocalDate.of(year, month, 1);

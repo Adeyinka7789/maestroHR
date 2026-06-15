@@ -93,6 +93,11 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span class="nav-label">Attendance</span>
             </a>
+            <a href="/htmx/attendance/me" class="nav-item" data-route="attendance" data-label="My Attendance"
+               hx-get="/htmx/attendance/me" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+                <span class="nav-label">My Attendance</span>
+            </a>
             <a href="/htmx/recruitment" class="nav-item" data-route="recruitment" data-label="Recruitment"
                hx-get="/htmx/recruitment" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
