@@ -39,6 +39,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RequiredArgsConstructor
 public class AttendanceSelfController {
 
+    /**
+     * Shown when the authenticated user has no Employee record (admin/owner accounts that
+     * aren't employees). Self check-in/out inherently requires the user to BE an employee,
+     * so those accounts get this friendly message rather than a crash.
+     */
+    private static final String NO_PROFILE_MESSAGE =
+            "This page is for employees with attendance records. "
+            + "Your account doesn't have an associated employee profile.";
+
     private final AttendanceSelfService attendanceSelfService;
     private final AttendanceService attendanceService;
     private final EmployeeService employeeService;
@@ -54,7 +63,12 @@ public class AttendanceSelfController {
             return "forward:/layout.html";
         }
 
-        EmployeeDetailsDTO employee = currentEmployee();
+        EmployeeDetailsDTO employee = currentEmployeeOrNull();
+        if (employee == null) {
+            model.addAttribute("noProfile", NO_PROFILE_MESSAGE);
+            return "attendance-self :: content";
+        }
+
         model.addAttribute("view", attendanceSelfService.build(employee.getId(), employee.getFullName()));
         return "attendance-self :: content";
     }
@@ -95,7 +109,13 @@ public class AttendanceSelfController {
      */
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
     public String handleActionFailure(RuntimeException ex, Model model) {
-        EmployeeDetailsDTO employee = currentEmployee();
+        EmployeeDetailsDTO employee = currentEmployeeOrNull();
+        if (employee == null) {
+            // The failure *is* employee resolution (admin/owner with no Employee record) —
+            // don't re-resolve and crash; show the friendly no-profile message instead.
+            model.addAttribute("noProfile", NO_PROFILE_MESSAGE);
+            return "attendance-self :: card";
+        }
         model.addAttribute("view", attendanceSelfService.build(employee.getId(), employee.getFullName()));
         model.addAttribute("error", ex.getMessage());
         return "attendance-self :: card";
@@ -105,5 +125,19 @@ public class AttendanceSelfController {
     private EmployeeDetailsDTO currentEmployee() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return employeeService.findByEmail(email);
+    }
+
+    /**
+     * Same as {@link #currentEmployee()} but returns null instead of throwing when the
+     * authenticated user has no Employee record (admin/owner accounts that aren't employees).
+     * Used by the GET render and the exception handler so a missing profile shows a friendly
+     * message rather than propagating — and so the handler never re-throws while handling.
+     */
+    private EmployeeDetailsDTO currentEmployeeOrNull() {
+        try {
+            return currentEmployee();
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

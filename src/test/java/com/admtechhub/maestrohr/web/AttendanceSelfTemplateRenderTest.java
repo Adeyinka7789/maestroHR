@@ -108,6 +108,39 @@ class AttendanceSelfTemplateRenderTest {
     }
 
     @Test
+    void cardFragment_noProfile_rendersFriendlyMessageWithoutView() {
+        // Admin/owner account with no Employee record: only `noProfile` is set, `view` is null.
+        // The fragment must render the message without dereferencing the (absent) view.
+        Context ctx = new Context();
+        ctx.setVariable("noProfile",
+                "This page is for employees with attendance records. "
+                + "Your account doesn't have an associated employee profile.");
+
+        String html = templateEngine.process("attendance-self", Set.of("card"), ctx);
+
+        // NB: Thymeleaf escapes the apostrophe in "doesn't" to &#39;, so assert on an
+        // apostrophe-free slice of the message.
+        assertTrue(html.contains("associated employee profile"), "friendly no-profile message");
+        assertFalse(html.contains("/htmx/attendance/check-in"), "no actions for a non-employee account");
+        assertFalse(html.contains("/htmx/attendance/check-out"), "no actions for a non-employee account");
+        assertFalse(html.contains("name=\"notes\""), "no notes input for a non-employee account");
+    }
+
+    @Test
+    void contentFragment_noProfile_rendersWithoutView() {
+        // The GET no-profile path returns the content fragment with only `noProfile` set.
+        Context ctx = new Context();
+        ctx.setVariable("noProfile",
+                "This page is for employees with attendance records. "
+                + "Your account doesn't have an associated employee profile.");
+
+        String html = templateEngine.process("attendance-self", Set.of("content"), ctx);
+
+        assertTrue(html.contains("My Attendance"), "header still rendered");
+        assertTrue(html.contains("associated employee profile"), "no-profile message inserted via card");
+    }
+
+    @Test
     void cardFragment_actionFailure_rendersErrorBanner() {
         Context ctx = new Context();
         ctx.setVariable("view", checkedIn());

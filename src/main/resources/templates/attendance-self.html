@@ -45,6 +45,21 @@
 <div th:fragment="card">
 
     <!--
+      No employee profile: the authenticated user has no Employee record (admin/owner
+      accounts that aren't employees). Self check-in/out requires the user to BE an
+      employee, so show a friendly message instead of the card. This branch must NOT
+      reference ${view} (it is null here); everything view-dependent lives under the
+      th:unless below.
+    -->
+    <div th:if="${noProfile}" role="status"
+         class="max-w-xl flex items-start gap-sm px-md py-md rounded-xl bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface">
+        <span class="material-symbols-outlined text-[20px] text-on-surface-variant">info</span>
+        <span th:text="${noProfile}">This page is for employees with attendance records.</span>
+    </div>
+
+    <div th:unless="${noProfile}">
+
+    <!--
       In-place error banner. Rendered only when a check-in/out action failed (see
       AttendanceSelfController#handleActionFailure) — most often the double-click race
       ("Already checked in/out today" / "You haven't checked in today"). The card below
@@ -126,6 +141,7 @@
             <span class="material-symbols-outlined text-[20px] text-secondary">task_alt</span>
             You're all done for today.
         </p>
+    </div>
     </div>
 </div>
 
