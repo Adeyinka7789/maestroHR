@@ -3,9 +3,10 @@
  * Source of truth: design/stitch_reference/maestrohr_design_system/DESIGN.md
  *                  design/stitch_reference/hr_admin_dashboard_desktop/code.html
  *
- * PILOT SCOPE (dashboard only):
- *  - `content` scans ONLY the dashboard fragment, so the compiled stylesheet stays
- *    small and contains nothing the other ~23 pages reference.
+ * PILOT SCOPE (server-rendered fragments):
+ *  - `content` scans only the migrated fragments (dashboard, employees), so the
+ *    compiled stylesheet stays small and contains nothing the other ~22 pages
+ *    reference.
  *  - `corePlugins.preflight: false` — no global element reset. The output is purely
  *    additive utility classes, so loading it alongside the existing Tailwind CDN does
  *    NOT restyle any other page. Later passes widen `content` and drop the CDN.
@@ -13,6 +14,7 @@
 module.exports = {
   content: [
     "./src/main/resources/templates/dashboard.html",
+    "./src/main/resources/templates/employees.html",
   ],
   darkMode: "class",
   corePlugins: {

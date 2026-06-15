@@ -296,6 +296,11 @@
                         document.body.appendChild(newScript);
                         oldScript.remove();
                     });
+                    // Activate HTMX on the injected fragment. This raw-fetch path sets
+                    // innerHTML directly (not via an HTMX swap), so without this the
+                    // nested hx-* triggers (e.g. the employees search/filter controls)
+                    // would never be registered and clicking/typing would do nothing.
+                    if (window.htmx) htmx.process(contentDiv);
                     // Update active nav and page title after content loads
                     updateActiveNav();
                 }
@@ -330,10 +335,14 @@
         if (contentArea) contentArea.innerHTML = skeletonHtml;
     }
 
-    // Show skeleton before any HTMX request targeting #page-content
+    // Show skeleton only for full-page swaps (target IS #page-content). In-page
+    // fragment swaps that target a descendant — e.g. the employees list swapping
+    // #employees-table on search/filter/paging — must NOT trigger the skeleton:
+    // showSkeleton() replaces all of #page-content, which would destroy the inner
+    // swap target before the response lands, leaving the skeleton stuck forever.
     document.body.addEventListener('htmx:beforeRequest', function(evt) {
         const target = evt.detail.target;
-        if (target && (target.id === 'page-content' || target.closest('#page-content'))) {
+        if (target && target.id === 'page-content') {
             showSkeleton();
         }
     });

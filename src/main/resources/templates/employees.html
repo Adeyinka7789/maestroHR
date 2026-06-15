@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<!--
+  employees.html — server-rendered HTMX fragment (Option 3), companion to the
+  dashboard pilot. Rendered by EmployeesController as "employees :: content" and
+  swapped into #page-content in layout.html. Styled with the Stitch design system
+  tokens compiled into /css/dashboard.css (see tailwind.config.js `content`).
+
+  Two fragments:
+   - content : header + filter bar (#employee-filters) + table container (#employees-table)
+   - table   : table rows + pagination — the lightweight swap target for search,
+               department/status filters, and paging (GET /htmx/employees/table).
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Employees</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                <span th:text="${view.totalElements}">124</span> records
+            </p>
+        </div>
+        <div class="flex items-center gap-sm">
+            <button id="import-csv-btn" type="button"
+                    class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">upload_file</span>
+                Import CSV
+            </button>
+            <a href="/api/employees/export/excel"
+               class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">table_view</span>
+                Export to Excel
+            </a>
+            <a href="/htmx/employee-create" hx-get="/htmx/employee-create" hx-target="#page-content"
+               hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-xs bg-secondary text-white px-6 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">person_add</span>
+                Add Employee
+            </a>
+        </div>
+    </div>
+
+    <!-- Hidden file input for CSV import -->
+    <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+
+    <!--
+      Filter bar — lives in `content` (NOT re-rendered on table swaps) so the user's
+      typed search and selected filters persist across swaps and are picked up by
+      hx-include="#employee-filters" on every search / filter / pagination request.
+    -->
+    <div id="employee-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Search by name, email, or employee ID…"
+                   autocomplete="off"
+                   hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
+                   hx-include="#employee-filters" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+
+        <select name="dept"
+                hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
+                hx-include="#employee-filters" hx-trigger="change"
+                class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            <option value="">All departments</option>
+            <option th:each="d : ${view.departments}" th:value="${d.id}" th:text="${d.name}"
+                    th:selected="${d.selected}">Engineering</option>
+        </select>
+
+        <select name="status"
+                hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
+                hx-include="#employee-filters" hx-trigger="change"
+                class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            <option value="">All statuses</option>
+            <option th:each="s : ${view.statuses}" th:value="${s.value}" th:text="${s.label}"
+                    th:selected="${s.selected}">Active</option>
+        </select>
+    </div>
+
+    <!-- Table container — only this is swapped on search / filter / paging -->
+    <div id="employees-table" th:insert="~{employees :: table}"></div>
+
+    <!--
+      CSV import is inherently interactive (file picker + multipart POST), so it
+      keeps a small JS island that reuses the global MaestroHR helpers and refreshes
+      the table via htmx.ajax on success. HTMX runs scripts in swapped content.
+    -->
+    <script>
+        (function () {
+            var importBtn = document.getElementById('import-csv-btn');
+            var fileInput = document.getElementById('csvFileInput');
+            if (!importBtn || !fileInput) return;
+
+            importBtn.addEventListener('click', function () { fileInput.click(); });
+
+            fileInput.addEventListener('change', async function (e) {
+                var file = e.target.files[0];
+                if (!file) return;
+
+                var formData = new FormData();
+                formData.append('file', file);
+                MaestroHR.showToast('Importing employees…', 'info');
+
+                try {
+                    var response = await fetch('/api/employees/import/csv', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + MaestroHR.token },
+                        body: formData
+                    });
+                    var result = await response.json();
+                    if (result.success) {
+                        var data = result.data;
+                        MaestroHR.showToast('✅ Imported ' + data.successCount + ' employees, ' + data.errorCount + ' errors', 'success');
+                        htmx.ajax('GET', '/htmx/employees/table', {
+                            target: '#employees-table', swap: 'innerHTML', values: { q: '', dept: '', status: '', page: 0 }
+                        });
+                    } else {
+                        MaestroHR.showToast(result.message || 'Import failed', 'error');
+                    }
+                } catch (err) {
+                    console.error('Import failed:', err);
+                    MaestroHR.showToast('Import failed. Check console.', 'error');
+                }
+                e.target.value = '';
+            });
+        })();
+    </script>
+</div>
+
+<!-- ============================= TABLE ============================= -->
+<div th:fragment="table">
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employee</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">ID</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Department</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Pay Grade</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Basic Salary</th>
+                    <th class="px-md py-sm"></th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
+                                 th:text="${row.initials}">TS</div>
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${row.fullName}">Tayo Shonibare</p>
+                                <p class="text-[12px] text-on-surface-variant" th:text="${row.email}">tayo@acme.ng</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.employeeNumber}">EMP-0001</td>
+                    <td class="px-md py-md font-table-data text-table-data" th:text="${row.departmentName}">Marketing</td>
+                    <td class="px-md py-md font-table-data text-table-data" th:text="${row.payGradeName}">Level 4</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${row.statusName}">ACTIVE</span>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface" th:text="${row.salaryFormatted}">₦450,000</td>
+                    <td class="px-md py-md">
+                        <div class="flex gap-xs justify-end">
+                            <a th:href="@{/htmx/employee-view(id=${row.id})}"
+                               th:attr="hx-get=@{/htmx/employee-view(id=${row.id})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-sm text-label-sm text-on-surface hover:bg-surface-container-low transition-colors">View</a>
+                            <a th:href="@{/htmx/employee-edit(id=${row.id})}"
+                               th:attr="hx-get=@{/htmx/employee-edit(id=${row.id})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-sm text-label-sm text-on-surface hover:bg-surface-container-low transition-colors">Edit</a>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="7" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No employees found</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search or filters.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div th:if="${view.totalPages > 1}" class="flex items-center justify-between py-md">
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+            Showing <span th:text="${view.fromIndex}">1</span>–<span th:text="${view.toIndex}">20</span>
+            of <span th:text="${view.totalElements}">124</span>
+        </p>
+        <div class="flex items-center gap-sm">
+            <button type="button" th:disabled="${!view.hasPrev}"
+                    th:attr="hx-vals=${'{&quot;page&quot;: ' + (view.page - 1) + '}'}"
+                    hx-get="/htmx/employees/table" hx-include="#employee-filters"
+                    hx-target="#employees-table" hx-swap="innerHTML"
+                    class="px-4 py-2 rounded-lg border border-outline-variant font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                ← Prev
+            </button>
+            <span class="font-body-sm text-body-sm text-on-surface-variant">
+                Page <span th:text="${view.page + 1}">1</span> of <span th:text="${view.totalPages}">7</span>
+            </span>
+            <button type="button" th:disabled="${!view.hasNext}"
+                    th:attr="hx-vals=${'{&quot;page&quot;: ' + (view.page + 1) + '}'}"
+                    hx-get="/htmx/employees/table" hx-include="#employee-filters"
+                    hx-target="#employees-table" hx-swap="innerHTML"
+                    class="px-4 py-2 rounded-lg bg-secondary text-white font-label-md text-label-md shadow-md hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                Next →
+            </button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

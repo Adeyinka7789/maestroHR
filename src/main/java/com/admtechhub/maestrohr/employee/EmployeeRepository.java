@@ -58,4 +58,22 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId AND e.id = :id")
     Optional<Employee> findByIdAndTenantId(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
+
+    // Combined filter query for the employees list page.
+    // Null-safe: CAST(:search AS string) makes Hibernate emit cast(? as varchar), so Postgres
+    // gets a concrete type for a null :search instead of inferring bytea
+    // (which triggered "function lower(bytea) does not exist"); each filter is bypassed when its param is null.
+    @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId " +
+            "AND (:search IS NULL OR " +
+            "     LOWER(e.firstName)      LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+            "     LOWER(e.lastName)       LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+            "     LOWER(e.email)          LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+            "     LOWER(e.employeeNumber) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+            "AND (:departmentId IS NULL OR e.department.id = :departmentId) " +
+            "AND (:status IS NULL OR e.status = :status)")
+    Page<Employee> findFiltered(@Param("tenantId") UUID tenantId,
+                                @Param("search") String search,
+                                @Param("departmentId") UUID departmentId,
+                                @Param("status") EmployeeStatus status,
+                                Pageable pageable);
 }
