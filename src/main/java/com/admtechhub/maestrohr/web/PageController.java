@@ -9,8 +9,11 @@ public class PageController {
 
     // Core pages
     // NOTE: /htmx/dashboard is owned by DashboardController (server-rendered fragment pilot).
-    // NOTE: /htmx/employees (+ /htmx/employees/table) is owned by EmployeesController
-    //       (server-rendered fragment with search + department/status filters).
+    @GetMapping("/htmx/employees")
+    public String employees(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
+        return htmxRequest != null ? "forward:/employees.html" : "forward:/layout.html";
+    }
+
     @GetMapping("/htmx/departments")
     public String departments(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
         return htmxRequest != null ? "forward:/departments.html" : "forward:/layout.html";
