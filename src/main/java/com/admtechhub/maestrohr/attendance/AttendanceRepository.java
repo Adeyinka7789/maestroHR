@@ -43,4 +43,35 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
     long countLateDays(@Param("employeeId") UUID employeeId,
                        @Param("startDate") LocalDate startDate,
                        @Param("endDate") LocalDate endDate);
+
+    // Backs the redesigned attendance "Today" list (server-rendered fragment, Option 3):
+    // one day's records with an optional status filter and free-text employee search.
+    // Tenant-scoped on a.tenant.id (the entity holds tenant directly, unlike LeaveRequest
+    // which reaches it via employee.tenant). Both filters are optional and null-safe:
+    //   - :status null  → all statuses (the "All" chip);
+    //   - :search null  → no text filter. CAST(:search AS string) makes Hibernate emit
+    //     cast(? as varchar) so Postgres gets a concrete type for a null :search instead
+    //     of inferring bytea ("function lower(bytea) does not exist"); the search is
+    //     bypassed entirely when null. Matches employee name, employee number, or notes.
+    //     Ordered by employee name so the daily roster reads alphabetically.
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.tenant.id = :tenantId " +
+            "AND a.attendanceDate = :date " +
+            "AND (:status IS NULL OR a.status = :status) " +
+            "AND (:search IS NULL " +
+            "  OR LOWER(CONCAT(a.employee.firstName, ' ', a.employee.lastName)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "  OR LOWER(a.employee.employeeNumber) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "  OR LOWER(a.notes) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+            "ORDER BY a.employee.firstName ASC, a.employee.lastName ASC")
+    List<AttendanceRecord> findFilteredByDate(@Param("tenantId") UUID tenantId,
+                                              @Param("date") LocalDate date,
+                                              @Param("status") AttendanceStatus status,
+                                              @Param("search") String search);
+
+    // Per-status counts for one day across the tenant, backing the summary stat cards
+    // and the filter-chip counts (so they reflect the full day's roster, not the filtered
+    // view). Returns rows of [AttendanceStatus, Long]; statuses with no records are absent.
+    @Query("SELECT a.status, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.tenant.id = :tenantId AND a.attendanceDate = :date GROUP BY a.status")
+    List<Object[]> countByStatusForDate(@Param("tenantId") UUID tenantId,
+                                        @Param("date") LocalDate date);
 }

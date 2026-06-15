@@ -18,6 +18,7 @@ module.exports = {
     "./src/main/resources/templates/departments.html",
     "./src/main/resources/templates/pay-grades.html",
     "./src/main/resources/templates/leave.html",
+    "./src/main/resources/templates/attendance.html",
   ],
   darkMode: "class",
   corePlugins: {

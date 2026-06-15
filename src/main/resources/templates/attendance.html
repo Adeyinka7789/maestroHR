@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!--
+  attendance.html — server-rendered HTMX fragment (Option 3), companion to the
+  employees / departments / pay-grades / leave pages. Rendered by AttendanceListController
+  as "attendance :: content" and swapped into #page-content in layout.html. Styled with
+  the Stitch design system tokens compiled into /css/dashboard.css (see
+  tailwind.config.js `content`).
+
+  This is the HR-admin / manager-facing daily attendance roster.
+
+  Two fragments:
+   - content : header + filters (date picker + search) + results container (#attendance-table)
+   - table   : the day heading + status chip strip (All/Present/Late/Absent/Half Day with
+               that day's counts) + a hidden status carrier + the roster table. This whole
+               block is the swap target for the date picker, the search box, and the chips,
+               so the selected day, chip, and filtered rows re-render together
+               (GET /htmx/attendance/table).
+
+  State plumbing (THREE pieces of state: date, search, status):
+   - The date picker and search box live in `content` (NOT re-rendered on swaps) so the
+     chosen day, typed term, and input focus persist across table swaps.
+   - The date picker carries the active search + status via
+     hx-include="[name='q'],#attendance-active-status".
+   - The search box carries the active day + status via
+     hx-include="[name='date'],#attendance-active-status".
+   - Each chip carries its own status in the hx-get URL and pulls the current day + search
+     term along via hx-include="[name='q'],[name='date']".
+   - #attendance-active-status is the hidden carrier inside the swapped `table` fragment;
+     a null status (the "All" chip) renders no value attribute → submits as status="" → All.
+
+  SCOPE (Step A): read-only single-day list + date picker + status filter + search. The
+  Monthly Calendar (Step B) and the write workflows — Mark Attendance, Self check-in/out
+  (Steps C/D) — are deferred to later, separately-reviewed steps because the write paths
+  feed payroll deductions. static/attendance.html remains on disk as the legacy fallback
+  until this fragment is browser-verified.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document;
+  only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Attendance</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Daily attendance roster for your team
+            </p>
+        </div>
+    </div>
+
+    <!--
+      Filters — date picker + search box. Both live in `content` (NOT re-rendered on table
+      swaps) so the chosen day and typed search persist. The date picker carries the search
+      + status filter; the search box carries the day + status filter, so changing one keeps
+      the others in effect.
+    -->
+    <div id="attendance-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none">calendar_today</span>
+            <input type="date" name="date" th:value="${view.date}"
+                   hx-get="/htmx/attendance/table" hx-target="#attendance-table" hx-swap="innerHTML"
+                   hx-include="[name='q'],#attendance-active-status" hx-trigger="change"
+                   class="pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+        </div>
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Search by employee name or number…"
+                   autocomplete="off"
+                   hx-get="/htmx/attendance/table" hx-target="#attendance-table" hx-swap="innerHTML"
+                   hx-include="[name='date'],#attendance-active-status" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+    </div>
+
+    <!-- Results container (day heading + chip strip + table) — the swap target -->
+    <div id="attendance-table" th:insert="~{attendance :: table}"></div>
+</div>
+
+<!-- ============================= TABLE ============================= -->
+<div th:fragment="table">
+
+    <!--
+      Hidden carrier for the active status filter. The date picker and search box (outside
+      this fragment) include it via hx-include="#attendance-active-status"; a null status
+      (the "All" chip) renders no value attribute, which submits as status="" → All.
+    -->
+    <input type="hidden" id="attendance-active-status" name="status" th:value="${view.status}">
+
+    <!-- Selected day -->
+    <div class="mb-md">
+        <p class="font-label-sm text-label-sm text-on-surface-variant">Showing attendance for</p>
+        <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.dateFormatted}">Monday, 15 June 2026</p>
+    </div>
+
+    <!-- Status chip strip with that day's counts -->
+    <div class="flex flex-wrap gap-sm mb-md">
+        <button th:each="chip : ${view.statusChips}" type="button"
+                th:attr="hx-get='/htmx/attendance/table?status=' + ${chip.value}"
+                hx-target="#attendance-table" hx-swap="innerHTML" hx-include="[name='q'],[name='date']"
+                th:classappend="${chip.selected} ? 'bg-primary text-white border-primary' : 'bg-white text-on-surface border-outline-variant hover:bg-surface-container-low'"
+                class="flex items-center gap-xs px-4 py-2 rounded-lg border font-label-md text-label-md transition-colors">
+            <span th:text="${chip.label}">Present</span>
+            <span th:text="${chip.count}"
+                  th:classappend="${chip.selected} ? 'bg-white text-primary' : 'bg-surface-container text-on-surface-variant'"
+                  class="px-2 py-0.5 rounded-full text-[11px] font-bold">0</span>
+        </button>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employee</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Clock In</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Clock Out</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Hours</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
+                                 th:text="${row.employeeInitials}">TS</div>
+                            <p class="font-label-md text-label-md text-on-surface" th:text="${row.employeeName}">Tayo Shonibare</p>
+                        </div>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface whitespace-nowrap" th:text="${row.clockInFormatted}">09:05</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface whitespace-nowrap" th:text="${row.clockOutFormatted}">17:30</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.hoursFormatted}">8.25</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${row.statusLabel}">Present</span>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="5" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No attendance records found</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Try a different date, search, or status filter.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

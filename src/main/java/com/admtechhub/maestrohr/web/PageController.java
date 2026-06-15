@@ -21,6 +21,10 @@ public class PageController {
     //       (server-rendered approval-queue + history table with a status filter and
     //       search). static/leave.html remains on disk as the legacy fallback until the
     //       new fragment is browser-verified.
+    // NOTE: /htmx/attendance (+ /htmx/attendance/table) is owned by AttendanceListController
+    //       (server-rendered daily roster with a date picker, status filter, and search).
+    //       static/attendance.html remains on disk as the legacy fallback until the new
+    //       fragment is browser-verified.
 
     @GetMapping("/htmx/payroll")
     public String payroll(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
@@ -30,11 +34,6 @@ public class PageController {
     @GetMapping("/htmx/reports")
     public String reports(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
         return htmxRequest != null ? "forward:/reports.html" : "forward:/layout.html";
-    }
-
-    @GetMapping("/htmx/attendance")
-    public String attendance(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/attendance.html" : "forward:/layout.html";
     }
 
     @GetMapping("/htmx/recruitment")
