@@ -2,9 +2,6 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.JwtService;
 import com.admtechhub.maestrohr.auth.TenantContext;
-import com.admtechhub.maestrohr.employee.DepartmentRepository;
-import com.admtechhub.maestrohr.employee.EmployeeService;
-import com.admtechhub.maestrohr.employee.PayGradeRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -23,19 +20,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class EmployeeWebController {
 
-    private final EmployeeService employeeService;
-    private final DepartmentRepository departmentRepository;
-    private final PayGradeRepository payGradeRepository;
     private final JwtService jwtService;
 
-    @GetMapping
-    public String listEmployees(
-            HttpServletRequest request,
-            @RequestHeader(value = "HX-Request", required = false) String htmx) {
-        if (!setTenant(request)) return "redirect:/login";
-        TenantContext.clear();
-        return htmx != null ? "forward:/employees.html" : "forward:/layout.html";
-    }
+    // NOTE: the employees list (/employees + /htmx/employees) is owned by
+    // EmployeesController, which renders it as a server-rendered HTMX fragment with
+    // department/status filters. This controller handles only the create/view/edit
+    // sub-routes, which still forward to their static pages.
 
     @GetMapping("/create")
     public String showCreateForm(

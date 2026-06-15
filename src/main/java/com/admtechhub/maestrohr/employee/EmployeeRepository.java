@@ -56,6 +56,26 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId")
     Page<Employee> findAllByTenantId(@Param("tenantId") UUID tenantId, Pageable pageable);
 
+    /**
+     * Tenant-scoped employee list with optional free-text search (name / email /
+     * employee number), optional department filter, and optional status filter.
+     * Any parameter passed as {@code null} disables that facet, so a single query
+     * backs the server-rendered employees page and all its filter combinations.
+     */
+    @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId " +
+            "AND (:search IS NULL OR " +
+            "     LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "     LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "     LOWER(e.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "     LOWER(e.employeeNumber) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+            "AND (:departmentId IS NULL OR e.department.id = :departmentId) " +
+            "AND (:status IS NULL OR e.status = :status)")
+    Page<Employee> findFiltered(@Param("tenantId") UUID tenantId,
+                                @Param("search") String search,
+                                @Param("departmentId") UUID departmentId,
+                                @Param("status") EmployeeStatus status,
+                                Pageable pageable);
+
     @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId AND e.id = :id")
     Optional<Employee> findByIdAndTenantId(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 }
