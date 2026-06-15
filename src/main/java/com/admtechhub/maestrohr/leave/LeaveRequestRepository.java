@@ -70,4 +70,31 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
             @Param("employeeId") UUID employeeId,
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd);
+
+    // Backs the redesigned leave list (server-rendered fragment, Option 3): the
+    // approval-queue / history table with an optional status filter and free-text
+    // search. Both parameters are optional and null-safe:
+    //   - :status null  → all statuses (the "All" chip);
+    //   - :search null  → no text filter. CAST(:search AS string) makes Hibernate emit
+    //     cast(? as varchar) so Postgres gets a concrete type for a null :search instead
+    //     of inferring bytea ("function lower(bytea) does not exist"); the search is
+    //     bypassed entirely when null. Mirrors the existing searchLeaveRequests text
+    //     match (employee name / leave-type name / reason). Newest first.
+    @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId " +
+            "AND (:status IS NULL OR l.status = :status) " +
+            "AND (:search IS NULL " +
+            "  OR LOWER(CONCAT(l.employee.firstName, ' ', l.employee.lastName)) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "  OR LOWER(l.leaveType.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "  OR LOWER(l.reason) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+            "ORDER BY l.createdAt DESC")
+    List<LeaveRequest> findFiltered(@Param("tenantId") UUID tenantId,
+                                    @Param("status") LeaveStatus status,
+                                    @Param("search") String search);
+
+    // Per-status counts for the whole tenant, backing the summary strip and the
+    // filter-chip counts (so they reflect the full data set, not the filtered view).
+    // Returns rows of [LeaveStatus, Long]; statuses with zero requests are absent.
+    @Query("SELECT l.status, COUNT(l) FROM LeaveRequest l " +
+            "WHERE l.employee.tenant.id = :tenantId GROUP BY l.status")
+    List<Object[]> countByStatusForTenant(@Param("tenantId") UUID tenantId);
 }

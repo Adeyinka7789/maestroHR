@@ -17,6 +17,10 @@ public class PageController {
     // NOTE: /htmx/pay-grades (+ /htmx/pay-grades/table) is owned by PayGradesController
     //       (server-rendered card grid with name search). static/pay-grades.html remains
     //       on disk as the legacy fallback until the new fragment is browser-verified.
+    // NOTE: /htmx/leave (+ /htmx/leave/table) is owned by LeaveListController
+    //       (server-rendered approval-queue + history table with a status filter and
+    //       search). static/leave.html remains on disk as the legacy fallback until the
+    //       new fragment is browser-verified.
 
     @GetMapping("/htmx/payroll")
     public String payroll(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
@@ -26,11 +30,6 @@ public class PageController {
     @GetMapping("/htmx/reports")
     public String reports(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
         return htmxRequest != null ? "forward:/reports.html" : "forward:/layout.html";
-    }
-
-    @GetMapping("/htmx/leave")
-    public String leave(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/leave.html" : "forward:/layout.html";
     }
 
     @GetMapping("/htmx/attendance")

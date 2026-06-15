@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--
+  leave.html — server-rendered HTMX fragment (Option 3), companion to the
+  employees / departments / pay-grades pages. Rendered by LeaveListController as
+  "leave :: content" and swapped into #page-content in layout.html. Styled with the
+  Stitch design system tokens compiled into /css/dashboard.css (see
+  tailwind.config.js `content`).
+
+  This is the HR-admin / manager-facing approval-queue + history view.
+
+  Two fragments:
+   - content : header + search bar (#leave-filters) + results container (#leave-table)
+   - table   : the status chip strip (All/Pending/Approved/Rejected with tenant-wide
+               counts) + a hidden status carrier + the requests table. This whole
+               block is the swap target for both the search box and the chips, so the
+               selected chip and the filtered rows re-render together
+               (GET /htmx/leave/table).
+
+  State plumbing:
+   - The search box lives in `content` (NOT re-rendered on swaps) so the typed term
+     and input focus persist; it carries the active status filter via
+     hx-include="#leave-active-status" (the hidden input inside the swapped fragment).
+   - Each chip carries its own status in the hx-get URL and pulls the current search
+     term along via hx-include="[name='q']".
+
+  SCOPE (Step A): read-only. The approve/reject per-row actions and the admin
+  "apply for leave" form are deferred follow-up steps, so there are no per-row
+  buttons yet.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Leave Management</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Review and track employee leave requests
+            </p>
+        </div>
+    </div>
+
+    <!--
+      Search bar — lives in `content` (NOT re-rendered on table swaps) so the user's
+      typed search persists across swaps. It carries the active status filter via
+      hx-include="#leave-active-status" so searching stays within the selected status.
+    -->
+    <div id="leave-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Search by employee, leave type, status, or reason…"
+                   autocomplete="off"
+                   hx-get="/htmx/leave/table" hx-target="#leave-table" hx-swap="innerHTML"
+                   hx-include="#leave-active-status" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+    </div>
+
+    <!-- Results container (chip strip + table) — the swap target for search / chips -->
+    <div id="leave-table" th:insert="~{leave :: table}"></div>
+</div>
+
+<!-- ============================= TABLE ============================= -->
+<div th:fragment="table">
+
+    <!--
+      Hidden carrier for the active status filter. The search box (outside this
+      fragment) includes it via hx-include="#leave-active-status"; a null status
+      (the "All" chip) renders no value attribute, which submits as status="" → All.
+    -->
+    <input type="hidden" id="leave-active-status" name="status" th:value="${view.status}">
+
+    <!-- Status chip strip with tenant-wide counts -->
+    <div class="flex flex-wrap gap-sm mb-md">
+        <button th:each="chip : ${view.statusChips}" type="button"
+                th:attr="hx-get='/htmx/leave/table?status=' + ${chip.value}"
+                hx-target="#leave-table" hx-swap="innerHTML" hx-include="[name='q']"
+                th:classappend="${chip.selected} ? 'bg-primary text-white border-primary' : 'bg-white text-on-surface border-outline-variant hover:bg-surface-container-low'"
+                class="flex items-center gap-xs px-4 py-2 rounded-lg border font-label-md text-label-md transition-colors">
+            <span th:text="${chip.label}">Pending</span>
+            <span th:text="${chip.count}"
+                  th:classappend="${chip.selected} ? 'bg-white text-primary' : 'bg-surface-container text-on-surface-variant'"
+                  class="px-2 py-0.5 rounded-full text-[11px] font-bold">3</span>
+        </button>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employee</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Leave Type</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Dates</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Days</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Reason</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Submitted</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
+                                 th:text="${row.employeeInitials}">TS</div>
+                            <p class="font-label-md text-label-md text-on-surface" th:text="${row.employeeName}">Tayo Shonibare</p>
+                        </div>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface" th:text="${row.leaveTypeName}">Annual Leave</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant whitespace-nowrap">
+                        <span th:text="${row.startFormatted}">02 Jun 2025</span>
+                        <span class="text-on-surface-variant">–</span>
+                        <span th:text="${row.endFormatted}">06 Jun 2025</span>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.daysRequested}">5</td>
+                    <td class="px-md py-md">
+                        <div class="max-w-[220px] truncate font-body-sm text-body-sm text-on-surface-variant"
+                             th:text="${row.reason}" th:title="${row.reason}">Family event</div>
+                    </td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${row.statusLabel}">Pending</span>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant whitespace-nowrap" th:text="${row.submittedFormatted}">01 Jun 2025</td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="7" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No leave requests found</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search or status filter.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
