@@ -1,0 +1,13 @@
+{
+  "name": "maestrohr-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Frontend build pipeline for MaestroHR. Compiles the Stitch design-system tokens into a Tailwind stylesheet consumed by the server-rendered templates.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/main/frontend/dashboard.css -o ./src/main/resources/static/css/dashboard.css --minify",
+    "watch:css": "tailwindcss -i ./src/main/frontend/dashboard.css -o ./src/main/resources/static/css/dashboard.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

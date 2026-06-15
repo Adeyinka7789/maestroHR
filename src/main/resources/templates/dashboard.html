@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<!--
+  dashboard.html — server-rendered HTMX fragment (Option 3 pilot).
+  Rendered by DashboardController as "dashboard :: content" and swapped into
+  #page-content in layout.html. Styled with the Stitch design system tokens
+  compiled into /css/dashboard.css (see tailwind.config.js).
+
+  Only the <div th:fragment="content"> is emitted; the html/body wrapper exists
+  purely so Thymeleaf's parser sees a well-formed document.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Company Overview</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Real-time health pulse for <span th:text="${view.periodLabel}">June 2025</span>.
+            </p>
+        </div>
+        <div class="flex items-center gap-sm">
+            <a href="/htmx/employee-create" hx-get="/htmx/employee-create" hx-target="#page-content"
+               hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">person_add</span>
+                Add Employee
+            </a>
+            <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content"
+               hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-xs bg-secondary text-white px-6 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">play_circle</span>
+                Run Payroll
+            </a>
+        </div>
+    </div>
+
+    <!-- Bento metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
+
+        <!-- Active headcount -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+            <div class="flex items-center justify-between mb-md">
+                <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary">groups</span>
+                </div>
+                <span th:if="${view.newHiresThisMonth > 0}" class="text-secondary font-label-sm text-label-sm"
+                      th:text="'+' + ${view.newHiresThisMonth} + ' this month'">+4 this month</span>
+            </div>
+            <div>
+                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Active Headcount</p>
+                <h2 class="font-headline-lg text-display-lg text-primary" th:text="${view.activeHeadcount}">124</h2>
+            </div>
+        </div>
+
+        <!-- Payroll status (spans 2) -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl md:col-span-2 flex flex-col md:flex-row gap-md hover:shadow-lg transition-shadow">
+            <div class="flex-1 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-sm mb-xs">
+                        <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider"
+                           th:text="${view.payroll.monthLabel} + ' Payroll'">June 2025 Payroll</p>
+                        <span class="status-pill px-2 py-0.5 rounded text-[10px] font-bold"
+                              th:classappend="${view.payroll.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (view.payroll.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (view.payroll.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${view.payroll.statusLabel}">Pending</span>
+                    </div>
+                    <h2 class="font-headline-md text-headline-md text-on-surface" th:text="${view.payroll.amountFormatted}">₦42,500,000.00</h2>
+                </div>
+                <p class="text-[12px] text-on-surface-variant mt-md">Latest net payroll for this cycle</p>
+            </div>
+            <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+               class="md:w-32 flex flex-col justify-center items-center bg-surface-container-low rounded-lg p-2 border border-outline-variant gap-1 hover:bg-surface-container transition-colors">
+                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                <p class="font-label-sm text-label-sm text-primary text-center">View Runs</p>
+            </a>
+        </div>
+
+        <!-- On leave -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+            <div class="flex items-center justify-between mb-md">
+                <div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center">
+                    <span class="material-symbols-outlined text-tertiary">beach_access</span>
+                </div>
+                <span th:if="${view.pendingLeaveCount > 0}" class="text-on-surface-variant font-label-sm text-label-sm"
+                      th:text="${view.pendingLeaveCount} + ' pending'">2 pending</span>
+            </div>
+            <div>
+                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">On Leave</p>
+                <h2 class="font-headline-lg text-display-lg text-tertiary" th:text="${view.onLeaveCount}">8</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity + celebrations -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+
+        <!-- Recent activity -->
+        <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="p-md border-b border-outline-variant flex items-center justify-between">
+                <h3 class="font-headline-sm text-headline-sm text-primary">Recent Activity</h3>
+                <a href="/htmx/audit" hx-get="/htmx/audit" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                   class="text-primary font-label-md text-label-md hover:underline">View all</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                    <tr class="bg-surface-container-low">
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Event</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Actor</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Date</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-outline-variant">
+                    <tr th:each="item : ${view.recentActivity}" class="hover:bg-surface-container-lowest transition-colors">
+                        <td class="px-md py-md">
+                            <div class="flex items-center gap-sm">
+                                <div class="w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+                                     th:classappend="${item.iconKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (item.iconKind == 'error' ? 'bg-error-container text-on-error-container' : (item.iconKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}">
+                                    <span class="material-symbols-outlined text-sm" th:text="${item.icon}">history</span>
+                                </div>
+                                <span class="font-table-data text-table-data" th:text="${item.event}">New Hire</span>
+                            </div>
+                        </td>
+                        <td class="px-md py-md font-table-data text-table-data" th:text="${item.actor}">system@maestrohr</td>
+                        <td class="px-md py-md font-table-data text-table-data" th:text="${item.dateLabel}">June 14, 2025</td>
+                        <td class="px-md py-md">
+                            <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                                  th:classappend="${item.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (item.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (item.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                                  th:text="${item.statusText}">SUCCESS</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${view.recentActivity.isEmpty()}">
+                        <td colspan="4" class="px-md py-lg text-center text-on-surface-variant font-body-sm text-body-sm">No recent activity</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Celebrations -->
+        <div class="flex flex-col gap-md">
+
+            <!-- Birthdays -->
+            <div class="bg-white border border-outline-variant rounded-xl p-md flex-1">
+                <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                    <span class="material-symbols-outlined text-primary">cake</span>
+                    <h4 class="font-headline-sm text-headline-sm text-on-surface">Upcoming Birthdays</h4>
+                </div>
+                <div class="space-y-md">
+                    <div th:each="b : ${view.birthdays}" class="flex items-center justify-between">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold"
+                                 th:text="${b.initials}">TS</div>
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${b.name}">Tayo Shonibare</p>
+                                <p class="text-[12px] text-on-surface-variant" th:text="${b.subtitle}">Marketing Team</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-label-sm text-label-sm"
+                               th:classappend="${(b.whenLabel == 'Today' or b.whenLabel == 'Tomorrow') ? 'text-secondary' : 'text-on-surface-variant'}"
+                               th:text="${b.whenLabel}">Tomorrow</p>
+                        </div>
+                    </div>
+                    <p th:if="${view.birthdays.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm">No upcoming birthdays</p>
+                </div>
+            </div>
+
+            <!-- Work anniversaries -->
+            <div class="bg-white border border-outline-variant rounded-xl p-md flex-1">
+                <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                    <span class="material-symbols-outlined text-primary">military_tech</span>
+                    <h4 class="font-headline-sm text-headline-sm text-on-surface">Work Anniversaries</h4>
+                </div>
+                <div class="space-y-md">
+                    <div th:each="a : ${view.anniversaries}" class="flex items-center gap-md">
+                        <div class="relative">
+                            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold"
+                                 th:text="${a.initials}">NE</div>
+                            <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary text-white rounded-full flex items-center justify-center text-[10px] font-bold"
+                                 th:text="${a.badge}">3y</div>
+                        </div>
+                        <div>
+                            <p class="font-label-md text-label-md text-on-surface" th:text="${a.name}">Nkechi Egwu</p>
+                            <p class="text-[12px] text-on-surface-variant" th:text="${a.subtitle}">Creative Lead • June 15</p>
+                        </div>
+                    </div>
+                    <p th:if="${view.anniversaries.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm">No upcoming anniversaries</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Super-admin only: platform quick links -->
+    <div th:if="${superAdmin}" class="mt-lg bg-white border border-outline-variant rounded-xl p-md">
+        <div class="flex items-center gap-sm mb-md">
+            <span class="material-symbols-outlined text-primary">admin_panel_settings</span>
+            <h3 class="font-headline-sm text-headline-sm text-primary">Platform Administration</h3>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+            <a href="/htmx/subscribers" hx-get="/htmx/subscribers" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-sm p-md rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+                <span class="material-symbols-outlined text-primary">groups</span>
+                <span class="font-label-md text-label-md text-on-surface">Manage Subscribers</span>
+            </a>
+            <a href="/htmx/admin/pricing" hx-get="/htmx/admin/pricing" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-sm p-md rounded-lg border border-outline-variant hover:bg-surface-container-low transition-colors">
+                <span class="material-symbols-outlined text-primary">sell</span>
+                <span class="font-label-md text-label-md text-on-surface">Pricing Plans</span>
+            </a>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

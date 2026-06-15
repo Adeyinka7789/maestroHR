@@ -236,4 +236,61 @@
 		</plugins>
 	</build>
 
+	<profiles>
+		<!--
+		  Opt-in frontend build: `mvn -Pfrontend generate-resources` compiles the
+		  Stitch design tokens (src/main/frontend/dashboard.css) into
+		  src/main/resources/static/css/dashboard.css via the Tailwind CLI.
+
+		  Kept out of the default build so the standard `mvn test` flow does not
+		  download a Node toolchain. The compiled CSS is committed, so runtime and
+		  tests never need npm; run this profile only after changing tokens/markup.
+		-->
+		<profile>
+			<id>frontend</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>com.github.eirslett</groupId>
+						<artifactId>frontend-maven-plugin</artifactId>
+						<version>1.15.1</version>
+						<configuration>
+							<nodeVersion>v22.16.0</nodeVersion>
+							<npmVersion>11.11.0</npmVersion>
+						</configuration>
+						<executions>
+							<execution>
+								<id>install-node-and-npm</id>
+								<goals>
+									<goal>install-node-and-npm</goal>
+								</goals>
+								<phase>generate-resources</phase>
+							</execution>
+							<execution>
+								<id>npm-install</id>
+								<goals>
+									<goal>npm</goal>
+								</goals>
+								<phase>generate-resources</phase>
+								<configuration>
+									<arguments>install</arguments>
+								</configuration>
+							</execution>
+							<execution>
+								<id>npm-build-css</id>
+								<goals>
+									<goal>npm</goal>
+								</goals>
+								<phase>generate-resources</phase>
+								<configuration>
+									<arguments>run build:css</arguments>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
 </project>

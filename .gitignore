@@ -40,3 +40,5 @@ HELP.md
 # --- System & Temp ---
 tmp/
 temp/
+# --- Node / Tailwind build ---
+node_modules/

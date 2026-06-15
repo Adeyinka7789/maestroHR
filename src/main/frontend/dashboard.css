@@ -1,0 +1,23 @@
+/*
+ * MaestroHR dashboard stylesheet (Stitch design system).
+ * Compiled by Tailwind CLI -> src/main/resources/static/css/dashboard.css
+ *
+ * preflight is OFF (see tailwind.config.js), so this file ships only additive
+ * utility/component classes and never resets global element styles. That is what
+ * lets it coexist with the legacy Tailwind CDN without touching the other pages.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Material Symbols rendering — pairs with the Google Fonts <link> in layout.html */
+  .material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+
+  /* Status badges are always uppercase (DESIGN.md: Status Badges) */
+  .status-pill {
+    text-transform: uppercase;
+  }
+}

@@ -8,11 +8,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public class PageController {
 
     // Core pages
-    @GetMapping("/htmx/dashboard")
-    public String dashboard(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/dashboard.html" : "forward:/layout.html";
-    }
-
+    // NOTE: /htmx/dashboard is owned by DashboardController (server-rendered fragment pilot).
     @GetMapping("/htmx/employees")
     public String employees(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
         return htmxRequest != null ? "forward:/employees.html" : "forward:/layout.html";

@@ -265,12 +265,14 @@
 
     if (token) fetchNotifications();
 
-    // ── Auto‑load content for the current HTMX route ─────────────────
+    // ── Auto‑load content for the current route ─────────────────
     (function autoLoadInitialContent() {
         const currentPath = window.location.pathname;
-        // If we are on an HTMX route (starts with /htmx/), fetch the content partial
-        if (currentPath.startsWith('/htmx/')) {
-            const contentUrl = currentPath;
+        // App pages live at /htmx/<route>. The post-login landing /dashboard is the
+        // one bare route a user reaches directly, so map it to its /htmx/ partial —
+        // this matches how every other page is loaded on direct visit / refresh.
+        const contentUrl = currentPath === '/dashboard' ? '/htmx/dashboard' : currentPath;
+        if (contentUrl.startsWith('/htmx/')) {
             fetch(contentUrl, {
                 headers: { 'HX-Request': 'true' }
             })
