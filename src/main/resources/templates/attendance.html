@@ -40,6 +40,28 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
 
+<!--
+  ============================== TABS ==============================
+  Today / Calendar toggle, shared by both top-level fragments. Each button swaps a full
+  content fragment into #page-content (Today → attendance :: content, Calendar →
+  attendance :: calendar), re-rendering this strip with the active tab highlighted. The
+  `active` param is 'today' or 'calendar'.
+-->
+<div th:fragment="tabs(active)" class="flex gap-xs mb-lg border-b border-outline-variant">
+    <button type="button"
+            hx-get="/htmx/attendance" hx-target="#page-content" hx-swap="innerHTML"
+            th:classappend="${active == 'today'} ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+            class="px-4 py-2.5 -mb-px border-b-2 bg-transparent font-label-md text-label-md transition-colors cursor-pointer">
+        Today
+    </button>
+    <button type="button"
+            hx-get="/htmx/attendance/calendar" hx-target="#page-content" hx-swap="innerHTML"
+            th:classappend="${active == 'calendar'} ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+            class="px-4 py-2.5 -mb-px border-b-2 bg-transparent font-label-md text-label-md transition-colors cursor-pointer">
+        Calendar
+    </button>
+</div>
+
 <!-- ============================ CONTENT ============================ -->
 <div th:fragment="content" class="font-body-md text-on-surface">
 
@@ -52,6 +74,9 @@
             </p>
         </div>
     </div>
+
+    <!-- Today / Calendar toggle -->
+    <div th:replace="~{attendance :: tabs('today')}"></div>
 
     <!--
       Filters — date picker + search box. Both live in `content` (NOT re-rendered on table
@@ -152,6 +177,125 @@
                 </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================== CALENDAR =========================== -->
+<!--
+  Monthly Calendar fragment (Step B) — per-employee month grid. Swapped into #page-content
+  by the Calendar tab and re-rendered whole on every interaction:
+   - the employee <select> carries the active year+month via hx-include and re-fetches;
+   - the prev/next month buttons put year+month in the URL and carry the selected employee
+     via hx-include="[name='empId']".
+  Hidden year/month inputs persist the active month across an employee change. With no
+  employee selected the grid is replaced by a "select an employee" prompt.
+-->
+<div th:fragment="calendar" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Attendance</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Per-employee monthly attendance calendar
+            </p>
+        </div>
+    </div>
+
+    <!-- Today / Calendar toggle -->
+    <div th:replace="~{attendance :: tabs('calendar')}"></div>
+
+    <!-- Hidden carriers for the active month, pulled by the employee picker's hx-include. -->
+    <input type="hidden" name="year" th:value="${view.year}">
+    <input type="hidden" name="month" th:value="${view.month}">
+
+    <!-- Controls: employee picker (left) + month navigation (right) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-sm mb-md">
+        <select name="empId"
+                hx-get="/htmx/attendance/calendar" hx-target="#page-content" hx-swap="innerHTML"
+                hx-include="[name='year'],[name='month']" hx-trigger="change"
+                class="md:w-72 px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            <option value="" th:selected="${!view.employeeSelected}">Select an employee…</option>
+            <option th:each="emp : ${view.employees}"
+                    th:value="${emp.id}" th:text="${emp.label}"
+                    th:selected="${emp.id == view.selectedEmployeeId}">Jane Doe (E001)</option>
+        </select>
+
+        <div class="flex items-center gap-sm">
+            <button type="button"
+                    th:attr="hx-get='/htmx/attendance/calendar?year=' + ${view.prevYear} + '&month=' + ${view.prevMonth}"
+                    hx-target="#page-content" hx-swap="innerHTML" hx-include="[name='empId']"
+                    class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <span class="font-headline-sm text-headline-sm text-on-surface text-center min-w-[150px]"
+                  th:text="${view.monthLabel}">June 2026</span>
+            <button type="button"
+                    th:attr="hx-get='/htmx/attendance/calendar?year=' + ${view.nextYear} + '&month=' + ${view.nextMonth}"
+                    hx-target="#page-content" hx-swap="innerHTML" hx-include="[name='empId']"
+                    class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- No employee selected: prompt -->
+    <div th:unless="${view.employeeSelected}"
+         class="bg-white border border-outline-variant rounded-xl px-md py-xl text-center">
+        <p class="font-label-md text-label-md text-on-surface mb-xs">Select an employee</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+            Choose an employee above to view their monthly attendance calendar.
+        </p>
+    </div>
+
+    <!-- Employee selected: summary + legend + month grid -->
+    <div th:if="${view.employeeSelected}">
+
+        <!-- Summary: present / recorded days + rate (denominator = days with a record) -->
+        <div class="flex flex-wrap items-center gap-lg bg-surface-container-low rounded-xl px-md py-sm mb-md font-body-sm text-body-sm text-on-surface">
+            <span><span class="text-on-surface-variant">Employee:</span>
+                <strong th:text="${view.selectedEmployeeName}">Jane Doe</strong></span>
+            <span><span class="text-on-surface-variant">Present:</span>
+                <strong><span th:text="${view.presentDays}">18</span> / <span th:text="${view.recordedDays}">20</span> recorded days</strong></span>
+            <span><span class="text-on-surface-variant">Rate:</span>
+                <strong th:text="${view.presentRate != null ? view.presentRate + '%' : '—'}">90%</strong></span>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-md mb-md font-label-sm text-label-sm text-on-surface-variant">
+            <span class="flex items-center gap-xs"><span class="px-1.5 rounded bg-secondary-container text-on-secondary-container">✓</span> Present</span>
+            <span class="flex items-center gap-xs"><span class="px-1.5 rounded bg-primary-fixed text-on-primary-fixed-variant">⏰</span> Late</span>
+            <span class="flex items-center gap-xs"><span class="px-1.5 rounded bg-primary-fixed text-on-primary-fixed-variant">½</span> Half Day</span>
+            <span class="flex items-center gap-xs"><span class="px-1.5 rounded bg-error-container text-on-error-container">✗</span> Absent</span>
+            <span class="flex items-center gap-xs"><span class="px-1.5 rounded bg-surface-container text-on-surface-variant">L</span> On Leave</span>
+        </div>
+
+        <!-- Weekday header (Sunday-start) -->
+        <div class="grid grid-cols-7 gap-xs mb-xs text-center">
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Sun</div>
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Mon</div>
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Tue</div>
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Wed</div>
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Thu</div>
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Fri</div>
+            <div class="py-xs font-label-sm text-label-sm text-on-surface-variant">Sat</div>
+        </div>
+
+        <!-- Day grid: leading blanks (invisible, keep alignment) + one cell per day. -->
+        <div class="grid grid-cols-7 gap-xs">
+            <div th:each="cell : ${view.cells}"
+                 th:classappend="${(cell.blank ? 'invisible ' : '')
+                     + (cell.today ? 'border-2 border-primary ' : 'border border-outline-variant ')
+                     + (cell.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container'
+                       : (cell.statusKind == 'error' ? 'bg-error-container text-on-error-container'
+                       : (cell.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant'
+                       : (cell.statusKind == 'neutral' ? 'bg-surface-container text-on-surface-variant'
+                       : (cell.weekend ? 'bg-surface-container-low text-on-surface-variant' : 'bg-white text-on-surface')))))}"
+                 class="aspect-square rounded-lg flex flex-col items-center justify-center p-xs">
+                <span class="font-label-md text-label-md" th:text="${cell.day}">15</span>
+                <span class="text-[15px] leading-none mt-0.5" th:text="${cell.symbol}">✓</span>
+            </div>
         </div>
     </div>
 </div>

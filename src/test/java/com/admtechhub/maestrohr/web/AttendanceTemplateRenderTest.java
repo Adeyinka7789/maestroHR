@@ -93,4 +93,76 @@ class AttendanceTemplateRenderTest {
         assertTrue(html.contains("No attendance records found"), "empty state shown when there are no rows");
         assertTrue(html.contains("bg-primary text-white border-primary"), "All chip is selected when status is null");
     }
+
+    // ── Monthly Calendar (Step B) ─────────────────────────────────────────────────
+
+    private static List<AttendanceCalendarView.EmployeeOption> employeeOptions(UUID selectedId) {
+        return List.of(
+                new AttendanceCalendarView.EmployeeOption(selectedId, "Jane Doe (E001)"),
+                new AttendanceCalendarView.EmployeeOption(UUID.randomUUID(), "Amaka Obi (E002)"));
+    }
+
+    @Test
+    void calendarFragment_noEmployeeSelected_rendersPromptAndPicker() {
+        Context ctx = new Context();
+        ctx.setVariable("view", new AttendanceCalendarView(
+                employeeOptions(UUID.randomUUID()), null, null, false,
+                2026, 6, "June 2026", 2026, 5, 2026, 7,
+                List.of(), 0L, 0L, null));
+
+        String html = templateEngine.process("attendance", Set.of("calendar"), ctx);
+
+        assertTrue(html.contains("Select an employee"), "prompt shown when no employee selected");
+        assertTrue(html.contains("Amaka Obi (E002)"), "employee picker is populated");
+        assertTrue(html.contains("June 2026"), "active month label rendered");
+        // Thymeleaf HTML-escapes the '&' in the hx-get attribute value to '&amp;'.
+        assertTrue(html.contains("/htmx/attendance/calendar?year=2026&amp;month=5"), "prev-month nav target");
+        assertTrue(html.contains("/htmx/attendance/calendar?year=2026&amp;month=7"), "next-month nav target");
+        assertTrue(html.contains("border-primary text-primary"), "Calendar tab is the active tab");
+        assertFalse(html.contains("recorded days"), "summary hidden when no employee selected");
+    }
+
+    @Test
+    void calendarFragment_withEmployee_rendersGridSummaryAndSymbols() {
+        UUID empId = UUID.randomUUID();
+        List<AttendanceCalendarView.DayCell> cells = List.of(
+                new AttendanceCalendarView.DayCell(null, true, null, null, null, "", false, false),
+                new AttendanceCalendarView.DayCell(1, false, "PRESENT", "Present", "success", "✓", false, false),
+                new AttendanceCalendarView.DayCell(2, false, "ABSENT", "Absent", "error", "✗", false, false),
+                new AttendanceCalendarView.DayCell(3, false, "ON_LEAVE", "On Leave", "neutral", "L", false, false),
+                new AttendanceCalendarView.DayCell(4, false, null, null, null, "", true, true));
+
+        Context ctx = new Context();
+        ctx.setVariable("view", new AttendanceCalendarView(
+                employeeOptions(empId), empId, "Jane Doe", true,
+                2026, 6, "June 2026", 2026, 5, 2026, 7,
+                cells, 18L, 20L, 90));
+
+        String html = templateEngine.process("attendance", Set.of("calendar"), ctx);
+
+        assertTrue(html.contains("Jane Doe"), "selected employee name in summary");
+        assertTrue(html.contains("recorded days"), "present/recorded summary rendered");
+        assertTrue(html.contains("90%"), "present rate rendered");
+        assertTrue(html.contains("grid-cols-7"), "seven-column month grid");
+        assertTrue(html.contains("✓"), "present symbol rendered");
+        assertTrue(html.contains("L"), "on-leave symbol rendered (not blank)");
+        assertTrue(html.contains("bg-secondary-container"), "present cell uses the success colour");
+        assertTrue(html.contains("invisible"), "leading blank cell hidden but space-preserving");
+        assertFalse(html.contains("Select an employee</p>"), "prompt hidden once an employee is selected");
+    }
+
+    @Test
+    void calendarFragment_nullRate_rendersDash() {
+        UUID empId = UUID.randomUUID();
+        Context ctx = new Context();
+        ctx.setVariable("view", new AttendanceCalendarView(
+                employeeOptions(empId), empId, "Jane Doe", true,
+                2026, 6, "June 2026", 2026, 5, 2026, 7,
+                List.of(new AttendanceCalendarView.DayCell(1, false, null, null, null, "", false, false)),
+                0L, 0L, null));
+
+        String html = templateEngine.process("attendance", Set.of("calendar"), ctx);
+
+        assertTrue(html.contains("—"), "rate shows an em dash when there are no recorded days");
+    }
 }

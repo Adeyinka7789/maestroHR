@@ -67,6 +67,18 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
                                               @Param("status") AttendanceStatus status,
                                               @Param("search") String search);
 
+    // Backs the Monthly Calendar fragment (Step B): one employee's records for a month,
+    // tenant-scoped explicitly (mirroring findFilteredByDate) so the calendar never leaks
+    // across tenants even if the @SQLRestriction session variable is unset. The service
+    // maps these into a date→status grid and the present-rate summary.
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.tenant.id = :tenantId " +
+            "AND a.employee.id = :employeeId " +
+            "AND a.attendanceDate BETWEEN :startDate AND :endDate")
+    List<AttendanceRecord> findForEmployeeMonth(@Param("tenantId") UUID tenantId,
+                                                @Param("employeeId") UUID employeeId,
+                                                @Param("startDate") LocalDate startDate,
+                                                @Param("endDate") LocalDate endDate);
+
     // Per-status counts for one day across the tenant, backing the summary stat cards
     // and the filter-chip counts (so they reflect the full day's roster, not the filtered
     // view). Returns rows of [AttendanceStatus, Long]; statuses with no records are absent.
