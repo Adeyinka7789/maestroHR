@@ -14,11 +14,9 @@ public class PageController {
     // NOTE: /htmx/departments (+ /htmx/departments/table) is owned by DepartmentsController
     //       (server-rendered fragment with name search). static/departments.html remains
     //       on disk as the legacy fallback until the new fragment is browser-verified.
-
-    @GetMapping("/htmx/pay-grades")
-    public String payGrades(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/pay-grades.html" : "forward:/layout.html";
-    }
+    // NOTE: /htmx/pay-grades (+ /htmx/pay-grades/table) is owned by PayGradesController
+    //       (server-rendered card grid with name search). static/pay-grades.html remains
+    //       on disk as the legacy fallback until the new fragment is browser-verified.
 
     @GetMapping("/htmx/payroll")
     public String payroll(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {

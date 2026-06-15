@@ -29,4 +29,26 @@ public interface PayGradeRepository extends JpaRepository<PayGrade, UUID> {
     List<PayGrade> searchPayGrades(@Param("tenantId") UUID tenantId,
                                    @Param("term") String term,
                                    Pageable pageable);
+
+    // Backs the redesigned pay-grades list (server-rendered fragment, Option 3).
+    // Returns each active grade with its salary components plus the headcount assigned
+    // to it (LEFT JOIN Employee on e.payGrade.id, so grades with zero employees still
+    // appear) and an optional name search. Null-safe: CAST(:search AS string) makes
+    // Hibernate emit cast(? as varchar) so Postgres gets a concrete type for a null
+    // :search instead of inferring bytea (which triggers "function lower(bytea) does
+    // not exist"); the search is bypassed entirely when :search is null. Ordered by
+    // gross salary (basic + all allowances) descending to match the card layout, which
+    // surfaces the highest band first. Mirrors
+    // DepartmentRepository#findFilteredWithEmployeeCount.
+    @Query("SELECT new com.admtechhub.maestrohr.employee.PayGradeListRow(" +
+            "  p.id, p.name, p.basicSalary, p.housingAllowance, p.transportAllowance, " +
+            "  p.otherAllowances, p.isActive, COUNT(e.id)) " +
+            "FROM PayGrade p LEFT JOIN Employee e ON e.payGrade.id = p.id " +
+            "WHERE p.tenant.id = :tenantId AND p.isActive = true " +
+            "AND (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+            "GROUP BY p.id, p.name, p.basicSalary, p.housingAllowance, p.transportAllowance, " +
+            "  p.otherAllowances, p.isActive " +
+            "ORDER BY (p.basicSalary + p.housingAllowance + p.transportAllowance + p.otherAllowances) DESC")
+    List<PayGradeListRow> findFilteredWithEmployeeCount(@Param("tenantId") UUID tenantId,
+                                                        @Param("search") String search);
 }

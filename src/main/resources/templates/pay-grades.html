@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!--
+  pay-grades.html — server-rendered HTMX fragment (Option 3), companion to the
+  employees and departments pages. Rendered by PayGradesController as
+  "pay-grades :: content" and swapped into #page-content in layout.html. Styled
+  with the Stitch design system tokens compiled into /css/dashboard.css
+  (see tailwind.config.js `content`).
+
+  Two fragments:
+   - content : header + summary strip + search bar (#pay-grade-filters) + grid container
+   - grid    : the pay-grade cards — the lightweight swap target for the name search
+               (GET /htmx/pay-grades/table).
+
+  Unlike the plain departments table this keeps the richer card layout: a summary
+  strip (total / highest / average gross), one card per grade with its salary
+  components, the headcount currently assigned to it, and a relative-pay bar.
+
+  SCOPE: read-only list + search. Pay grades are few per tenant, so there is no
+  pagination; create/edit (the legacy modal) is a deferred follow-up step.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Pay Grades</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Maintain pay bands, salaries, and fixed allowances
+            </p>
+        </div>
+    </div>
+
+    <!--
+      Summary strip — lives in `content` (NOT re-rendered on grid swaps), so it shows
+      the stats for the full set loaded on first paint and is not recomputed per search.
+    -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-md mb-lg">
+        <div class="bg-white border border-outline-variant rounded-xl p-md flex items-center gap-sm">
+            <div class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-primary text-[20px]">payments</span>
+            </div>
+            <div>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Total Grades</p>
+                <p class="font-headline-lg text-headline-lg text-on-surface" th:text="${view.totalGrades}">5</p>
+            </div>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-md flex items-center gap-sm">
+            <div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-on-secondary-container text-[20px]">trending_up</span>
+            </div>
+            <div>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Highest Gross</p>
+                <p class="font-headline-lg text-headline-lg text-on-surface font-table-data"
+                   th:text="${view.highestGrossFormatted}">₦510,000</p>
+            </div>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-md flex items-center gap-sm">
+            <div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-on-surface-variant text-[20px]">functions</span>
+            </div>
+            <div>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Avg Gross</p>
+                <p class="font-headline-lg text-headline-lg text-on-surface font-table-data"
+                   th:text="${view.avgGrossFormatted}">₦285,000</p>
+            </div>
+        </div>
+    </div>
+
+    <!--
+      Filter bar — lives in `content` (NOT re-rendered on grid swaps) so the user's
+      typed search persists across swaps and is picked up by hx-include="#pay-grade-filters"
+      on every search request.
+    -->
+    <div id="pay-grade-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Search pay grades by name…"
+                   autocomplete="off"
+                   hx-get="/htmx/pay-grades/table" hx-target="#pay-grades-grid" hx-swap="innerHTML"
+                   hx-include="#pay-grade-filters" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+    </div>
+
+    <!-- Grid container — only this is swapped on search -->
+    <div id="pay-grades-grid" th:insert="~{pay-grades :: grid}"></div>
+</div>
+
+<!-- ============================== GRID ============================== -->
+<div th:fragment="grid">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+
+        <!-- One card per pay grade -->
+        <div th:each="row : ${view.rows}"
+             class="bg-white border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+
+            <!-- Card header: grade name + status + assigned headcount -->
+            <div class="p-md border-b border-outline-variant flex items-start justify-between gap-sm">
+                <div class="min-w-0">
+                    <p class="font-label-sm text-label-sm text-on-surface-variant">Grade</p>
+                    <p class="font-label-md text-label-md text-on-surface mt-xs truncate" th:text="${row.name}">Senior Engineer</p>
+                    <p class="text-[12px] text-on-surface-variant mt-xs">
+                        <span th:text="${row.employeeCount}">12</span>
+                        <span th:text="${row.employeeCount == 1 ? 'employee' : 'employees'}">employees</span>
+                    </p>
+                </div>
+                <span class="px-2 py-1 rounded text-[10px] font-bold flex-shrink-0"
+                      th:classappend="${row.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                      th:text="${row.active ? 'Active' : 'Inactive'}">Active</span>
+            </div>
+
+            <!-- Relative-pay bar -->
+            <div class="px-md pt-md">
+                <div class="flex items-center justify-between mb-xs">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Relative pay level</span>
+                    <span class="font-label-sm text-label-sm text-primary" th:text="${row.relativePct} + '%'">100%</span>
+                </div>
+                <div class="h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" th:style="'width:' + ${row.relativePct} + '%'"></div>
+                </div>
+            </div>
+
+            <!-- Salary components -->
+            <div class="p-md flex-1 flex flex-col">
+                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant">
+                    <span class="font-body-sm text-body-sm text-on-surface-variant">Basic Salary</span>
+                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.basicFormatted}">₦300,000</span>
+                </div>
+                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant">
+                    <span class="font-body-sm text-body-sm text-on-surface-variant">Housing Allowance</span>
+                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.housingFormatted}">₦100,000</span>
+                </div>
+                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant">
+                    <span class="font-body-sm text-body-sm text-on-surface-variant">Transport Allowance</span>
+                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.transportFormatted}">₦50,000</span>
+                </div>
+                <div class="flex items-center justify-between py-1.5">
+                    <span class="font-body-sm text-body-sm text-on-surface-variant">Other Allowances</span>
+                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.otherFormatted}">₦0</span>
+                </div>
+            </div>
+
+            <!-- Footer: gross -->
+            <div class="px-md py-sm bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
+                <span class="font-label-sm text-label-sm text-on-surface-variant">Gross Monthly</span>
+                <span class="font-headline-lg text-headline-lg text-primary font-table-data" th:text="${row.grossFormatted}">₦450,000</span>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div th:if="${view.rows.isEmpty()}"
+             class="col-span-full bg-white border border-outline-variant rounded-xl px-md py-xl text-center">
+            <p class="font-label-md text-label-md text-on-surface mb-xs">No pay grades found</p>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search.</p>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
