@@ -1,12 +1,23 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.auth.UserRepository;
+import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
+import com.admtechhub.maestrohr.subscription.RequiresFeature;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.UUID;
 
 /**
  * Leave list route (Option 3 — server-rendered fragment), mirroring the
@@ -34,6 +45,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class LeaveListController {
 
     private final LeaveListService leaveListService;
+    private final LeaveService leaveService;
+    private final UserRepository userRepository;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/leave")
@@ -61,6 +74,70 @@ public class LeaveListController {
 
         model.addAttribute("view", leaveListService.buildList(q, parseStatus(status)));
         return "leave :: table";
+    }
+
+    /**
+     * Approve a pending request, then re-render the chip strip + table so the row
+     * leaves the Pending view and the chip counts refresh. The active filter/search
+     * ride along via hx-include so the post-approve view matches what the user was on.
+     * A status != PENDING request raises {@link IllegalStateException}, caught below
+     * (the double-click "already processed" race) and rendered as an in-place banner.
+     */
+    @PostMapping("/htmx/leave/{id}/approve")
+    @RequiresFeature(SubscriptionFeature.LEAVE_MANAGEMENT)
+    public String approve(
+            @PathVariable UUID id,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "status", required = false) String status,
+            Model model) {
+
+        leaveService.approveLeaveRequest(id, currentUserId(), null);
+        model.addAttribute("view", leaveListService.buildList(q, parseStatus(status)));
+        return "leave :: table";
+    }
+
+    /** Reject a pending request with a reason (from the inline textarea), then re-render. */
+    @PostMapping("/htmx/leave/{id}/reject")
+    @RequiresFeature(SubscriptionFeature.LEAVE_MANAGEMENT)
+    public String reject(
+            @PathVariable UUID id,
+            @RequestParam("reason") String reason,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "status", required = false) String status,
+            Model model) {
+
+        leaveService.rejectLeaveRequest(id, reason);
+        model.addAttribute("view", leaveListService.buildList(q, parseStatus(status)));
+        return "leave :: table";
+    }
+
+    /**
+     * Renders approve/reject failures as an in-place HTML fragment instead of letting
+     * them fall through to the JSON {@code GlobalExceptionHandler}. The common case is
+     * the double-click race: the service throws {@link IllegalStateException}
+     * ("Leave request is not pending") when a second action lands on an already-processed
+     * request — that should show the user a banner, not a 500 + Sentry event.
+     *
+     * Returns HTTP 200 with the freshly-rebuilt table so HTMX performs the swap (it skips
+     * swaps on 4xx/5xx by default); the table reflects the now-current state and an error
+     * banner explains what happened. The active filter/search are recovered from the
+     * request params that hx-include sent with the failed POST.
+     */
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
+    public String handleActionFailure(RuntimeException ex, HttpServletRequest request, Model model) {
+        String q = request.getParameter("q");
+        String status = request.getParameter("status");
+        model.addAttribute("view", leaveListService.buildList(q, parseStatus(status)));
+        model.addAttribute("error", ex.getMessage());
+        return "leave :: table";
+    }
+
+    /** Resolve the authenticated user's id to record as the approver. */
+    private UUID currentUserId() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email))
+                .getId();
     }
 
     /**

@@ -23,9 +23,9 @@
    - Each chip carries its own status in the hx-get URL and pulls the current search
      term along via hx-include="[name='q']".
 
-  SCOPE (Step A): read-only. The approve/reject per-row actions and the admin
-  "apply for leave" form are deferred follow-up steps, so there are no per-row
-  buttons yet.
+  SCOPE (Step B): read-only list + per-row Approve/Reject write actions on PENDING
+  rows (HTMX posts to /htmx/leave/{id}/approve|reject, re-rendering this fragment).
+  The admin "apply for leave" form remains a deferred follow-up step.
 
   The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
   document; only the th:fragment nodes are emitted.
@@ -77,6 +77,18 @@
     -->
     <input type="hidden" id="leave-active-status" name="status" th:value="${view.status}">
 
+    <!--
+      In-place error banner. Rendered only when an approve/reject action failed
+      (see LeaveListController#handleActionFailure) — most often the double-click race
+      where the request was already processed. The table below already reflects the
+      now-current state, so this just explains why the click had no effect.
+    -->
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Leave request is not pending</span>
+    </div>
+
     <!-- Status chip strip with tenant-wide counts -->
     <div class="flex flex-wrap gap-sm mb-md">
         <button th:each="chip : ${view.statusChips}" type="button"
@@ -103,6 +115,7 @@
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Reason</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Submitted</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant">
@@ -131,11 +144,55 @@
                               th:text="${row.statusLabel}">Pending</span>
                     </td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant whitespace-nowrap" th:text="${row.submittedFormatted}">01 Jun 2025</td>
+
+                    <!--
+                      Per-row actions — rendered ONLY for PENDING rows (the service rejects
+                      any approve/reject on a non-pending request). So in the All view, only
+                      pending rows show controls; processed rows show nothing.
+                       - Approve: hx-post + hx-confirm guard; swaps the whole chip+table block.
+                       - Reject: inline <details> with a textarea (no prompt(), no modal); the
+                         <form> gives native "reason required" validation before htmx posts.
+                      Both carry the active filter/search via hx-include so the re-rendered
+                      view matches what the user was looking at.
+                    -->
+                    <td class="px-md py-md text-right whitespace-nowrap">
+                        <div th:if="${row.statusName == 'PENDING'}" class="inline-flex items-center gap-xs">
+                            <button type="button"
+                                    th:attr="hx-post='/htmx/leave/' + ${row.id} + '/approve'"
+                                    hx-target="#leave-table" hx-swap="innerHTML"
+                                    hx-include="[name='q'],#leave-active-status"
+                                    hx-confirm="Approve this leave request? This deducts the employee's leave balance and notifies them."
+                                    class="px-3 py-1.5 rounded-lg border border-outline-variant bg-secondary-container text-on-secondary-container font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                Approve
+                            </button>
+
+                            <details class="relative">
+                                <summary class="list-none cursor-pointer px-3 py-1.5 rounded-lg border border-outline-variant bg-error-container text-on-error-container font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                    Reject
+                                </summary>
+                                <form th:attr="hx-post='/htmx/leave/' + ${row.id} + '/reject'"
+                                      hx-target="#leave-table" hx-swap="innerHTML"
+                                      hx-include="[name='q'],#leave-active-status"
+                                      class="absolute right-0 z-10 mt-xs w-72 p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Reason for rejection</label>
+                                    <textarea name="reason" required rows="3"
+                                              placeholder="Explain why this request is being rejected…"
+                                              class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary resize-none"></textarea>
+                                    <div class="flex justify-end gap-xs mt-sm">
+                                        <button type="submit"
+                                                class="px-3 py-1.5 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                            Confirm Reject
+                                        </button>
+                                    </div>
+                                </form>
+                            </details>
+                        </div>
+                    </td>
                 </tr>
 
                 <!-- Empty state -->
                 <tr th:if="${view.rows.isEmpty()}">
-                    <td colspan="7" class="px-md py-xl text-center">
+                    <td colspan="8" class="px-md py-xl text-center">
                         <p class="font-label-md text-label-md text-on-surface mb-xs">No leave requests found</p>
                         <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search or status filter.</p>
                     </td>
