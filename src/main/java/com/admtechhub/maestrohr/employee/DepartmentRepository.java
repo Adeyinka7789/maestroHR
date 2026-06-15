@@ -33,4 +33,18 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     List<Department> searchDepartments(@Param("tenantId") UUID tenantId,
                                        @Param("term") String term,
                                        Pageable pageable);
+
+    // Backs the redesigned departments list (server-rendered fragment).
+    // Reuses the employee-count LEFT JOIN/GROUP BY from findAllWithEmployeeCountByTenantId,
+    // adding an optional name search. Null-safe: CAST(:search AS string) makes Hibernate emit
+    // cast(? as varchar) so Postgres gets a concrete type for a null :search instead of inferring
+    // bytea (which triggers "function lower(bytea) does not exist"); search is bypassed when null.
+    @Query("SELECT new com.admtechhub.maestrohr.employee.DepartmentDTO(d.id, d.name, d.createdAt, COUNT(e.id)) " +
+            "FROM Department d LEFT JOIN Employee e ON e.department.id = d.id " +
+            "WHERE d.tenant.id = :tenantId " +
+            "AND (:search IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
+            "GROUP BY d.id, d.name, d.createdAt " +
+            "ORDER BY LOWER(d.name)")
+    List<DepartmentDTO> findFilteredWithEmployeeCount(@Param("tenantId") UUID tenantId,
+                                                      @Param("search") String search);
 }

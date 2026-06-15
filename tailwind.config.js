@@ -15,6 +15,7 @@ module.exports = {
   content: [
     "./src/main/resources/templates/dashboard.html",
     "./src/main/resources/templates/employees.html",
+    "./src/main/resources/templates/departments.html",
   ],
   darkMode: "class",
   corePlugins: {

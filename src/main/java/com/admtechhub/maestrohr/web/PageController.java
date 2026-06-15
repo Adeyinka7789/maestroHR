@@ -11,10 +11,9 @@ public class PageController {
     // NOTE: /htmx/dashboard is owned by DashboardController (server-rendered fragment pilot).
     // NOTE: /htmx/employees (+ /htmx/employees/table) is owned by EmployeesController
     //       (server-rendered fragment with search + department/status filters).
-    @GetMapping("/htmx/departments")
-    public String departments(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/departments.html" : "forward:/layout.html";
-    }
+    // NOTE: /htmx/departments (+ /htmx/departments/table) is owned by DepartmentsController
+    //       (server-rendered fragment with name search). static/departments.html remains
+    //       on disk as the legacy fallback until the new fragment is browser-verified.
 
     @GetMapping("/htmx/pay-grades")
     public String payGrades(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {

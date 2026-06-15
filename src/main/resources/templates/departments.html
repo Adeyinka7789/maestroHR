@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!--
+  departments.html — server-rendered HTMX fragment (Option 3), companion to the
+  dashboard and employees pages. Rendered by DepartmentsController as
+  "departments :: content" and swapped into #page-content in layout.html. Styled
+  with the Stitch design system tokens compiled into /css/dashboard.css
+  (see tailwind.config.js `content`).
+
+  Two fragments:
+   - content : header + search bar (#department-filters) + table container (#departments-table)
+   - table   : table rows — the lightweight swap target for the name search
+               (GET /htmx/departments/table).
+
+  SCOPE: read-only list + search. Departments are few per tenant, so there is no
+  pagination and no per-row actions yet; create/edit (the legacy modal) is a
+  deferred follow-up step.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Departments</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                <span th:text="${view.totalElements}">8</span> departments
+            </p>
+        </div>
+    </div>
+
+    <!--
+      Filter bar — lives in `content` (NOT re-rendered on table swaps) so the user's
+      typed search persists across swaps and is picked up by hx-include="#department-filters"
+      on every search request.
+    -->
+    <div id="department-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Search departments by name…"
+                   autocomplete="off"
+                   hx-get="/htmx/departments/table" hx-target="#departments-table" hx-swap="innerHTML"
+                   hx-include="#department-filters" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+    </div>
+
+    <!-- Table container — only this is swapped on search -->
+    <div id="departments-table" th:insert="~{departments :: table}"></div>
+</div>
+
+<!-- ============================= TABLE ============================= -->
+<div th:fragment="table">
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Department</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employees</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Created</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md font-label-md text-label-md text-on-surface" th:text="${row.name}">Engineering</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.employeeCount}">12</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.createdFormatted}">02 Jun 2025</td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="3" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No departments found</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
