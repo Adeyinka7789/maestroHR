@@ -17,6 +17,8 @@ public interface PayGradeRepository extends JpaRepository<PayGrade, UUID> {
 
     boolean existsByNameAndTenantId(String name, UUID tenantId);
 
+    boolean existsByNameAndTenantIdAndIdNot(String name, UUID tenantId, UUID id);
+
     @Query("SELECT p FROM PayGrade p WHERE p.tenant.id = :tenantId")
     List<PayGrade> findAllByTenantId(@Param("tenantId") UUID tenantId);
 

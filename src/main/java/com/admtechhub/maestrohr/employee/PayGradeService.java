@@ -75,11 +75,14 @@ public class PayGradeService {
         return grade;
     }
 
-    // Replace the update method:
     @Transactional
     public PayGradeDTO update(UUID id, String name, Long basicSalary,
                               Long housingAllowance, Long transportAllowance,
                               Long otherAllowances) {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        if (payGradeRepository.existsByNameAndTenantIdAndIdNot(name, tenantId, id)) {
+            throw new IllegalArgumentException("Pay grade '" + name + "' already exists");
+        }
         PayGrade grade = findById(id);
         grade.setName(name);
         grade.setBasicSalary(basicSalary);

@@ -80,6 +80,10 @@ public class DepartmentService {
 
     @Transactional
     public Department update(UUID id, String name) {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        if (departmentRepository.existsByNameAndTenantIdAndIdNot(name, tenantId, id)) {
+            throw new IllegalArgumentException("Department '" + name + "' already exists");
+        }
         Department department = findById(id);
         department.setName(name);
         return departmentRepository.save(department);

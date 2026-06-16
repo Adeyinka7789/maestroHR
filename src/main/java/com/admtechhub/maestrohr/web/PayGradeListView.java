@@ -29,12 +29,16 @@ public record PayGradeListView(
             UUID id,
             String name,
             boolean active,
-            long employeeCount,        // employees currently assigned to this grade
+            long employeeCount,         // employees currently assigned to this grade
+            long basicSalary,           // kobo — for edit modal data-* attributes
+            long housingAllowance,      // kobo
+            long transportAllowance,    // kobo
+            long otherAllowances,       // kobo
             String basicFormatted,
             String housingFormatted,
             String transportFormatted,
             String otherFormatted,
             String grossFormatted,
-            int relativePct            // gross as a % of the highest gross in this view (0–100)
+            int relativePct             // gross as a % of the highest gross in this view (0–100)
     ) {}
 }

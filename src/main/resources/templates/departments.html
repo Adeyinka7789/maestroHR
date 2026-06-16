@@ -32,6 +32,23 @@
                 <span th:text="${view.totalElements}">8</span> departments
             </p>
         </div>
+        <button type="button" onclick="openDeptCreate()"
+                class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            New Department
+        </button>
+    </div>
+
+    <!-- Action banners -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Department saved.</span>
+    </div>
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Error</span>
     </div>
 
     <!--
@@ -51,8 +68,97 @@
         </div>
     </div>
 
+    <!--
+      Create / Edit modal. Display is server-driven on error re-renders (formValues != null)
+      and client-driven (openDeptCreate / openDeptEdit) for new interactions. The form always
+      posts to /htmx/departments/save; the hidden id field determines create vs update.
+    -->
+    <div id="dept-modal"
+         th:style="${formValues != null} ? 'display:flex' : 'display:none'"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center"
+         onclick="if(event.target===this)closeDeptModal()">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-[440px] mx-4"
+             onclick="event.stopPropagation()">
+
+            <!-- Modal header -->
+            <div class="flex items-center justify-between p-md border-b border-outline-variant">
+                <h2 id="dept-modal-heading" class="font-label-lg text-label-lg text-on-surface"
+                    th:text="${formValues != null and formValues.id != null} ? 'Edit Department' : 'New Department'">
+                    New Department
+                </h2>
+                <button type="button" onclick="closeDeptModal()"
+                        class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <!-- Modal form -->
+            <form hx-post="/htmx/departments/save" hx-target="#page-content" hx-swap="innerHTML">
+                <div class="p-md">
+
+                    <!-- In-modal error banner -->
+                    <div th:if="${modalError}" role="alert"
+                         class="flex items-center gap-sm mb-md px-3 py-2.5 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+                        <span class="material-symbols-outlined text-[18px]">error</span>
+                        <span th:text="${modalError}">Error</span>
+                    </div>
+
+                    <input type="hidden" name="id" th:value="${formValues != null ? formValues.id : ''}">
+
+                    <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">
+                        Department Name <span class="text-error">*</span>
+                    </label>
+                    <input id="dept-name" name="name" type="text"
+                           th:value="${formValues != null ? formValues.name : ''}"
+                           placeholder="e.g., Engineering, Finance"
+                           autocomplete="off"
+                           class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                </div>
+
+                <!-- Modal footer -->
+                <div class="flex justify-end gap-sm px-md py-sm bg-surface-container-low border-t border-outline-variant">
+                    <button type="button" onclick="closeDeptModal()"
+                            class="px-4 py-2.5 rounded-lg border border-outline bg-white text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">check</span>
+                        Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Table container — only this is swapped on search -->
     <div id="departments-table" th:insert="~{departments :: table}"></div>
+
+    <script>
+        (function () {
+            function dpt(id) { return document.getElementById(id); }
+
+            window.openDeptCreate = function () {
+                dpt('dept-modal-heading').textContent = 'New Department';
+                dpt('dept-modal').querySelector('[name=id]').value = '';
+                dpt('dept-name').value = '';
+                dpt('dept-modal').style.display = 'flex';
+                setTimeout(function () { dpt('dept-name').focus(); }, 50);
+            };
+
+            window.openDeptEdit = function (btn) {
+                dpt('dept-modal-heading').textContent = 'Edit Department';
+                dpt('dept-modal').querySelector('[name=id]').value = btn.dataset.id;
+                dpt('dept-name').value = btn.dataset.name || '';
+                dpt('dept-modal').style.display = 'flex';
+                setTimeout(function () { dpt('dept-name').focus(); }, 50);
+            };
+
+            window.closeDeptModal = function () {
+                dpt('dept-modal').style.display = 'none';
+            };
+        }());
+    </script>
 </div>
 
 <!-- ============================= TABLE ============================= -->
@@ -66,6 +172,7 @@
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Department</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employees</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Created</th>
+                    <th class="px-md py-sm"></th>
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant">
@@ -73,11 +180,18 @@
                     <td class="px-md py-md font-label-md text-label-md text-on-surface" th:text="${row.name}">Engineering</td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.employeeCount}">12</td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.createdFormatted}">02 Jun 2025</td>
+                    <td class="px-md py-md text-right">
+                        <button type="button" onclick="openDeptEdit(this)"
+                                th:attr="data-id=${row.id},data-name=${row.name}"
+                                class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                    </td>
                 </tr>
 
                 <!-- Empty state -->
                 <tr th:if="${view.rows.isEmpty()}">
-                    <td colspan="3" class="px-md py-xl text-center">
+                    <td colspan="4" class="px-md py-xl text-center">
                         <p class="font-label-md text-label-md text-on-surface mb-xs">No departments found</p>
                         <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search.</p>
                     </td>

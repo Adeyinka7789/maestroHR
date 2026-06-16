@@ -31,9 +31,11 @@ class PayGradesTemplateRenderTest {
     private static PayGradeListView viewWithRows() {
         PayGradeListView.Row senior = new PayGradeListView.Row(
                 UUID.randomUUID(), "Senior Engineer", true, 12,
+                30_000_000L, 10_000_000L, 5_000_000L, 0L,
                 "₦300,000", "₦100,000", "₦50,000", "₦0", "₦450,000", 100);
         PayGradeListView.Row junior = new PayGradeListView.Row(
                 UUID.randomUUID(), "Junior Analyst", false, 1,
+                8_000_000L, 2_000_000L, 1_000_000L, 0L,
                 "₦80,000", "₦20,000", "₦10,000", "₦0", "₦110,000", 24);
         return new PayGradeListView(List.of(senior, junior), 2, "₦450,000", "₦280,000", null);
     }
@@ -46,12 +48,14 @@ class PayGradesTemplateRenderTest {
         String html = templateEngine.process("pay-grades", Set.of("content"), ctx);
 
         assertTrue(html.contains("Pay Grades"), "header title");
+        assertTrue(html.contains("Add Pay Grade"), "add pay grade button");
         assertTrue(html.contains("₦450,000"), "highest gross in summary / card");
         assertTrue(html.contains("₦280,000"), "average gross in summary");
         assertTrue(html.contains("Senior Engineer"), "first grade card");
         assertTrue(html.contains("12"), "assigned headcount");
         assertTrue(html.contains("width:100%"), "relative-pay bar width is evaluated");
         assertTrue(html.contains("/htmx/pay-grades/table"), "search swaps the grid fragment");
+        assertTrue(html.contains("/htmx/pay-grades/save"), "modal form post url");
     }
 
     @Test
@@ -65,6 +69,7 @@ class PayGradesTemplateRenderTest {
         assertTrue(html.contains("Inactive"), "inactive badge");
         assertTrue(html.contains("employee"), "singular/plural headcount label");
         assertTrue(html.contains("width:24%"), "second card bar width");
+        assertTrue(html.contains("openPGEdit"), "edit button wired to JS handler");
         assertFalse(html.contains("No pay grades found"), "non-empty view hides the empty state");
     }
 

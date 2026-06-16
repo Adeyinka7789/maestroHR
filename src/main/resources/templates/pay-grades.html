@@ -35,6 +35,23 @@
                 Maintain pay bands, salaries, and fixed allowances
             </p>
         </div>
+        <button type="button" onclick="openPGCreate()"
+                class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Add Pay Grade
+        </button>
+    </div>
+
+    <!-- Action banners (mirroring payroll-detail) -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Pay grade saved.</span>
+    </div>
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Error</span>
     </div>
 
     <!--
@@ -90,8 +107,184 @@
         </div>
     </div>
 
+    <!--
+      Create / Edit modal. Display is server-driven on error re-renders (formValues != null)
+      and client-driven (openPGCreate / openPGEdit) for new interactions. The form always
+      posts to /htmx/pay-grades/save; the hidden id field determines create vs update.
+    -->
+    <div id="pg-modal"
+         th:style="${formValues != null} ? 'display:flex' : 'display:none'"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center"
+         onclick="if(event.target===this)closePGModal()">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-[540px] mx-4"
+             onclick="event.stopPropagation()">
+
+            <!-- Modal header -->
+            <div class="flex items-start justify-between p-md border-b border-outline-variant">
+                <div>
+                    <h2 id="pg-modal-heading" class="font-label-lg text-label-lg text-on-surface"
+                        th:text="${formValues != null and formValues.id != null} ? 'Edit Pay Grade' : 'Add Pay Grade'">
+                        Add Pay Grade
+                    </h2>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Values in Naira — stored internally as kobo</p>
+                </div>
+                <button type="button" onclick="closePGModal()"
+                        class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <!-- Modal form -->
+            <form hx-post="/htmx/pay-grades/save" hx-target="#page-content" hx-swap="innerHTML">
+                <div class="p-md">
+
+                    <!-- In-modal error banner -->
+                    <div th:if="${modalError}" role="alert"
+                         class="flex items-center gap-sm mb-md px-3 py-2.5 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+                        <span class="material-symbols-outlined text-[18px]">error</span>
+                        <span th:text="${modalError}">Error</span>
+                    </div>
+
+                    <input type="hidden" name="id" th:value="${formValues != null ? formValues.id : ''}">
+
+                    <!-- Grade name -->
+                    <div class="mb-md">
+                        <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">
+                            Grade Name <span class="text-error">*</span>
+                        </label>
+                        <input id="pg-name" name="name" type="text"
+                               th:value="${formValues != null ? formValues.name : ''}"
+                               placeholder="e.g., Senior Engineer, Level 3"
+                               autocomplete="off"
+                               class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                    </div>
+
+                    <!-- Salary components -->
+                    <div class="grid grid-cols-2 gap-sm">
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Basic Salary <span class="text-error">*</span></label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 font-body-sm text-on-surface-variant pointer-events-none">₦</span>
+                                <input id="pg-basic" name="basicSalary" type="number" min="0" step="any"
+                                       th:value="${formValues != null ? formValues.basicSalary : ''}"
+                                       placeholder="0"
+                                       class="w-full pl-8 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Housing Allowance</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 font-body-sm text-on-surface-variant pointer-events-none">₦</span>
+                                <input id="pg-housing" name="housingAllowance" type="number" min="0" step="any"
+                                       th:value="${formValues != null ? formValues.housingAllowance : ''}"
+                                       placeholder="0"
+                                       class="w-full pl-8 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Transport Allowance</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 font-body-sm text-on-surface-variant pointer-events-none">₦</span>
+                                <input id="pg-transport" name="transportAllowance" type="number" min="0" step="any"
+                                       th:value="${formValues != null ? formValues.transportAllowance : ''}"
+                                       placeholder="0"
+                                       class="w-full pl-8 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Other Allowances</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 font-body-sm text-on-surface-variant pointer-events-none">₦</span>
+                                <input id="pg-other" name="otherAllowances" type="number" min="0" step="any"
+                                       th:value="${formValues != null ? formValues.otherAllowances : ''}"
+                                       placeholder="0"
+                                       class="w-full pl-8 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gross preview (updated live by JS) -->
+                    <div class="mt-md flex items-center justify-between px-3 py-2.5 bg-primary-fixed rounded-lg">
+                        <div>
+                            <p class="font-label-sm text-label-sm text-on-surface-variant">Gross Monthly</p>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant">Basic + all allowances</p>
+                        </div>
+                        <span id="pg-gross-preview" class="font-headline-lg text-headline-lg text-primary font-table-data">₦0</span>
+                    </div>
+                </div>
+
+                <!-- Modal footer -->
+                <div class="flex justify-end gap-sm px-md py-sm bg-surface-container-low border-t border-outline-variant">
+                    <button type="button" onclick="closePGModal()"
+                            class="px-4 py-2.5 rounded-lg border border-outline bg-white text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">check</span>
+                        Save Grade
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Grid container — only this is swapped on search -->
     <div id="pay-grades-grid" th:insert="~{pay-grades :: grid}"></div>
+
+    <script>
+        (function () {
+            function pg(id) { return document.getElementById(id); }
+
+            function updateGross() {
+                var b = parseFloat(pg('pg-basic').value)     || 0;
+                var h = parseFloat(pg('pg-housing').value)   || 0;
+                var t = parseFloat(pg('pg-transport').value) || 0;
+                var o = parseFloat(pg('pg-other').value)     || 0;
+                pg('pg-gross-preview').textContent = '₦' + (b + h + t + o).toLocaleString('en-NG');
+            }
+
+            ['pg-basic', 'pg-housing', 'pg-transport', 'pg-other'].forEach(function (id) {
+                var el = pg(id);
+                if (el) el.addEventListener('input', updateGross);
+            });
+
+            window.openPGCreate = function () {
+                pg('pg-modal-heading').textContent = 'Add Pay Grade';
+                pg('pg-modal').querySelector('[name=id]').value = '';
+                pg('pg-name').value      = '';
+                pg('pg-basic').value     = '';
+                pg('pg-housing').value   = '';
+                pg('pg-transport').value = '';
+                pg('pg-other').value     = '';
+                updateGross();
+                pg('pg-modal').style.display = 'flex';
+                setTimeout(function () { pg('pg-name').focus(); }, 50);
+            };
+
+            window.openPGEdit = function (btn) {
+                pg('pg-modal-heading').textContent = 'Edit Pay Grade';
+                pg('pg-modal').querySelector('[name=id]').value = btn.dataset.id;
+                pg('pg-name').value      = btn.dataset.name     || '';
+                pg('pg-basic').value     = btn.dataset.basic    ? btn.dataset.basic    / 100 : '';
+                pg('pg-housing').value   = btn.dataset.housing  ? btn.dataset.housing  / 100 : '';
+                pg('pg-transport').value = btn.dataset.transport? btn.dataset.transport / 100 : '';
+                pg('pg-other').value     = btn.dataset.other    ? btn.dataset.other    / 100 : '';
+                updateGross();
+                pg('pg-modal').style.display = 'flex';
+                setTimeout(function () { pg('pg-name').focus(); }, 50);
+            };
+
+            window.closePGModal = function () {
+                pg('pg-modal').style.display = 'none';
+            };
+
+            // Restore gross preview if modal is open (server-rendered error re-render)
+            if (pg('pg-modal') && pg('pg-modal').style.display === 'flex') {
+                updateGross();
+            }
+        }());
+    </script>
 </div>
 
 <!-- ============================== GRID ============================== -->
@@ -149,10 +342,17 @@
                 </div>
             </div>
 
-            <!-- Footer: gross -->
+            <!-- Footer: gross + edit -->
             <div class="px-md py-sm bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
                 <span class="font-label-sm text-label-sm text-on-surface-variant">Gross Monthly</span>
-                <span class="font-headline-lg text-headline-lg text-primary font-table-data" th:text="${row.grossFormatted}">₦450,000</span>
+                <div class="flex items-center gap-sm">
+                    <span class="font-headline-lg text-headline-lg text-primary font-table-data" th:text="${row.grossFormatted}">₦450,000</span>
+                    <button type="button" onclick="openPGEdit(this)"
+                            th:attr="data-id=${row.id},data-name=${row.name},data-basic=${row.basicSalary},data-housing=${row.housingAllowance},data-transport=${row.transportAllowance},data-other=${row.otherAllowances}"
+                            class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">edit</span>
+                    </button>
+                </div>
             </div>
         </div>
 

@@ -1,11 +1,16 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.employee.DepartmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.UUID;
 
 /**
  * Departments list route (Option 3 — server-rendered fragment), mirroring the
@@ -18,14 +23,21 @@ import org.springframework.web.bind.annotation.RequestParam;
  * {@code /htmx/departments/table}, which swaps just the table fragment. There is
  * no pagination and no status/department filter.
  *
- * SCOPE: read-only list + search. Create/edit (the legacy modal) is deferred to a
- * follow-up step; static/departments.html remains on disk as the legacy fallback.
+ * Write actions (create / edit) post to {@code /htmx/departments/save}, distinguished
+ * by the presence of an {@code id} parameter. On success the whole {@code content}
+ * fragment is re-rendered (so the department count in the header recalculates) with
+ * a success banner. On validation failure or duplicate name the modal stays open
+ * with a {@code modalError} banner inside it.
  */
 @Controller
 @RequiredArgsConstructor
 public class DepartmentsController {
 
     private final DepartmentListService departmentListService;
+    private final DepartmentService departmentService;
+
+    /** Carries submitted form values back into the template on validation error. */
+    record DeptForm(UUID id, String name) {}
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/departments")
@@ -35,7 +47,6 @@ public class DepartmentsController {
             Model model) {
 
         if (htmx == null) {
-            // Full-page navigation: return the app shell; the fragment is fetched next.
             return "forward:/layout.html";
         }
 
@@ -51,5 +62,50 @@ public class DepartmentsController {
 
         model.addAttribute("view", departmentListService.buildList(q));
         return "departments :: table";
+    }
+
+    /**
+     * Create (no {@code id} param) or update (with {@code id}) a department.
+     * On success re-renders {@code content} so the department count in the header
+     * recalculates. On error re-renders {@code content} with the modal open and
+     * an in-modal banner.
+     */
+    @PostMapping("/htmx/departments/save")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public String save(
+            @RequestParam(value = "id", defaultValue = "") String idStr,
+            @RequestParam(value = "name", defaultValue = "") String name,
+            Model model) {
+
+        String trimmedName = name.trim();
+        boolean isEdit = !idStr.isBlank();
+        UUID id = isEdit ? UUID.fromString(idStr) : null;
+        DeptForm form = new DeptForm(id, name);
+
+        if (trimmedName.isBlank()) {
+            return modalError(model, form, "Department name is required.");
+        }
+
+        try {
+            if (isEdit) {
+                departmentService.update(id, trimmedName);
+                model.addAttribute("success", "Department updated.");
+            } else {
+                departmentService.create(trimmedName);
+                model.addAttribute("success", "Department created.");
+            }
+        } catch (IllegalArgumentException ex) {
+            return modalError(model, form, ex.getMessage());
+        }
+
+        model.addAttribute("view", departmentListService.buildList(null));
+        return "departments :: content";
+    }
+
+    private String modalError(Model model, DeptForm form, String message) {
+        model.addAttribute("formValues", form);
+        model.addAttribute("modalError", message);
+        model.addAttribute("view", departmentListService.buildList(null));
+        return "departments :: content";
     }
 }

@@ -17,6 +17,8 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
     boolean existsByNameAndTenantId(String name, UUID tenantId);
 
+    boolean existsByNameAndTenantIdAndIdNot(String name, UUID tenantId, UUID id);
+
     // ADD THIS METHOD - count departments by tenant
     @Query("SELECT COUNT(d) FROM Department d WHERE d.tenant.id = :tenantId")
     long countByTenantId(@Param("tenantId") UUID tenantId);
