@@ -38,6 +38,10 @@ public class PayrollEngine {
         Long transportAllowance = payGrade.getTransportAllowance();
         Long otherAllowances = payGrade.getOtherAllowances();
 
+        // Nominal (un-prorated) monthly gross — used only for the PAYE minimum-wage
+        // exemption test, so a higher earner who worked a partial month is still taxed.
+        Long nominalMonthlyGross = basicSalary + housingAllowance + transportAllowance + otherAllowances;
+
         // Apply proration if days worked < working days
         double prorationFactor = (double) daysWorked / workingDays;
         boolean isProrated = daysWorked < workingDays;
@@ -61,7 +65,7 @@ public class PayrollEngine {
         Long nhfDeduction = nhfCalculator.calculate(basicSalary);
 
         // Step 4: Calculate PAYE
-        var payeResult = payeCalculator.calculate(grossSalary, pensionResult.getEmployeeContribution(), nhfDeduction, basicSalary);
+        var payeResult = payeCalculator.calculate(grossSalary, pensionResult.getEmployeeContribution(), nhfDeduction, basicSalary, nominalMonthlyGross);
 
         // Step 5: Calculate NSITF (Employer only)
         Long nsitfEmployer = nsitfCalculator.calculateEmployerContribution(grossSalary);
@@ -102,7 +106,6 @@ public class PayrollEngine {
                 .daysWorked(daysWorked)
                 .workingDays(workingDays)
                 .isProrated(isProrated)
-                .cra(payeResult.getAnnualCRA())
                 .taxableIncome(payeResult.getAnnualTaxableIncome())
                 .build();
     }
@@ -130,7 +133,6 @@ public class PayrollEngine {
         private Integer daysWorked;
         private Integer workingDays;
         private Boolean isProrated;
-        private Long cra;
         private Long taxableIncome;
     }
 }
