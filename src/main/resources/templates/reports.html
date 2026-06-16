@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<!--
+  reports.html — server-rendered HTMX fragment (Option 3). Rendered by
+  ReportsWebController as "reports :: content" and swapped into #page-content in
+  layout.html. Styled with Stitch design system tokens from /css/dashboard.css.
+
+  All downloads are native form GETs targeting /api/reports/* endpoints.
+  Browser standard file-download behaviour fires on form submit — no JavaScript.
+  The formaction attribute on individual <button> elements lets a single form drive
+  multiple related endpoints (e.g. the four Payroll Schedule buttons share one set
+  of month/year/format inputs).
+
+  Server-populated dropdowns (employees, payroll runs) come from ReportsListView.
+
+  Four sections:
+    1. Payroll Schedules — Monthly Summary, PAYE, Pension, NHF (month + year + format)
+    2. Statutory Reports — PenCom RSA, NSITF (month + year, PDF only)
+    3. Workforce Reports — Headcount (format), Leave Balance (year + format),
+                           Salary History (employee + format)
+    4. Individual & Audit — Payslip (employee + optional run), Audit Trail (dates + format)
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Page header -->
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Reports</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant">
+            Download payroll schedules, statutory filings, workforce summaries and payslips
+        </p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 1 — PAYROLL SCHEDULES
+         One form / four formaction buttons so month + year + format
+         are entered once and shared across all four reports.
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="bg-white border border-outline-variant rounded-xl p-md mb-md">
+        <h2 class="font-headline-sm text-headline-sm text-on-surface mb-sm">Payroll Schedules</h2>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+            Monthly payroll summaries and statutory deduction schedules.
+            Select a period and format, then click the report you need.
+        </p>
+
+        <form method="get" class="space-y-md">
+            <!-- Shared filters -->
+            <div class="flex flex-wrap gap-sm items-end">
+                <!-- Month -->
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Month</label>
+                    <select name="month"
+                            class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="1"  th:selected="${view.defaultMonth == 1}">January</option>
+                        <option value="2"  th:selected="${view.defaultMonth == 2}">February</option>
+                        <option value="3"  th:selected="${view.defaultMonth == 3}">March</option>
+                        <option value="4"  th:selected="${view.defaultMonth == 4}">April</option>
+                        <option value="5"  th:selected="${view.defaultMonth == 5}">May</option>
+                        <option value="6"  th:selected="${view.defaultMonth == 6}">June</option>
+                        <option value="7"  th:selected="${view.defaultMonth == 7}">July</option>
+                        <option value="8"  th:selected="${view.defaultMonth == 8}">August</option>
+                        <option value="9"  th:selected="${view.defaultMonth == 9}">September</option>
+                        <option value="10" th:selected="${view.defaultMonth == 10}">October</option>
+                        <option value="11" th:selected="${view.defaultMonth == 11}">November</option>
+                        <option value="12" th:selected="${view.defaultMonth == 12}">December</option>
+                    </select>
+                </div>
+
+                <!-- Year -->
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Year</label>
+                    <input type="number" name="year"
+                           th:value="${view.defaultYear}" min="2020" max="2099"
+                           class="w-24 px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                </div>
+
+                <!-- Format -->
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Format</label>
+                    <select name="format"
+                            class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="PDF">PDF</option>
+                        <option value="XLSX">Excel</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Report buttons — each uses formaction to target its own endpoint -->
+            <div class="grid grid-cols-2 gap-sm">
+                <button type="submit" formaction="/api/reports/monthly-payroll-summary"
+                        class="flex items-center gap-xs px-4 py-2.5 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    Monthly Payroll Summary
+                </button>
+                <button type="submit" formaction="/api/reports/paye-schedule"
+                        class="flex items-center gap-xs px-4 py-2.5 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    PAYE Schedule (Form A)
+                </button>
+                <button type="submit" formaction="/api/reports/pension-schedule"
+                        class="flex items-center gap-xs px-4 py-2.5 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    Pension Schedule
+                </button>
+                <button type="submit" formaction="/api/reports/nhf-schedule"
+                        class="flex items-center gap-xs px-4 py-2.5 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    NHF Schedule
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 2 — STATUTORY REPORTS (PDF only)
+         PenCom and NSITF accept only month + year; format is always PDF.
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="bg-white border border-outline-variant rounded-xl p-md mb-md">
+        <h2 class="font-headline-sm text-headline-sm text-on-surface mb-sm">Statutory Reports</h2>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+            Regulatory filings for PenCom and NSITF. Generated as PDF only.
+        </p>
+
+        <form method="get" class="space-y-md">
+            <!-- Shared month + year filters -->
+            <div class="flex flex-wrap gap-sm items-end">
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Month</label>
+                    <select name="month"
+                            class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="1"  th:selected="${view.defaultMonth == 1}">January</option>
+                        <option value="2"  th:selected="${view.defaultMonth == 2}">February</option>
+                        <option value="3"  th:selected="${view.defaultMonth == 3}">March</option>
+                        <option value="4"  th:selected="${view.defaultMonth == 4}">April</option>
+                        <option value="5"  th:selected="${view.defaultMonth == 5}">May</option>
+                        <option value="6"  th:selected="${view.defaultMonth == 6}">June</option>
+                        <option value="7"  th:selected="${view.defaultMonth == 7}">July</option>
+                        <option value="8"  th:selected="${view.defaultMonth == 8}">August</option>
+                        <option value="9"  th:selected="${view.defaultMonth == 9}">September</option>
+                        <option value="10" th:selected="${view.defaultMonth == 10}">October</option>
+                        <option value="11" th:selected="${view.defaultMonth == 11}">November</option>
+                        <option value="12" th:selected="${view.defaultMonth == 12}">December</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Year</label>
+                    <input type="number" name="year"
+                           th:value="${view.defaultYear}" min="2020" max="2099"
+                           class="w-24 px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-sm">
+                <button type="submit" formaction="/api/reports/pencom-report"
+                        class="flex items-center gap-xs px-4 py-2.5 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    PenCom RSA Contribution Report
+                </button>
+                <button type="submit" formaction="/api/reports/nsitf-report"
+                        class="flex items-center gap-xs px-4 py-2.5 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    NSITF Contribution Report
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 3 — WORKFORCE REPORTS
+         Three independent forms: headcount (format only), leave balance
+         (year + format), salary history (employee + format).
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="bg-white border border-outline-variant rounded-xl p-md mb-md">
+        <h2 class="font-headline-sm text-headline-sm text-on-surface mb-sm">Workforce Reports</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+
+            <!-- Employee Headcount -->
+            <div class="border border-outline-variant rounded-lg p-md">
+                <h3 class="font-label-md text-label-md text-on-surface mb-xs">Employee Headcount</h3>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">
+                    Active headcount by department and status.
+                </p>
+                <form method="get" action="/api/reports/employee-headcount" class="space-y-sm">
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Format</label>
+                        <select name="format"
+                                class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                            <option value="PDF">PDF</option>
+                            <option value="XLSX">Excel</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                            class="w-full flex items-center justify-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                        Download
+                    </button>
+                </form>
+            </div>
+
+            <!-- Leave Balance -->
+            <div class="border border-outline-variant rounded-lg p-md">
+                <h3 class="font-label-md text-label-md text-on-surface mb-xs">Leave Balance</h3>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">
+                    Remaining leave balances for all employees.
+                </p>
+                <form method="get" action="/api/reports/leave-balance" class="space-y-sm">
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Year</label>
+                        <input type="number" name="year"
+                               th:value="${view.defaultYear}" min="2020" max="2099"
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Format</label>
+                        <select name="format"
+                                class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                            <option value="PDF">PDF</option>
+                            <option value="XLSX">Excel</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                            class="w-full flex items-center justify-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                        Download
+                    </button>
+                </form>
+            </div>
+
+            <!-- Salary History -->
+            <div class="border border-outline-variant rounded-lg p-md">
+                <h3 class="font-label-md text-label-md text-on-surface mb-xs">Salary History</h3>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">
+                    Pay grade change history for an employee.
+                </p>
+                <form method="get" action="/api/reports/salary-history" class="space-y-sm">
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Employee</label>
+                        <select name="employeeId" required
+                                class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                            <option value="" disabled selected>Select employee</option>
+                            <option th:each="emp : ${view.employees}"
+                                    th:value="${emp.id}"
+                                    th:text="${emp.label}">John Doe (E001)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Format</label>
+                        <select name="format"
+                                class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                            <option value="PDF">PDF</option>
+                            <option value="XLSX">Excel</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                            class="w-full flex items-center justify-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                        Download
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         SECTION 4 — INDIVIDUAL & AUDIT
+         Payslip: employee + optional payroll run.
+         Audit Trail: date range + format.
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+
+        <!-- Payslip -->
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <h2 class="font-headline-sm text-headline-sm text-on-surface mb-sm">Payslip</h2>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+                Download an employee's payslip PDF. Leave the run blank to fetch the
+                most recent completed run.
+            </p>
+            <form method="get" action="/api/reports/payslip" class="space-y-sm">
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Employee</label>
+                    <select name="employeeId" required
+                            class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="" disabled selected>Select employee</option>
+                        <option th:each="emp : ${view.employees}"
+                                th:value="${emp.id}"
+                                th:text="${emp.label}">John Doe (E001)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">
+                        Payroll Run
+                        <span class="text-on-surface-variant">(optional — defaults to latest)</span>
+                    </label>
+                    <select name="payrollRunId"
+                            class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="">Latest completed run</option>
+                        <option th:each="run : ${view.payrollRuns}"
+                                th:value="${run.id}"
+                                th:text="${run.label}">June 2026</option>
+                    </select>
+                </div>
+                <button type="submit"
+                        class="w-full flex items-center justify-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                    <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                    Download Payslip PDF
+                </button>
+            </form>
+        </div>
+
+        <!-- Audit Trail -->
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <h2 class="font-headline-sm text-headline-sm text-on-surface mb-sm">Audit Trail Export</h2>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+                Export system audit log entries within a date range.
+            </p>
+            <form method="get" action="/api/reports/audit-trail" class="space-y-sm">
+                <div class="grid grid-cols-2 gap-sm">
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">From</label>
+                        <input type="date" name="from"
+                               th:value="${view.defaultFromDate}"
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface">To</label>
+                        <input type="date" name="to"
+                               th:value="${view.defaultToDate}"
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Format</label>
+                    <select name="format"
+                            class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="PDF">PDF</option>
+                        <option value="XLSX">Excel</option>
+                    </select>
+                </div>
+                <button type="submit"
+                        class="w-full flex items-center justify-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                    Download Audit Trail
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

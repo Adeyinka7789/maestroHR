@@ -33,6 +33,7 @@ public class ReportingController {
     private final NsitfReportService nsitfReportService;
 
     @GetMapping("/monthly-payroll-summary")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> monthlyPayrollSummary(@RequestParam Integer month,
                                                         @RequestParam Integer year,
                                                         @RequestParam(defaultValue = "PDF") ReportFormat format) {
@@ -40,6 +41,7 @@ public class ReportingController {
     }
 
     @GetMapping("/paye-schedule")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> payeSchedule(@RequestParam Integer month,
                                                @RequestParam Integer year,
                                                @RequestParam(defaultValue = "PDF") ReportFormat format) {
@@ -47,6 +49,7 @@ public class ReportingController {
     }
 
     @GetMapping("/pension-schedule")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> pensionSchedule(@RequestParam Integer month,
                                                   @RequestParam Integer year,
                                                   @RequestParam(defaultValue = "PDF") ReportFormat format) {
@@ -54,6 +57,7 @@ public class ReportingController {
     }
 
     @GetMapping("/nhf-schedule")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> nhfSchedule(@RequestParam Integer month,
                                               @RequestParam Integer year,
                                               @RequestParam(defaultValue = "PDF") ReportFormat format) {
@@ -61,23 +65,27 @@ public class ReportingController {
     }
 
     @GetMapping("/employee-headcount")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> employeeHeadcount(@RequestParam(defaultValue = "PDF") ReportFormat format) {
         return download(reportingService.generateEmployeeHeadcountReport(format));
     }
 
     @GetMapping("/leave-balance")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> leaveBalance(@RequestParam Integer year,
                                                @RequestParam(defaultValue = "PDF") ReportFormat format) {
         return download(reportingService.generateLeaveBalanceReport(year, format));
     }
 
     @GetMapping("/salary-history")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> salaryHistory(@RequestParam UUID employeeId,
                                                 @RequestParam(defaultValue = "PDF") ReportFormat format) {
         return download(reportingService.generateSalaryHistoryReport(employeeId, format));
     }
 
     @GetMapping("/audit-trail")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> auditTrail(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
@@ -86,8 +94,11 @@ public class ReportingController {
     }
 
     @GetMapping("/payslip")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<?> payslip(@RequestParam UUID employeeId,
-                                     @RequestParam(required = false) UUID payrollRunId) {
+                                     @RequestParam(value = "payrollRunId", required = false) String payrollRunIdStr) {
+        UUID payrollRunId = (payrollRunIdStr != null && !payrollRunIdStr.isBlank())
+                ? UUID.fromString(payrollRunIdStr) : null;
         try {
             ReportFile file = payrollRunId != null
                     ? reportingService.generatePayslip(employeeId, payrollRunId)

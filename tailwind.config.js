@@ -22,6 +22,7 @@ module.exports = {
     "./src/main/resources/templates/attendance-self.html",
     "./src/main/resources/templates/payroll.html",
     "./src/main/resources/templates/payroll-detail.html",
+    "./src/main/resources/templates/reports.html",
   ],
   darkMode: "class",
   corePlugins: {

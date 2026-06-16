@@ -31,11 +31,8 @@ public class PageController {
     //       static/payroll.html and static/payroll-detail.html remain on disk as the
     //       legacy fallbacks (the latter still served via /htmx/payroll-detail below)
     //       until the new fragments are browser-verified.
-
-    @GetMapping("/htmx/reports")
-    public String reports(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/reports.html" : "forward:/layout.html";
-    }
+    // NOTE: /htmx/reports is owned by ReportsWebController (server-rendered fragment,
+    //       Option 3 pattern). static/reports.html remains on disk as legacy fallback.
 
     @GetMapping("/htmx/recruitment")
     public String recruitment(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
