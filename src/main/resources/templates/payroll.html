@@ -39,13 +39,45 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-lg gap-md">
         <div>
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Payroll Runs</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Review monthly payroll runs and their approval status
             </p>
         </div>
+
+        <!--
+          Initiate form (Step C). Posts the chosen month to /htmx/payroll/initiate; on
+          success the controller swaps #page-content with the new run's detail fragment
+          (Compute lives there) and pushes its URL. A duplicate period / bad month comes
+          back as the ${error} banner below. type="month" yields the "YYYY-MM" the
+          controller parses.
+        -->
+        <form hx-post="/htmx/payroll/initiate" hx-target="#page-content" hx-swap="innerHTML"
+              class="flex items-end gap-sm">
+            <div>
+                <label for="payroll-period" class="block mb-xs font-label-sm text-label-sm text-on-surface">Payroll month</label>
+                <input type="month" id="payroll-period" name="period" required
+                       class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity whitespace-nowrap">
+                <span class="material-symbols-outlined text-[20px]">add</span>
+                Initiate Payroll
+            </button>
+        </form>
+    </div>
+
+    <!--
+      In-place error banner. Rendered only when an Initiate action failed (see
+      PayrollListController#handleInitiateFailure) — most often the duplicate-period case.
+      Success navigates away to the new run's detail, so only the failure path lands here.
+    -->
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Payroll for 6/2026 already exists</span>
     </div>
 
     <!--

@@ -112,13 +112,16 @@ class PayrollTemplateRenderTest {
                 "₦42,500,000.00", "₦35,000,000.00", "₦4,200,000.00",
                 "₦2,100,000.00", "₦2,600,000.00", "₦1,050,000.00", rows.size(),
                 "hr@acme.test", null, "—", null,
+                false, true, false, false,
+                // show* flags: with a viewer who can submit, the Submit button renders live.
                 false, true, false, false, rows);
     }
 
     @Test
     void detailContentFragment_rendersHeaderSummaryAndEntries() {
+        PayrollDetailView view = detailView(true);
         Context ctx = new Context();
-        ctx.setVariable("view", detailView(true));
+        ctx.setVariable("view", view);
 
         String html = templateEngine.process("payroll-detail", Set.of("content"), ctx);
 
@@ -132,9 +135,30 @@ class PayrollTemplateRenderTest {
         assertTrue(html.contains("Total NHF"), "nhf summary card");
         assertTrue(html.contains("Tayo Shonibare"), "entry row employee name");
         assertTrue(html.contains("₦680,000.00"), "entry net rendered");
-        assertTrue(html.contains("Submit for Approval"), "canSubmit action button rendered");
-        assertTrue(html.contains("disabled"), "action buttons are disabled in Step B");
+        assertTrue(html.contains("Submit for Approval"), "showSubmit action button rendered");
+        assertTrue(html.contains("/htmx/payroll/" + view.id() + "/submit"),
+                "Submit button is wired live to the submit endpoint (Step C)");
         assertFalse(html.contains("No entries yet"), "non-empty run hides the entries empty state");
+    }
+
+    @Test
+    void detailContentFragment_hidesActionsTheViewerCannotPerform() {
+        // All show* flags false → no action row, even though canSubmit is true on the run.
+        PayrollDetailView view = new PayrollDetailView(
+                UUID.randomUUID(), "2026-06", "June 2026",
+                "PENDING_APPROVAL", "Pending Approval", "warn",
+                "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
+                "hr@acme.test", null, "—", null,
+                false, true, true, true,
+                false, false, false, false, List.of());
+        Context ctx = new Context();
+        ctx.setVariable("view", view);
+
+        String html = templateEngine.process("payroll-detail", Set.of("content"), ctx);
+
+        assertFalse(html.contains("Submit for Approval"), "no submit button when showSubmit is false");
+        assertFalse(html.contains(">Approve<"), "no approve button when showApprove is false");
+        assertFalse(html.contains("hx-post"), "no wired action when all show* flags are false");
     }
 
     @Test

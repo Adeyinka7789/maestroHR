@@ -35,6 +35,23 @@
         Payroll Runs
     </a>
 
+    <!--
+      Action banners (Step C). Success confirms a completed transition (compute/submit/
+      approve/reject, or an initiate that landed here); error reports a wrong-state
+      transition — the stale-page / double-click case — rebuilt in place by
+      PayrollDetailController#renderWithError so the user stays on the run.
+    -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Payroll computed.</span>
+    </div>
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Payroll must be in DRAFT status to compute</span>
+    </div>
+
     <!-- Run header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
         <div>
@@ -145,25 +162,63 @@
     </div>
 
     <!--
-      Action buttons — rendered per the run's status flags but DISABLED for now. Step C
-      wires the hx-post handlers (submit/approve/reject) and the segregation-of-duties
-      role gates (approve is FINANCE_OFFICER / SUPER_ADMIN only). They are shown disabled
-      so the layout and gating are reviewable ahead of the write step.
+      Action buttons (Step C) — each rendered only when its show* flag is true (the run's
+      status permits the transition AND the viewer holds the role its endpoint requires),
+      so a button is never shown that would 403. All post to /htmx/payroll/{id}/… and swap
+      the whole #page-content with the re-rendered detail. Compute/Submit are HR-side;
+      Approve/Reject are FINANCE_OFFICER/SUPER_ADMIN (segregation of duties).
     -->
     <div class="flex flex-wrap justify-end gap-sm mt-lg"
-         th:if="${view.canSubmit or view.canApprove or view.canReject}">
-        <button type="button" disabled th:if="${view.canSubmit}"
-                class="px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md opacity-50 cursor-not-allowed">
+         th:if="${view.showCompute or view.showSubmit or view.showApprove or view.showReject}">
+
+        <!-- Compute / Recompute (DRAFT). Recompute overwrites the current figures, so it
+             confirms only when entries already exist; the first compute does not. -->
+        <button type="button" th:if="${view.showCompute}"
+                th:attr="hx-post='/htmx/payroll/' + ${view.id} + '/compute',
+                         hx-confirm=${view.entryCount > 0} ? 'Recomputing replaces the current figures for this run. Continue?' : _"
+                hx-target="#page-content" hx-swap="innerHTML"
+                class="px-4 py-2 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors"
+                th:text="${view.entryCount > 0} ? 'Recompute' : 'Compute'">Compute</button>
+
+        <!-- Submit for approval (DRAFT → PENDING_APPROVAL); ends the editable window. -->
+        <button type="button" th:if="${view.showSubmit}"
+                th:attr="hx-post='/htmx/payroll/' + ${view.id} + '/submit'"
+                hx-target="#page-content" hx-swap="innerHTML"
+                hx-confirm="Submit this payroll for approval? You won't be able to edit or recompute it afterwards."
+                class="px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
             Submit for Approval
         </button>
-        <button type="button" disabled th:if="${view.canApprove}"
-                class="px-4 py-2 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md opacity-50 cursor-not-allowed">
+
+        <!-- Approve (PENDING_APPROVAL → APPROVED); irreversible and notifies every employee. -->
+        <button type="button" th:if="${view.showApprove}"
+                th:attr="hx-post='/htmx/payroll/' + ${view.id} + '/approve'"
+                hx-target="#page-content" hx-swap="innerHTML"
+                hx-confirm="Approve this payroll? This is final and sends every employee their payslip."
+                class="px-4 py-2 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md hover:opacity-90 transition-opacity">
             Approve
         </button>
-        <button type="button" disabled th:if="${view.canReject}"
-                class="px-4 py-2 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md opacity-50 cursor-not-allowed">
-            Reject
-        </button>
+
+        <!-- Reject (PENDING_APPROVAL → REJECTED) with a required reason — inline form, like
+             leave reject (the <form> gives native "reason required" validation). -->
+        <details th:if="${view.showReject}" class="relative">
+            <summary class="list-none cursor-pointer px-4 py-2 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md hover:opacity-90 transition-opacity">
+                Reject
+            </summary>
+            <form th:attr="hx-post='/htmx/payroll/' + ${view.id} + '/reject'"
+                  hx-target="#page-content" hx-swap="innerHTML"
+                  class="absolute right-0 z-10 mt-xs w-72 p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Reason for rejection</label>
+                <textarea name="reason" required rows="3"
+                          placeholder="Explain why this run is being rejected…"
+                          class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary resize-none"></textarea>
+                <div class="flex justify-end gap-xs mt-sm">
+                    <button type="submit"
+                            class="px-3 py-1.5 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                        Confirm Reject
+                    </button>
+                </div>
+            </form>
+        </details>
     </div>
 </div>
 

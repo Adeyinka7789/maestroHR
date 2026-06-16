@@ -44,10 +44,20 @@ public record PayrollDetailView(
         String rejectionReason,                 // null/blank unless rejected
 
         // ── action availability (drives Step C/D buttons) ──
+        // Raw status flags: whether the run's *state* permits each transition.
         boolean editable,
         boolean canSubmit,
         boolean canApprove,
         boolean canReject,
+
+        // Effective button visibility: the status flag AND the viewer holds the role the
+        // matching write endpoint requires (there is no sec:authorize dialect in these
+        // templates, so the gate is resolved server-side here). A button is only rendered
+        // when its show* flag is true, so the viewer never sees an action that would 403.
+        boolean showCompute,
+        boolean showSubmit,
+        boolean showApprove,
+        boolean showReject,
 
         List<EntryRow> rows
 ) {

@@ -7,13 +7,18 @@ import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
 import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.admtechhub.maestrohr.web.PayrollListService.formatNaira;
 import static com.admtechhub.maestrohr.web.PayrollListService.humanize;
@@ -77,7 +82,35 @@ public class PayrollDetailService {
                 run.canApprove(),
                 run.canReject(),
 
+                // Effective visibility: status flag AND the viewer's role matches the gate
+                // on the corresponding /htmx/payroll/{id}/… write endpoint. Approve is
+                // FINANCE_OFFICER/SUPER_ADMIN (segregation of duties — the initiator cannot
+                // approve); submit is HR_ADMIN/SUPER_ADMIN; compute and reject follow the
+                // initiate gate (HR_ADMIN/FINANCE_OFFICER/SUPER_ADMIN), matching their REST
+                // endpoints — reject is not approval, so the initiator role may send a run back.
+                run.isEditable() && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+                run.canSubmit() && hasAnyRole("HR_ADMIN", "SUPER_ADMIN"),
+                run.canApprove() && hasAnyRole("FINANCE_OFFICER", "SUPER_ADMIN"),
+                run.canReject() && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+
                 rows);
+    }
+
+    /** True when the authenticated viewer holds any of the given roles (matched as ROLE_… authorities). */
+    private static boolean hasAnyRole(String... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        Set<String> granted = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+        for (String role : roles) {
+            if (granted.contains("ROLE_" + role)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ── row mapping ──────────────────────────────────────────────────────────────────
