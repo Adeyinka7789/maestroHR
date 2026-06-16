@@ -310,6 +310,38 @@ public class PayrollRunService {
     }
 
     /**
+     * Mark an APPROVED run as paid (APPROVED → COMPLETED). This is a manual, human-attested
+     * step: the payment file was downloaded and uploaded to the bank out-of-band, so finance
+     * confirms completion by hand — MaestroHR never moves funds and can't observe the payment
+     * itself. A non-APPROVED run raises {@link IllegalStateException}.
+     */
+    @Transactional
+    public PayrollRunResponse markAsPaid(UUID payrollRunId) {
+        PayrollRun payrollRun = payrollRunRepository.findById(payrollRunId)
+                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
+
+        if (!payrollRun.canComplete()) {
+            throw new IllegalStateException("Payroll must be APPROVED to mark as paid. Current status: " + payrollRun.getStatus());
+        }
+
+        payrollRun.setStatus(PayrollStatus.COMPLETED);
+        PayrollRun updated = payrollRunRepository.save(payrollRun);
+
+        if (payrollRun.getInitiatedBy() != null) {
+            notificationService.createInAppNotification(
+                    payrollRun.getInitiatedBy().getEmail(),
+                    "PAYROLL_COMPLETED",
+                    "Payroll completed",
+                    "Payroll run " + payrollRun.getPeriod() + " has been marked as paid.",
+                    "/payroll/" + payrollRunId
+            );
+        }
+        log.info("Payroll run {} marked as paid (COMPLETED)", payrollRunId);
+
+        return toResponse(updated);
+    }
+
+    /**
      * Get payroll run by ID
      */
     @Transactional(readOnly = true)

@@ -169,7 +169,32 @@
       Approve/Reject are FINANCE_OFFICER/SUPER_ADMIN (segregation of duties).
     -->
     <div class="flex flex-wrap justify-end gap-sm mt-lg"
-         th:if="${view.showCompute or view.showSubmit or view.showApprove or view.showReject}">
+         th:if="${view.showCompute or view.showSubmit or view.showApprove or view.showReject or view.showExport or view.showMarkPaid}">
+
+        <!-- Export bank payment file (Step D). Pure read — no status change. Plain anchors:
+             the file is served Content-Disposition: attachment, so the click downloads it
+             without leaving the HTMX shell (HTMX can't swap a binary download). Shown for
+             APPROVED/DISBURSING/COMPLETED runs. -->
+        <a th:if="${view.showExport}"
+           th:href="'/htmx/payroll/' + ${view.id} + '/export/csv'"
+           class="px-4 py-2 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+            Export CSV
+        </a>
+        <a th:if="${view.showExport}"
+           th:href="'/htmx/payroll/' + ${view.id} + '/export/excel'"
+           class="px-4 py-2 rounded-lg border border-outline-variant bg-white text-primary font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+            Export Excel
+        </a>
+
+        <!-- Mark as Paid (APPROVED → COMPLETED). Manual, human-attested completion of the
+             out-of-band bank upload. FINANCE_OFFICER/SUPER_ADMIN only; confirmed. -->
+        <button type="button" th:if="${view.showMarkPaid}"
+                th:attr="hx-post='/htmx/payroll/' + ${view.id} + '/mark-paid'"
+                hx-target="#page-content" hx-swap="innerHTML"
+                hx-confirm="Mark this payroll as paid? Confirm only after the payment file has been uploaded to your bank and the transfer is complete. This cannot be undone."
+                class="px-4 py-2 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md hover:opacity-90 transition-opacity">
+            Mark as Paid
+        </button>
 
         <!-- Compute / Recompute (DRAFT). Recompute overwrites the current figures, so it
              confirms only when entries already exist; the first compute does not. -->

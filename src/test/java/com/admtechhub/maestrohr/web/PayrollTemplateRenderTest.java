@@ -114,7 +114,9 @@ class PayrollTemplateRenderTest {
                 "hr@acme.test", null, "—", null,
                 false, true, false, false,
                 // show* flags: with a viewer who can submit, the Submit button renders live.
-                false, true, false, false, rows);
+                false, true, false, false,
+                // showExport / showMarkPaid (Step D) — off for this PENDING_APPROVAL view.
+                false, false, rows);
     }
 
     @Test
@@ -150,7 +152,8 @@ class PayrollTemplateRenderTest {
                 "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
                 "hr@acme.test", null, "—", null,
                 false, true, true, true,
-                false, false, false, false, List.of());
+                false, false, false, false,
+                false, false, List.of());
         Context ctx = new Context();
         ctx.setVariable("view", view);
 
@@ -170,6 +173,50 @@ class PayrollTemplateRenderTest {
 
         assertTrue(html.contains("No entries yet"), "entries empty state for an uncomputed draft");
         assertTrue(html.contains("has not been computed"), "empty-state explanation");
+    }
+
+    @Test
+    void detailContentFragment_approvedRun_rendersExportAndMarkPaidActions() {
+        // APPROVED run, finance viewer: export (CSV+Excel) and Mark as Paid all render live.
+        PayrollDetailView view = new PayrollDetailView(
+                UUID.randomUUID(), "2026-06", "June 2026",
+                "APPROVED", "Approved", "success",
+                "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
+                "hr@acme.test", "finance@acme.test", "02 Jun 2026, 10:15", null,
+                false, false, false, false,
+                false, false, false, false,
+                true, true, List.of());
+        Context ctx = new Context();
+        ctx.setVariable("view", view);
+
+        String html = templateEngine.process("payroll-detail", Set.of("content"), ctx);
+
+        assertTrue(html.contains("Export CSV"), "Export CSV button rendered");
+        assertTrue(html.contains("Export Excel"), "Export Excel button rendered");
+        assertTrue(html.contains("/htmx/payroll/" + view.id() + "/export/csv"), "CSV link wired");
+        assertTrue(html.contains("/htmx/payroll/" + view.id() + "/export/excel"), "Excel link wired");
+        assertTrue(html.contains("Mark as Paid"), "Mark as Paid button rendered");
+        assertTrue(html.contains("/htmx/payroll/" + view.id() + "/mark-paid"), "mark-paid wired");
+    }
+
+    @Test
+    void detailContentFragment_hidesExportAndMarkPaidWhenFlagsFalse() {
+        // showExport / showMarkPaid false → neither Step D action renders.
+        PayrollDetailView view = new PayrollDetailView(
+                UUID.randomUUID(), "2026-06", "June 2026",
+                "DRAFT", "Draft", "neutral",
+                "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
+                "hr@acme.test", null, "—", null,
+                false, false, false, false,
+                false, false, false, false,
+                false, false, List.of());
+        Context ctx = new Context();
+        ctx.setVariable("view", view);
+
+        String html = templateEngine.process("payroll-detail", Set.of("content"), ctx);
+
+        assertFalse(html.contains("Export CSV"), "no export button when showExport is false");
+        assertFalse(html.contains("Mark as Paid"), "no mark-paid button when showMarkPaid is false");
     }
 
     @Test

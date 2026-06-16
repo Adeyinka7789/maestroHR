@@ -59,6 +59,14 @@ public record PayrollDetailView(
         boolean showApprove,
         boolean showReject,
 
+        // Step D — payment-file export and lifecycle completion.
+        // showExport: run is APPROVED/DISBURSING/COMPLETED (payable figures are final) and the
+        //   viewer holds an HR/finance role — the bank payment file may be downloaded.
+        // showMarkPaid: run is APPROVED and the viewer is FINANCE_OFFICER/SUPER_ADMIN — they
+        //   may attest the out-of-band bank upload completed (APPROVED → COMPLETED).
+        boolean showExport,
+        boolean showMarkPaid,
+
         List<EntryRow> rows
 ) {
 

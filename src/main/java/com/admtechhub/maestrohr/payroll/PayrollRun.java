@@ -103,4 +103,13 @@ public class PayrollRun extends BaseEntity {
     public boolean canReject() {
         return status == PayrollStatus.PENDING_APPROVAL;
     }
+
+    /**
+     * Whether the run may be manually marked paid (APPROVED → COMPLETED). The payment file
+     * is exported and uploaded to the bank out-of-band, so a finance user attests completion
+     * by hand; only an APPROVED run can be completed.
+     */
+    public boolean canComplete() {
+        return status == PayrollStatus.APPROVED;
+    }
 }

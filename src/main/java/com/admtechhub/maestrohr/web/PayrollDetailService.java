@@ -93,7 +93,19 @@ public class PayrollDetailService {
                 run.canApprove() && hasAnyRole("FINANCE_OFFICER", "SUPER_ADMIN"),
                 run.canReject() && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
 
+                // Step D: export once figures are final (APPROVED onward); mark-paid completes
+                // the lifecycle and, like approve, is finance-only (segregation of duties).
+                exportable(run.getStatus()) && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+                run.canComplete() && hasAnyRole("FINANCE_OFFICER", "SUPER_ADMIN"),
+
                 rows);
+    }
+
+    /** The payment file may be exported once a run's figures are final: APPROVED onward. */
+    private static boolean exportable(PayrollStatus status) {
+        return status == PayrollStatus.APPROVED
+                || status == PayrollStatus.DISBURSING
+                || status == PayrollStatus.COMPLETED;
     }
 
     /** True when the authenticated viewer holds any of the given roles (matched as ROLE_… authorities). */

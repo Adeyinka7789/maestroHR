@@ -1,9 +1,14 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.UserRepository;
+import com.admtechhub.maestrohr.payroll.PaymentFileService;
 import com.admtechhub.maestrohr.payroll.PayrollRunService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -57,6 +62,7 @@ public class PayrollDetailController {
 
     private final PayrollDetailService payrollDetailService;
     private final PayrollRunService payrollRunService;
+    private final PaymentFileService paymentFileService;
     private final UserRepository userRepository;
 
     /** Full page: app shell on a cold visit, the populated detail fragment under HTMX. */
@@ -147,6 +153,52 @@ public class PayrollDetailController {
         model.addAttribute("view", payrollDetailService.build(id));
         model.addAttribute("success", "Payroll rejected.");
         return "payroll-detail :: content";
+    }
+
+    /**
+     * Mark an APPROVED run as paid (APPROVED → COMPLETED), completing the lifecycle. This is
+     * a manual, human-attested step — the payment file was uploaded to the bank out-of-band,
+     * so MaestroHR never observes the money movement. FINANCE_OFFICER/SUPER_ADMIN only. A
+     * non-APPROVED run (stale page / double click) raises {@link IllegalStateException} → banner.
+     */
+    @PostMapping("/htmx/payroll/{id}/mark-paid")
+    @PreAuthorize("hasAnyRole('FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public String markPaid(@PathVariable UUID id, Model model) {
+        try {
+            payrollRunService.markAsPaid(id);
+        } catch (IllegalStateException ex) {
+            return renderWithError(id, ex.getMessage(), model);
+        }
+        model.addAttribute("view", payrollDetailService.build(id));
+        model.addAttribute("success", "Payroll marked as paid.");
+        return "payroll-detail :: content";
+    }
+
+    /**
+     * Download the bank payment file (CSV) for a run. Pure read — no status change. The file
+     * is served as an attachment so a plain anchor click downloads it without navigating away
+     * from the HTMX shell. Gated to the same roles as the rest of this controller; the button
+     * is additionally only rendered for APPROVED/DISBURSING/COMPLETED runs (view.showExport).
+     */
+    @GetMapping("/htmx/payroll/{id}/export/csv")
+    public ResponseEntity<byte[]> exportCsv(@PathVariable UUID id) {
+        byte[] data = paymentFileService.generateCsv(id);
+        return fileResponse(data, "payment-file-" + id + ".csv", "text/csv");
+    }
+
+    /** Download the bank payment file (Excel). Pure read — see {@link #exportCsv}. */
+    @GetMapping("/htmx/payroll/{id}/export/excel")
+    public ResponseEntity<byte[]> exportExcel(@PathVariable UUID id) {
+        byte[] data = paymentFileService.generateExcel(id);
+        return fileResponse(data, "payment-file-" + id + ".xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }
+
+    private ResponseEntity<byte[]> fileResponse(byte[] data, String filename, String contentType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(contentType));
+        headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
+        return ResponseEntity.ok().headers(headers).body(data);
     }
 
     /**
