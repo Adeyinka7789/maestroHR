@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.reporting.ReportFile;
 import com.admtechhub.maestrohr.reporting.ReportingService;
 import com.admtechhub.maestrohr.tenant.Tenant;
@@ -10,6 +11,9 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,6 +40,7 @@ public class OperationsWebController {
 
     private final ReportingService reportingService;
     private final TenantRepository tenantRepository;
+    private final EmployeeService employeeService;
 
     // ── Page routes ───────────────────────────────────────────────────────────
 
@@ -103,6 +108,7 @@ public class OperationsWebController {
     public ResponseEntity<byte[]> payslipDownload(
             @RequestParam UUID employeeId,
             @RequestParam(required = false) UUID payrollRunId) {
+        enforcePayslipOwnership(employeeId);
         ReportFile file = payrollRunId != null
                 ? reportingService.generatePayslip(employeeId, payrollRunId)
                 : reportingService.generateLatestPayslip(employeeId);
@@ -111,6 +117,40 @@ public class OperationsWebController {
                         ContentDisposition.attachment().filename(file.filename()).build().toString())
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .body(file.content());
+    }
+
+    /**
+     * IDOR guard for {@code /reports/payslip}: a plain EMPLOYEE may only download their
+     * own payslip — the {@code employeeId} param must match the employee record bound to
+     * their session. HR_ADMIN / FINANCE_OFFICER / SUPER_ADMIN (and DEPT_MANAGER) are
+     * unrestricted; payroll administration legitimately fetches any employee's payslip.
+     *
+     * Without this, any authenticated employee could enumerate {@code employeeId}s and
+     * pull a colleague's payslip. The @SQLRestriction on the payroll entities already
+     * scopes this to the caller's tenant, so the exposure was within-tenant,
+     * cross-employee — which this closes. Throws {@link AccessDeniedException} (mapped to
+     * 403 by GlobalExceptionHandler) on mismatch or a missing employee profile.
+     */
+    private void enforcePayslipOwnership(UUID requestedEmployeeId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        boolean isPlainEmployee = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_EMPLOYEE".equals(a.getAuthority()));
+        if (!isPlainEmployee) {
+            return; // privileged roles may fetch any employee's payslip
+        }
+
+        UUID ownEmployeeId;
+        try {
+            ownEmployeeId = employeeService.findByEmail(auth.getName()).getId();
+        } catch (IllegalArgumentException ex) {
+            // EMPLOYEE-role account with no Employee record — nothing it can legitimately fetch.
+            throw new AccessDeniedException("No employee profile bound to this account");
+        }
+
+        if (!ownEmployeeId.equals(requestedEmployeeId)) {
+            throw new AccessDeniedException("You can only download your own payslip");
+        }
     }
 
     // ── Tenant helper ─────────────────────────────────────────────────────────

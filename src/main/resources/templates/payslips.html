@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--
+  payslips.html — server-rendered HTMX fragment (Option 3), the employee self-service
+  "My Payslips" list. Rendered by PayslipSelfController as "payslips :: content" and
+  swapped into #page-content in layout.html. Styled with the Stitch design system tokens
+  compiled into /css/dashboard.css (see tailwind.config.js `content`).
+
+  This is the EMPLOYEE-facing surface: a clean, read-only list of the runs the
+  authenticated employee has a payslip for (APPROVED / DISBURSING / COMPLETED), each with
+  a Download link to the existing /reports/payslip PDF endpoint. The employee is resolved
+  from the session in the controller — never from a request param — and every download
+  link carries the employee's own id (${view.employeeId}).
+
+  Single fragment:
+   - content : header + the payslips table (or the no-profile / empty-state cards).
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document;
+  only the th:fragment node is emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">My Payslips</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant">
+            Download your payslip for each completed pay period.
+        </p>
+    </div>
+
+    <!--
+      No employee profile: the authenticated user has no Employee record (admin/owner
+      accounts that aren't employees). Payslips belong to an employee, so show a friendly
+      message instead of the list. This branch must NOT reference ${view} (it is null here).
+    -->
+    <div th:if="${noProfile}" role="status"
+         class="max-w-xl flex items-start gap-sm px-md py-md rounded-xl bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface">
+        <span class="material-symbols-outlined text-[20px] text-on-surface-variant">info</span>
+        <span th:text="${noProfile}">This page is for employees with payroll records.</span>
+    </div>
+
+    <!-- Payslips table -->
+    <div th:unless="${noProfile}" class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Period</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Net Pay</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Payslip</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md font-label-md text-label-md text-on-surface whitespace-nowrap"
+                        th:text="${row.periodFormatted}">June 2026</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface whitespace-nowrap"
+                        th:text="${row.netPayFormatted}">₦450,000.00</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                              th:text="${row.statusLabel}">Paid</span>
+                    </td>
+                    <td class="px-md py-md text-right whitespace-nowrap">
+                        <!--
+                          Plain link (not HTMX): the endpoint streams a PDF as an attachment.
+                          employeeId is the session employee's own id (${view.employeeId}),
+                          and the endpoint independently enforces ownership for EMPLOYEE callers.
+                        -->
+                        <a th:href="@{/reports/payslip(employeeId=${view.employeeId},payrollRunId=${row.payrollRunId})}"
+                           class="inline-flex items-center gap-xs px-3 py-1.5 rounded-lg border border-outline-variant bg-white text-on-surface font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">download</span>
+                            Download
+                        </a>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="4" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No payslips yet</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">
+                            Your payslips will appear here once a payroll run for you is approved.
+                        </p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
