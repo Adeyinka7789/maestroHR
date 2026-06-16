@@ -68,9 +68,11 @@ public class PageController {
     //       dashboard fragment, Option 3 pattern). static/admin.html remains on disk as the
     //       legacy tenant/user-management console until that view is rebuilt.
 
+    // /htmx/admin/pricing serves the SUPER_ADMIN price editor (pricing.html), not the
+    // customer-facing plan cards (plans.html, served by /htmx/plans).
     @GetMapping("/htmx/admin/pricing")
     public String adminPricing(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/plans.html" : "forward:/layout.html";
+        return htmxRequest != null ? "forward:/pricing.html" : "forward:/layout.html";
     }
 
     // Employee CRUD

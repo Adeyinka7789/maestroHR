@@ -1,21 +1,24 @@
 <!-- pricing.html – content partial only -->
 <style>
     /* Page‑specific styles (all shared styles are in layout.css) */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-size: 19px; font-weight: 600; color: #0b1c30; }
+    .page-subtitle { font-size: 13px; color: #444651; margin-top: 2px; }
     .price-input {
         width: 150px;
         padding: 8px 12px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #c5c5d3;
         border-radius: 8px;
         font-size: 14px;
         text-align: right;
     }
     .price-input:focus {
         outline: none;
-        border-color: #2563eb;
-        ring: 2px solid #2563eb;
+        border-color: #00236f;
+        ring: 2px solid #00236f;
     }
     .save-btn {
-        background: #2563eb;
+        background: #00236f;
         color: white;
         padding: 10px 24px;
         border-radius: 8px;
@@ -24,16 +27,16 @@
         border: none;
     }
     .save-btn:hover {
-        background: #1d4ed8;
+        background: rgba(0,35,111,.9);
     }
     .reset-btn {
-        background: #f3f4f6;
-        color: #374151;
+        background: #eff4ff;
+        color: #444651;
         padding: 10px 24px;
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #c5c5d3;
         margin-right: 12px;
     }
 </style>
@@ -54,7 +57,7 @@
         <div class="overflow-x-auto">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                <tr style="border-bottom: 2px solid #e2e8f0;">
+                <tr style="border-bottom: 2px solid #c5c5d3;">
                     <th style="text-align: left; padding: 12px;">Plan</th>
                     <th style="text-align: left; padding: 12px;">Monthly (₦)</th>
                     <th style="text-align: left; padding: 12px;">Quarterly (₦)</th>
@@ -62,7 +65,7 @@
                 </tr>
                 </thead>
                 <tbody id="pricing-table">
-                <tr style="border-bottom: 1px solid #e2e8f0;">
+                <tr style="border-bottom: 1px solid #c5c5d3;">
                     <td style="padding: 16px 12px;">Loading...</td>
                     <td style="padding: 16px 12px;">-</td>
                     <td style="padding: 16px 12px;">-</td>
@@ -130,7 +133,7 @@
             for (const plan of plans) {
                 const planPrices = currentPrices[plan] || { monthly: 0, quarterly: 0, annually: 0 };
                 const row = document.createElement('tr');
-                row.style.borderBottom = '1px solid #e2e8f0';
+                row.style.borderBottom = '1px solid #c5c5d3';
                 row.innerHTML = `
                     <td style="padding: 16px 12px; font-weight: 600;">${plan.replace('_', ' ')}</td>
                     <td style="padding: 16px 12px;">

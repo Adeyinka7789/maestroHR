@@ -2,8 +2,8 @@
 <style>
     /* Page‑specific styles (not in layout.css) */
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-    .page-title { font-size: 19px; font-weight: 600; color: #111827; }
-    .page-subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
+    .page-title { font-size: 19px; font-weight: 600; color: #0b1c30; }
+    .page-subtitle { font-size: 13px; color: #444651; margin-top: 2px; }
 </style>
 
 <div id="subscribers-content">
@@ -37,19 +37,19 @@
     <!-- Stats Cards -->
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px;">
         <div class="stat-card">
-            <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Subscribers</div>
+            <div style="font-size:12px;color:#444651;text-transform:uppercase;">Subscribers</div>
             <div id="stat-subscribers" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
         </div>
         <div class="stat-card">
-            <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Active</div>
+            <div style="font-size:12px;color:#444651;text-transform:uppercase;">Active</div>
             <div id="stat-active" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
         </div>
         <div class="stat-card">
-            <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Trials</div>
+            <div style="font-size:12px;color:#444651;text-transform:uppercase;">Trials</div>
             <div id="stat-trials" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
         </div>
         <div class="stat-card">
-            <div style="font-size:12px;color:#64748b;text-transform:uppercase;">Users</div>
+            <div style="font-size:12px;color:#444651;text-transform:uppercase;">Users</div>
             <div id="stat-users" style="font-size:30px;font-weight:600;margin-top:8px;">0</div>
         </div>
     </div>
@@ -59,17 +59,18 @@
         <div class="overflow-x-auto">
             <table class="data-table" style="width:100%;border-collapse:collapse;">
                 <thead>
-                <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <tr style="background:#eff4ff;border-bottom:1px solid #c5c5d3;">
                     <th style="padding:12px 16px;text-align:left;">Company</th>
                     <th style="padding:12px 16px;text-align:left;">Industry</th>
                     <th style="padding:12px 16px;text-align:left;">Plan</th>
                     <th style="padding:12px 16px;text-align:left;">Status</th>
                     <th style="padding:12px 16px;text-align:left;">Expires</th>
                     <th style="padding:12px 16px;text-align:left;">RC</th>
+                    <th style="padding:12px 16px;text-align:left;">Users</th>
                 </tr>
                 </thead>
                 <tbody id="subscribers-table-body">
-                <tr><td colspan="6" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading subscribers...<\/td></tr>
+                <tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#757682;">Loading subscribers...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -105,7 +106,7 @@
                 }
             } catch (error) {
                 console.error('Failed to load subscribers:', error);
-                document.getElementById('subscribers-table-body').innerHTML = '<tr><td colspan="6" style="padding:48px 16px;text-align:center;color:#94a3b8;">Failed to load subscribers.<\/td></tr>';
+                document.getElementById('subscribers-table-body').innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#757682;">Failed to load subscribers.<\/td></tr>';
             }
         }
 
@@ -124,11 +125,11 @@
         function renderSubscribersTable(tenants) {
             const tbody = document.getElementById('subscribers-table-body');
             if (tenants.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#94a3b8;">No subscribers found.<\/td></td>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#757682;">No subscribers found.<\/td></tr>';
                 return;
             }
             tbody.innerHTML = tenants.map(tenant => `
-                <tr class="subscriber-row" style="border-bottom:1px solid #f8fafc;"
+                <tr class="subscriber-row" style="border-bottom:1px solid #eff4ff;"
                     data-search="${(tenant.companyName + ' ' + tenant.industry + ' ' + (tenant.rcNumber || '') + ' ' + tenant.subscriptionPlan).toLowerCase()}"
                     data-status="${tenant.active ? 'Active' : 'Inactive'}"
                     data-plan="${tenant.subscriptionPlan}">
