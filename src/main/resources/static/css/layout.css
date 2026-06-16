@@ -8,43 +8,22 @@
 
 body { font-family: 'DM Sans', sans-serif; }
 
-/* Sidebar collapsed state */
-body.sidebar-collapsed aside { width: var(--sidebar-collapsed-w) !important; }
-body.sidebar-collapsed .nav-item { justify-content: center; padding: 9px; }
-body.sidebar-collapsed .nav-item.active { padding: 9px; border-left-width: 0; border-radius: 8px; }
-body.sidebar-collapsed .nav-label,
-body.sidebar-collapsed .nav-section-label,
-body.sidebar-collapsed .sidebar-brand,
-body.sidebar-collapsed .sidebar-footer-meta { display: none !important; }
-body.sidebar-collapsed #sidebar-avatar { margin: 0 auto; }
-body.sidebar-collapsed .nav-section { padding: 12px 0 4px; display: flex; justify-content: center; }
-body.sidebar-collapsed .nav-section::before { content: ''; display: block; width: 24px; height: 1px; background: #334155; }
-
-/* Tooltip on collapsed hover */
-body.sidebar-collapsed .nav-item {
-    position: relative;
+/* Sidebar pinned/hover state */
+aside {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 56px;
+    z-index: 200;
+    overflow: hidden;
+    transition: width 0.25s ease;
 }
-body.sidebar-collapsed .nav-item:hover::after {
-    content: attr(data-label);
-    position: absolute;
-    left: calc(100% + 12px);
-    top: 50%;
-    transform: translateY(-50%);
-    background: #1e293b;
-    color: #e2e8f0;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 12.5px;
-    white-space: nowrap;
-    z-index: 10000;
-    pointer-events: none;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    border: 1px solid #334155;
+aside:hover { width: 240px; }
+body.sidebar-pinned aside { width: 240px; }
+.sidebar-content {
+    margin-left: 56px;
+    transition: margin-left 0.25s ease;
 }
-
-.sidebar-toggle svg { transition: transform 0.3s ease; }
-body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+body.sidebar-pinned .sidebar-content { margin-left: 240px; }
 
 /* Nav items */
 .nav-item {
@@ -202,4 +181,39 @@ body.sidebar-collapsed .sidebar-toggle svg { transform: rotate(180deg); }
     height: 20px;
     background: #e2e8f0;
     border-radius: 4px;
+}
+
+/* Collapsed (56px): center icons, fully hide label text (no clipping) */
+aside .nav-label,
+aside .sidebar-brand,
+aside .sidebar-footer-meta {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+aside .nav-section-label {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+aside .nav-item {
+    justify-content: center;
+}
+
+/* Expanded (hover OR pinned): show labels, left-align icons */
+aside:hover .nav-label,
+aside:hover .sidebar-brand,
+aside:hover .sidebar-footer-meta,
+aside:hover .nav-section-label,
+body.sidebar-pinned .nav-label,
+body.sidebar-pinned .sidebar-brand,
+body.sidebar-pinned .sidebar-footer-meta,
+body.sidebar-pinned .nav-section-label {
+    opacity: 1;
+    width: auto;
+}
+aside:hover .nav-item,
+body.sidebar-pinned .nav-item {
+    justify-content: flex-start;
 }

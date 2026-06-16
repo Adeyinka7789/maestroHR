@@ -81,60 +81,19 @@
         if (auditLink) auditLink.style.display = 'none';
     }
 
-    // ── Sidebar collapse (persist in localStorage) ─────────────────
-    if (localStorage.getItem('maestrohr_sidebar') === 'collapsed') {
-        document.body.classList.add('sidebar-collapsed');
+    // ── Sidebar pin (persist in localStorage) ─────────────────
+    if (localStorage.getItem('sidebar-pinned') === 'true') {
+        document.body.classList.add('sidebar-pinned');
     }
     document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-        document.body.classList.toggle('sidebar-collapsed');
-        localStorage.setItem('maestrohr_sidebar',
-            document.body.classList.contains('sidebar-collapsed') ? 'collapsed' : 'open');
+        const pinned = document.body.classList.toggle('sidebar-pinned');
+        localStorage.setItem('sidebar-pinned', String(pinned));
     });
 
     // ── Logout ─────────────────────────────────────────────────────
     document.getElementById('logout-btn').addEventListener('click', () => {
         localStorage.clear();
         window.location.href = '/login';
-    });
-
-    // Custom tooltip for collapsed sidebar
-    let tooltipTimeout;
-    const tooltipDiv = document.createElement('div');
-    tooltipDiv.className = 'sidebar-tooltip';
-    tooltipDiv.style.cssText = `
-        position: fixed;
-        background: #1e293b;
-        color: #e2e8f0;
-        padding: 5px 11px;
-        border-radius: 6px;
-        font-size: 12.5px;
-        white-space: nowrap;
-        z-index: 10000;
-        pointer-events: none;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.35);
-        display: none;
-        font-family: 'DM Sans', sans-serif;
-    `;
-    document.body.appendChild(tooltipDiv);
-
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('mouseenter', (e) => {
-            if (!document.body.classList.contains('sidebar-collapsed')) return;
-            const label = item.getAttribute('data-label');
-            if (!label) return;
-            tooltipDiv.textContent = label;
-            const rect = item.getBoundingClientRect();
-            tooltipDiv.style.left = (rect.right + 10) + 'px';
-            tooltipDiv.style.top = (rect.top + (rect.height / 2) - 15) + 'px';
-            tooltipDiv.style.display = 'block';
-            clearTimeout(tooltipTimeout);
-        });
-        item.addEventListener('mouseleave', () => {
-            tooltipTimeout = setTimeout(() => {
-                tooltipDiv.style.display = 'none';
-            }, 100);
-        });
     });
 
     // ── Active nav highlighting (for /htmx/ routes) ─────────
