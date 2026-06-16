@@ -6,6 +6,12 @@ import java.util.List;
  * Server-rendered view model for the redesigned dashboard fragment
  * (templates/dashboard.html). Everything the page shows is computed once on the
  * server and rendered into the HTML — no client-side JSON round-trips, no loading flash.
+ *
+ * The bottom of the page is organised into two HR-meaningful sections instead of a
+ * raw audit-log table:
+ *   - "Action Required"        — pendingLeaveCount + pendingPayrollApproval
+ *   - "This Month at a Glance" — attendanceToday, leaveDaysThisMonth, newHiresThisMonth,
+ *                                 plus the birthdays/anniversaries celebrations.
  */
 public record DashboardView(
         String periodLabel,        // e.g. "June 2025"
@@ -13,8 +19,10 @@ public record DashboardView(
         long newHiresThisMonth,
         long onLeaveCount,
         long pendingLeaveCount,
+        long pendingPayrollApproval,
         PayrollSummary payroll,
-        List<ActivityItem> recentActivity,
+        AttendanceToday attendanceToday,
+        long leaveDaysThisMonth,
         List<CelebrationItem> birthdays,
         List<CelebrationItem> anniversaries
 ) {
@@ -29,15 +37,18 @@ public record DashboardView(
             String statusKind          // success | warn | error | neutral -> badge colour
     ) {}
 
-    /** A row in the "Recent Activity" table (sourced from the audit trail). */
-    public record ActivityItem(
-            String icon,               // Material Symbols name
-            String iconKind,           // success | warn | error | neutral -> tile colour
-            String event,              // humanized action
-            String actor,              // actor email / name
-            String dateLabel,          // e.g. "Jun 14, 2025"
-            String statusText,         // e.g. "COMPLETED"
-            String statusKind          // success | warn | error | neutral
+    /**
+     * Today's attendance snapshot for the "This Month at a Glance" section.
+     * {@code present} counts everyone who showed up (PRESENT + LATE + HALF_DAY);
+     * {@code total} is the expected roster for the day (all marked records except
+     * those ON_LEAVE). When no records exist for today {@code hasRecords} is false
+     * and the template shows a graceful empty state.
+     */
+    public record AttendanceToday(
+            boolean hasRecords,
+            long present,
+            long total,
+            int ratePercent            // round(present * 100 / total), 0 when no records
     ) {}
 
     /** A birthday or work-anniversary entry in the celebrations widgets. */

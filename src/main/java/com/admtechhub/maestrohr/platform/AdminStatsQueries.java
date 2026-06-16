@@ -78,6 +78,48 @@ public class AdminStatsQueries {
                 ADMIN_USER_ROW);
     }
 
+    /**
+     * Most-recently-created tenants across every tenant, for the super-admin dashboard's
+     * "Recent Tenants" table. Includes {@code created_at} (which {@link TenantWithUserCountDTO}
+     * omits) so the table can show a "Date Joined" column, and applies {@code LIMIT} so only the
+     * handful the card renders are fetched.
+     */
+    public List<RecentTenantRow> findRecentTenants(int limit) {
+        return jdbc.query(
+                "SELECT t.company_name, t.rc_number, t.subscription_plan, t.is_active, t.created_at, "
+                        + "COUNT(u.id) AS user_count "
+                        + "FROM tenants t LEFT JOIN users u ON u.tenant_id = t.id "
+                        + "GROUP BY t.id, t.company_name, t.rc_number, t.subscription_plan, t.is_active, t.created_at "
+                        + "ORDER BY t.created_at DESC LIMIT ?",
+                (rs, n) -> new RecentTenantRow(
+                        rs.getString("company_name"),
+                        rs.getString("rc_number"),
+                        rs.getString("subscription_plan"),
+                        rs.getBoolean("is_active"),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        rs.getLong("user_count")),
+                limit);
+    }
+
+    /**
+     * Most-recent audit-trail entries across every tenant, for the dashboard's system-logs feed.
+     * The {@code AuditTrail} entity carries an {@code @SQLRestriction} that scopes JPA reads to the
+     * current tenant; this privileged native read deliberately spans all tenants instead.
+     */
+    public List<RecentLogRow> findRecentAuditLogs(int limit) {
+        return jdbc.query(
+                "SELECT action, actor_email, request_path, http_method, status_code, created_at "
+                        + "FROM audit_trail ORDER BY created_at DESC LIMIT ?",
+                (rs, n) -> new RecentLogRow(
+                        rs.getString("action"),
+                        rs.getString("actor_email"),
+                        rs.getString("request_path"),
+                        rs.getString("http_method"),
+                        rs.getInt("status_code"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                limit);
+    }
+
     private long count(String sql) {
         Long value = jdbc.queryForObject(sql, Long.class);
         return value != null ? value : 0L;
@@ -111,6 +153,26 @@ public class AdminStatsQueries {
             boolean active,
             boolean locked,
             OffsetDateTime lockedUntil,
+            OffsetDateTime createdAt) {
+    }
+
+    /** A row of the super-admin dashboard's "Recent Tenants" table. */
+    public record RecentTenantRow(
+            String companyName,
+            String rcNumber,
+            String subscriptionPlan,
+            boolean active,
+            OffsetDateTime createdAt,
+            long userCount) {
+    }
+
+    /** A row of the super-admin dashboard's system-logs feed. */
+    public record RecentLogRow(
+            String action,
+            String actorEmail,
+            String requestPath,
+            String httpMethod,
+            int statusCode,
             OffsetDateTime createdAt) {
     }
 }

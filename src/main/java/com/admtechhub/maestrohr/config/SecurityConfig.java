@@ -41,6 +41,13 @@ public class SecurityConfig {
                         // ── Actuator (super admin only) ───────────────────────────────
                         .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
 
+                        // ── Super-admin console: cross-tenant APIs + page shells ──────
+                        // These run through the privileged, RLS-bypassing datasource and/or
+                        // expose every tenant's data, so they must be SUPER_ADMIN-only at the
+                        // authorization layer (the client-side nav hide in layout.js is cosmetic).
+                        .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/htmx/admin", "/htmx/admin/**", "/htmx/subscribers").hasRole("SUPER_ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

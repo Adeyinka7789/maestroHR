@@ -1,7 +1,7 @@
 package com.admtechhub.maestrohr.web;
 
-import com.admtechhub.maestrohr.audit.AuditTrail;
-import com.admtechhub.maestrohr.audit.AuditTrailRepository;
+import com.admtechhub.maestrohr.attendance.AttendanceRepository;
+import com.admtechhub.maestrohr.attendance.AttendanceStatus;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
@@ -10,6 +10,7 @@ import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
+import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -17,41 +18,42 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.YearMonth;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Assembles the server-rendered {@link DashboardView} for the redesigned dashboard.
  * All values are derived from real MaestroHR entities (employees, payroll, leave,
- * audit trail) so the page renders fully populated with no client-side fetches.
+ * attendance) so the page renders fully populated with no client-side fetches.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class DashboardService {
 
-    private static final DateTimeFormatter DATE_FMT =
-            DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter SHORT_DATE_FMT =
             DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
-    private static final int RECENT_ACTIVITY_LIMIT = 6;
     private static final int BIRTHDAY_WINDOW_DAYS = 14;
     private static final int ANNIVERSARY_WINDOW_DAYS = 30;
     private static final int CELEBRATION_LIMIT = 5;
 
+    /** Statuses that count as "showed up" for the daily attendance rate. */
+    private static final Set<AttendanceStatus> PRESENT_STATUSES =
+            EnumSet.of(AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.HALF_DAY);
+
     private final EmployeeRepository employeeRepository;
     private final PayrollRunRepository payrollRunRepository;
     private final LeaveRequestRepository leaveRequestRepository;
-    private final AuditTrailRepository auditTrailRepository;
+    private final AttendanceRepository attendanceRepository;
 
     @Transactional(readOnly = true)
     public DashboardView buildOverview() {
@@ -64,12 +66,18 @@ public class DashboardService {
 
         long activeHeadcount = employeeRepository.countByStatus(EmployeeStatus.ACTIVE);
         long onLeaveCount = employeeRepository.countByStatus(EmployeeStatus.ON_LEAVE);
-        long pendingLeaveCount = leaveRequestRepository.findByStatus(LeaveStatus.PENDING).size();
+        long pendingLeaveCount =
+                leaveRequestRepository.countByTenantIdAndStatus(tenantId, LeaveStatus.PENDING);
+        long pendingPayrollApproval =
+                payrollRunRepository.countByTenantIdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
 
         long newHiresThisMonth = employees.stream()
                 .map(Employee::getEmploymentStartDate)
                 .filter(d -> d != null && YearMonth.from(d).equals(thisMonth))
                 .count();
+
+        long leaveDaysThisMonth = leaveRequestRepository.sumApprovedLeaveDaysInRange(
+                tenantId, thisMonth.atDay(1), thisMonth.atEndOfMonth());
 
         return new DashboardView(
                 thisMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + thisMonth.getYear(),
@@ -77,8 +85,10 @@ public class DashboardService {
                 newHiresThisMonth,
                 onLeaveCount,
                 pendingLeaveCount,
+                pendingPayrollApproval,
                 buildPayrollSummary(tenantId, thisMonth),
-                buildRecentActivity(),
+                buildAttendanceToday(tenantId, today),
+                leaveDaysThisMonth,
                 buildBirthdays(employees, today),
                 buildAnniversaries(employees, today)
         );
@@ -108,25 +118,31 @@ public class DashboardService {
                 true, monthLabel, amount, status, humanize(status), payrollStatusKind(status));
     }
 
-    private List<DashboardView.ActivityItem> buildRecentActivity() {
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        List<AuditTrail> entries =
-                auditTrailRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(now.minusDays(30), now);
-
-        List<DashboardView.ActivityItem> items = new ArrayList<>();
-        for (AuditTrail a : entries) {
-            if (items.size() >= RECENT_ACTIVITY_LIMIT) break;
-            String kind = statusCodeKind(a.getStatusCode());
-            items.add(new DashboardView.ActivityItem(
-                    activityIcon(a),
-                    kind,
-                    humanize(a.getAction()),
-                    a.getActorEmail() != null ? a.getActorEmail() : "System",
-                    a.getCreatedAt() != null ? a.getCreatedAt().format(DATE_FMT) : "",
-                    a.getStatusCode() != null && a.getStatusCode() < 400 ? "SUCCESS" : "FAILED",
-                    kind));
+    /**
+     * Today's attendance rate from the tenant's per-status day counts.
+     * {@code present} = PRESENT + LATE + HALF_DAY; {@code total} excludes ON_LEAVE
+     * (those staff aren't expected in). Returns an empty snapshot when no records exist.
+     */
+    private DashboardView.AttendanceToday buildAttendanceToday(UUID tenantId, LocalDate today) {
+        List<Object[]> rows = attendanceRepository.countByStatusForDate(tenantId, today);
+        long present = 0;
+        long total = 0;
+        for (Object[] row : rows) {
+            AttendanceStatus status = (AttendanceStatus) row[0];
+            long count = ((Number) row[1]).longValue();
+            if (status == AttendanceStatus.ON_LEAVE) {
+                continue; // not part of the expected roster
+            }
+            total += count;
+            if (PRESENT_STATUSES.contains(status)) {
+                present += count;
+            }
         }
-        return items;
+        if (total == 0) {
+            return new DashboardView.AttendanceToday(false, 0, 0, 0);
+        }
+        int rate = (int) Math.round(present * 100.0 / total);
+        return new DashboardView.AttendanceToday(true, present, total, rate);
     }
 
     private List<DashboardView.CelebrationItem> buildBirthdays(List<Employee> employees, LocalDate today) {
@@ -215,15 +231,6 @@ public class DashboardService {
         return departmentName(e);
     }
 
-    private String activityIcon(AuditTrail a) {
-        String type = a.getEntityType() != null ? a.getEntityType().toLowerCase(Locale.ENGLISH) : "";
-        if (type.contains("employee")) return "person";
-        if (type.contains("leave")) return "event_busy";
-        if (type.contains("payroll")) return "payments";
-        if (type.contains("department")) return "domain";
-        return "history";
-    }
-
     private String payrollStatusKind(String status) {
         return switch (status) {
             case "PAID", "DISBURSED", "COMPLETED", "APPROVED" -> "success";
@@ -231,13 +238,6 @@ public class DashboardService {
             case "DRAFT", "NONE" -> "neutral";
             default -> "warn"; // PENDING_APPROVAL, DISBURSING, etc.
         };
-    }
-
-    private String statusCodeKind(Integer code) {
-        if (code == null) return "neutral";
-        if (code < 300) return "success";
-        if (code < 400) return "neutral";
-        return "error";
     }
 
     /** Turn "PENDING_APPROVAL" / "create_employee" into "Pending Approval" / "Create Employee". */

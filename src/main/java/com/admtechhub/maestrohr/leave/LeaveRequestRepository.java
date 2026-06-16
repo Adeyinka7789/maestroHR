@@ -97,4 +97,17 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
     @Query("SELECT l.status, COUNT(l) FROM LeaveRequest l " +
             "WHERE l.employee.tenant.id = :tenantId GROUP BY l.status")
     List<Object[]> countByStatusForTenant(@Param("tenantId") UUID tenantId);
+
+    // Backs the dashboard "Leave taken this month" glance metric: tenant-wide sum of
+    // approved leave days for requests that overlap [periodStart, periodEnd]. Sums the
+    // full daysRequested of each overlapping request rather than clamping to the period
+    // boundaries — a request spanning a month edge is counted whole. This is an
+    // at-a-glance figure, so the small edge overcount is acceptable and avoids a
+    // per-request day-by-day clamp on the dashboard hot path.
+    @Query("SELECT COALESCE(SUM(l.daysRequested), 0) FROM LeaveRequest l " +
+            "WHERE l.employee.tenant.id = :tenantId AND l.status = 'APPROVED' " +
+            "AND l.startDate <= :periodEnd AND l.endDate >= :periodStart")
+    long sumApprovedLeaveDaysInRange(@Param("tenantId") UUID tenantId,
+                                     @Param("periodStart") LocalDate periodStart,
+                                     @Param("periodEnd") LocalDate periodEnd);
 }

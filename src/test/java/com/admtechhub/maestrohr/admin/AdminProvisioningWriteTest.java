@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * cleanup conventions, which this test follows.
  */
 @SpringBootTest
+@WithMockUser(roles = "SUPER_ADMIN")  // AdminManagementController is @PreAuthorize SUPER_ADMIN
 class AdminProvisioningWriteTest {
 
     @Autowired private AdminManagementController controller;

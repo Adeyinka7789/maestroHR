@@ -64,10 +64,9 @@ public class PageController {
         return htmxRequest != null ? "forward:/settings.html" : "forward:/layout.html";
     }
 
-    @GetMapping("/htmx/admin")
-    public String admin(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/admin.html" : "forward:/layout.html";
-    }
+    // NOTE: /htmx/admin is owned by SuperAdminDashboardController (server-rendered platform
+    //       dashboard fragment, Option 3 pattern). static/admin.html remains on disk as the
+    //       legacy tenant/user-management console until that view is rebuilt.
 
     @GetMapping("/htmx/admin/pricing")
     public String adminPricing(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
