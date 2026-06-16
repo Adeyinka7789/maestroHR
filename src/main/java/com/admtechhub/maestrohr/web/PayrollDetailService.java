@@ -1,0 +1,112 @@
+package com.admtechhub.maestrohr.web;
+
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.payroll.PayrollEntry;
+import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
+import com.admtechhub.maestrohr.payroll.PayrollRun;
+import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
+import com.admtechhub.maestrohr.payroll.PayrollStatus;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
+import static com.admtechhub.maestrohr.web.PayrollListService.formatNaira;
+import static com.admtechhub.maestrohr.web.PayrollListService.humanize;
+import static com.admtechhub.maestrohr.web.PayrollListService.periodLabel;
+import static com.admtechhub.maestrohr.web.PayrollListService.statusKind;
+
+/**
+ * Assembles the server-rendered {@link PayrollDetailView} for a single payroll run
+ * (statutory summary + per-employee breakdown). The run is looked up tenant-scoped via
+ * the {@code @SQLRestriction} on {@link PayrollRun}, so a run from another tenant is
+ * simply "not found". Reuses the formatting/status helpers from
+ * {@link PayrollListService} to keep the two payroll views consistent.
+ *
+ * SCOPE (Step B): read-only. The {@code canSubmit / canApprove / canReject / editable}
+ * flags are derived from the run's status so the template can render the Step C/D action
+ * buttons correctly; the write handlers are deferred.
+ */
+@Service
+@RequiredArgsConstructor
+public class PayrollDetailService {
+
+    private static final DateTimeFormatter DATE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("dd MMM uuuu, HH:mm", Locale.ENGLISH);
+
+    private final PayrollRunRepository payrollRunRepository;
+    private final PayrollEntryRepository payrollEntryRepository;
+
+    @Transactional(readOnly = true)
+    public PayrollDetailView build(UUID payrollRunId) {
+        PayrollRun run = payrollRunRepository.findById(payrollRunId)
+                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
+
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollDetailView.EntryRow> rows = entries.stream().map(this::toEntryRow).toList();
+
+        String statusName = run.getStatus() != null ? run.getStatus().name() : PayrollStatus.DRAFT.name();
+
+        return new PayrollDetailView(
+                run.getId(),
+                run.getPeriod(),
+                periodLabel(run),
+                statusName,
+                humanize(statusName),
+                statusKind(statusName),
+
+                formatNaira(run.getTotalGross()),
+                formatNaira(run.getTotalNet()),
+                formatNaira(run.getTotalPaye()),
+                formatNaira(run.getTotalPensionEmployee()),
+                formatNaira(run.getTotalPensionEmployer()),
+                formatNaira(run.getTotalNhf()),
+                rows.size(),
+
+                run.getInitiatedBy() != null ? run.getInitiatedBy().getEmail() : "—",
+                run.getApprovedBy() != null ? run.getApprovedBy().getEmail() : null,
+                run.getApprovedAt() != null ? run.getApprovedAt().format(DATE_TIME_FORMAT) : "—",
+                run.getRejectionReason(),
+
+                run.isEditable(),
+                run.canSubmit(),
+                run.canApprove(),
+                run.canReject(),
+
+                rows);
+    }
+
+    // ── row mapping ──────────────────────────────────────────────────────────────────
+
+    private PayrollDetailView.EntryRow toEntryRow(PayrollEntry e) {
+        Employee emp = e.getEmployee();
+        String name = emp != null && emp.getFullName() != null ? emp.getFullName() : "Deleted employee";
+        String number = emp != null && emp.getEmployeeNumber() != null ? emp.getEmployeeNumber() : "—";
+        String initials = emp != null
+                ? initials(emp.getFirstName(), emp.getLastName())
+                : "?";
+        return new PayrollDetailView.EntryRow(
+                e.getId(),
+                name,
+                number,
+                initials,
+                formatNaira(e.getGrossSalary()),
+                formatNaira(e.getPayeTax()),
+                formatNaira(e.getPensionEmployee()),
+                formatNaira(e.getNhfDeduction()),
+                formatNaira(e.getUnpaidLeaveDeduction()),
+                formatNaira(e.getAttendanceDeduction()),
+                e.getLateDaysInPeriod() != null ? e.getLateDaysInPeriod() : 0,
+                formatNaira(e.getNetSalary()));
+    }
+
+    private String initials(String first, String last) {
+        char a = first != null && !first.isBlank() ? first.charAt(0) : '?';
+        char b = last != null && !last.isBlank() ? last.charAt(0) : ' ';
+        return (String.valueOf(a) + b).trim().toUpperCase(Locale.ENGLISH);
+    }
+}

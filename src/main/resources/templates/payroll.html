@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--
+  payroll.html — server-rendered HTMX fragment (Option 3), companion to the
+  leave / attendance / employees pages. Rendered by PayrollListController as
+  "payroll :: content" and swapped into #page-content in layout.html. Styled with the
+  Stitch design system tokens compiled into /css/dashboard.css (see
+  tailwind.config.js `content`).
+
+  This is the HR-admin / finance-facing payroll-run history + approval queue.
+
+  Two fragments:
+   - content : header + search bar (#payroll-filters) + results container (#payroll-table)
+   - table   : the status chip strip (All/Draft/Pending Approval/Approved/Disbursing/
+               Completed/Rejected with tenant-wide counts) + a hidden status carrier +
+               the runs table. This whole block is the swap target for both the search
+               box and the chips (GET /htmx/payroll/table).
+
+  State plumbing mirrors leave.html:
+   - The search box lives in `content` (NOT re-rendered on swaps) so the typed term and
+     input focus persist; it carries the active status filter via
+     hx-include="#payroll-active-status".
+   - Each chip carries its own status in the hx-get URL and pulls the current search
+     term along via hx-include="[name='q']".
+   - Each row's "Open" navigates to the run detail (GET /htmx/payroll/{id}) swapping the
+     whole #page-content and pushing the URL so back/forward and refresh work.
+
+  SCOPE (Step A): read-only list + status filter + search. The write workflows —
+  initiate, compute, submit, approve, reject, disburse — are deferred to later,
+  separately-reviewed steps because they move money; static/payroll.html remains on disk
+  as the legacy fallback until this fragment is browser-verified.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document;
+  only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Payroll Runs</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Review monthly payroll runs and their approval status
+            </p>
+        </div>
+    </div>
+
+    <!--
+      Search bar — lives in `content` (NOT re-rendered on table swaps) so the user's
+      typed search persists across swaps. It carries the active status filter via
+      hx-include="#payroll-active-status" so searching stays within the selected status.
+    -->
+    <div id="payroll-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Search by period or initiator…"
+                   autocomplete="off"
+                   hx-get="/htmx/payroll/table" hx-target="#payroll-table" hx-swap="innerHTML"
+                   hx-include="#payroll-active-status" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+    </div>
+
+    <!-- Results container (chip strip + table) — the swap target for search / chips -->
+    <div id="payroll-table" th:insert="~{payroll :: table}"></div>
+</div>
+
+<!-- ============================= TABLE ============================= -->
+<div th:fragment="table">
+
+    <!--
+      Hidden carrier for the active status filter. The search box (outside this fragment)
+      includes it via hx-include="#payroll-active-status"; a null status (the "All" chip)
+      renders no value attribute, which submits as status="" → All.
+    -->
+    <input type="hidden" id="payroll-active-status" name="status" th:value="${view.status}">
+
+    <!-- Status chip strip with tenant-wide counts -->
+    <div class="flex flex-wrap gap-sm mb-md">
+        <button th:each="chip : ${view.statusChips}" type="button"
+                th:attr="hx-get='/htmx/payroll/table?status=' + ${chip.value}"
+                hx-target="#payroll-table" hx-swap="innerHTML" hx-include="[name='q']"
+                th:classappend="${chip.selected} ? 'bg-primary text-white border-primary' : 'bg-white text-on-surface border-outline-variant hover:bg-surface-container-low'"
+                class="flex items-center gap-xs px-4 py-2 rounded-lg border font-label-md text-label-md transition-colors">
+            <span th:text="${chip.label}">Pending Approval</span>
+            <span th:text="${chip.count}"
+                  th:classappend="${chip.selected} ? 'bg-white text-primary' : 'bg-surface-container text-on-surface-variant'"
+                  class="px-2 py-0.5 rounded-full text-[11px] font-bold">3</span>
+        </button>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Period</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employees</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Net Total</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Initiated By</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Created</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <p class="font-label-md text-label-md text-on-surface" th:text="${row.periodLabel}">June 2026</p>
+                        <p class="font-body-sm text-[12px] text-on-surface-variant" th:text="${row.period}">2026-06</p>
+                    </td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${row.statusLabel}">Pending Approval</span>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.entryCount}">42</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface text-right whitespace-nowrap" th:text="${row.netTotalFormatted}">₦1,234,567.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.initiatedByEmail}">hr@acme.test</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant whitespace-nowrap" th:text="${row.createdFormatted}">01 Jun 2026</td>
+                    <td class="px-md py-md text-right whitespace-nowrap">
+                        <a th:href="'/htmx/payroll/' + ${row.id}"
+                           th:attr="hx-get='/htmx/payroll/' + ${row.id}"
+                           hx-target="#page-content" hx-swap="innerHTML" hx-push-url="true"
+                           class="inline-flex items-center gap-xs px-3 py-1.5 rounded-lg border border-outline-variant bg-white text-primary font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                            Open
+                        </a>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="7" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No payroll runs found</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search or status filter.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

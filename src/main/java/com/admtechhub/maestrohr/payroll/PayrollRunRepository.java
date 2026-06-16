@@ -48,4 +48,12 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
     Optional<PayrollRun> findTopByTenant_IdOrderByCreatedAtDesc(UUID tenantId);
 
     List<PayrollRun> findAllByTenant_IdOrderByCreatedAtDesc(UUID tenantId);
+
+    // Per-status run counts for the whole tenant, backing the payroll list filter-chip
+    // counts (so they reflect the full data set, not the filtered view). Returns rows of
+    // [PayrollStatus, Long]; statuses with zero runs are absent. Mirrors
+    // LeaveRequestRepository#countByStatusForTenant.
+    @Query("SELECT p.status, COUNT(p) FROM PayrollRun p " +
+            "WHERE p.tenant.id = :tenantId GROUP BY p.status")
+    List<Object[]> countByStatusForTenant(@Param("tenantId") UUID tenantId);
 }

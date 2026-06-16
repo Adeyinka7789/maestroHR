@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<!--
+  payroll-detail.html — server-rendered HTMX fragment (Option 3), companion to
+  payroll.html. Rendered by PayrollDetailController as "payroll-detail :: content"
+  (and "payroll-detail :: notFound" for an unknown / cross-tenant run id) and swapped
+  into #page-content in layout.html. Styled with the Stitch design system tokens
+  compiled into /css/dashboard.css (see tailwind.config.js `content`).
+
+  Two fragments:
+   - content  : back link + run header (period, status, initiated/approved by) + six
+                statutory summary cards + the per-employee entries table + a (currently
+                disabled) action-button row.
+   - notFound : a clean "Run not found" message + a back link, served with HTTP 404 when
+                the id doesn't resolve in the current tenant.
+
+  SCOPE (Step B): read-only detail. The submit / approve / reject / disburse writes are
+  deferred to later, separately-reviewed steps because they move money; the action
+  buttons are rendered (gated by the run's status flags) but DISABLED — Step C wires the
+  hx-post handlers and the segregation-of-duties role checks. static/payroll-detail.html
+  remains on disk as the legacy fallback until this fragment is browser-verified.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document;
+  only the th:fragment nodes are emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Back link -->
+    <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content" hx-swap="innerHTML" hx-push-url="true"
+       class="inline-flex items-center gap-xs mb-md font-label-md text-label-md text-primary hover:underline">
+        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        Payroll Runs
+    </a>
+
+    <!-- Run header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <div class="flex items-center gap-sm mb-xs">
+                <h1 class="font-headline-lg text-headline-lg text-primary" th:text="${view.periodLabel}">June 2026</h1>
+                <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                      th:classappend="${view.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (view.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (view.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                      th:text="${view.statusLabel}">Pending Approval</span>
+            </div>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">
+                Initiated by <span class="text-on-surface" th:text="${view.initiatedByEmail}">hr@acme.test</span>
+                <span th:if="${view.approvedByEmail}">
+                    · Approved by <span class="text-on-surface" th:text="${view.approvedByEmail}">finance@acme.test</span>
+                    <span th:text="'(' + ${view.approvedAtFormatted} + ')'">(02 Jun 2026, 10:15)</span>
+                </span>
+            </p>
+            <!-- Rejection reason, only when the run was rejected -->
+            <div th:if="${view.rejectionReason}" role="alert"
+                 class="flex items-center gap-sm mt-sm px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+                <span class="material-symbols-outlined text-[20px]">error</span>
+                <span>Rejected: <span th:text="${view.rejectionReason}">Figures need review</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statutory / summary cards -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-md mb-lg">
+        <div class="bg-white border border-outline-variant p-md rounded-xl">
+            <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Total Gross</p>
+            <h2 class="font-headline-md text-headline-md text-on-surface mt-xs" th:text="${view.grossTotalFormatted}">₦42,500,000.00</h2>
+        </div>
+        <div class="bg-white border border-outline-variant p-md rounded-xl">
+            <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Total Net</p>
+            <h2 class="font-headline-md text-headline-md text-primary mt-xs" th:text="${view.netTotalFormatted}">₦35,000,000.00</h2>
+        </div>
+        <div class="bg-white border border-outline-variant p-md rounded-xl">
+            <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Total PAYE</p>
+            <h2 class="font-headline-md text-headline-md text-on-surface mt-xs" th:text="${view.payeTotalFormatted}">₦4,200,000.00</h2>
+        </div>
+        <div class="bg-white border border-outline-variant p-md rounded-xl">
+            <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Pension (Employee)</p>
+            <h2 class="font-headline-md text-headline-md text-on-surface mt-xs" th:text="${view.pensionEmployeeFormatted}">₦2,100,000.00</h2>
+        </div>
+        <div class="bg-white border border-outline-variant p-md rounded-xl">
+            <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Pension (Employer)</p>
+            <h2 class="font-headline-md text-headline-md text-on-surface mt-xs" th:text="${view.pensionEmployerFormatted}">₦2,600,000.00</h2>
+        </div>
+        <div class="bg-white border border-outline-variant p-md rounded-xl">
+            <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Total NHF</p>
+            <h2 class="font-headline-md text-headline-md text-on-surface mt-xs" th:text="${view.nhfTotalFormatted}">₦1,050,000.00</h2>
+        </div>
+    </div>
+
+    <!-- Entries table -->
+    <div class="flex items-center justify-between mb-sm">
+        <h2 class="font-headline-sm text-headline-sm text-on-surface">
+            Employee Breakdown
+            <span class="font-body-sm text-body-sm text-on-surface-variant" th:text="'(' + ${view.entryCount} + ')'">(42)</span>
+        </h2>
+    </div>
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employee</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Gross</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">PAYE</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Pension</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">NHF</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Unpaid Leave</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Absence</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Net</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
+                                 th:text="${row.employeeInitials}">TS</div>
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${row.employeeName}">Tayo Shonibare</p>
+                                <p class="font-body-sm text-[12px] text-on-surface-variant" th:text="${row.employeeNumber}">E001</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface text-right whitespace-nowrap" th:text="${row.grossFormatted}">₦1,000,000.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.payeFormatted}">₦120,000.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.pensionEmployeeFormatted}">₦50,000.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.nhfFormatted}">₦25,000.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.unpaidLeaveDeductionFormatted}">₦0.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.attendanceDeductionFormatted}">₦0.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface text-right whitespace-nowrap font-bold" th:text="${row.netFormatted}">₦680,000.00</td>
+                </tr>
+
+                <!-- Empty state — an uncomputed draft has no entries yet -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="8" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No entries yet</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">This run has not been computed.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!--
+      Action buttons — rendered per the run's status flags but DISABLED for now. Step C
+      wires the hx-post handlers (submit/approve/reject) and the segregation-of-duties
+      role gates (approve is FINANCE_OFFICER / SUPER_ADMIN only). They are shown disabled
+      so the layout and gating are reviewable ahead of the write step.
+    -->
+    <div class="flex flex-wrap justify-end gap-sm mt-lg"
+         th:if="${view.canSubmit or view.canApprove or view.canReject}">
+        <button type="button" disabled th:if="${view.canSubmit}"
+                class="px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md opacity-50 cursor-not-allowed">
+            Submit for Approval
+        </button>
+        <button type="button" disabled th:if="${view.canApprove}"
+                class="px-4 py-2 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md opacity-50 cursor-not-allowed">
+            Approve
+        </button>
+        <button type="button" disabled th:if="${view.canReject}"
+                class="px-4 py-2 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md opacity-50 cursor-not-allowed">
+            Reject
+        </button>
+    </div>
+</div>
+
+<!-- ============================ NOT FOUND ============================ -->
+<div th:fragment="notFound" class="font-body-md text-on-surface">
+    <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content" hx-swap="innerHTML" hx-push-url="true"
+       class="inline-flex items-center gap-xs mb-md font-label-md text-label-md text-primary hover:underline">
+        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+        Payroll Runs
+    </a>
+    <div class="bg-white border border-outline-variant rounded-xl p-xl text-center">
+        <span class="material-symbols-outlined text-[40px] text-on-surface-variant">search_off</span>
+        <p class="font-headline-sm text-headline-sm text-on-surface mt-sm mb-xs">Run not found</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+            This payroll run doesn't exist or isn't available in your organisation.
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

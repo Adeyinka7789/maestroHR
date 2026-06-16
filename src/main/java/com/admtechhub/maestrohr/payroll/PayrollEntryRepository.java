@@ -57,4 +57,11 @@ public interface PayrollEntryRepository extends JpaRepository<PayrollEntry, UUID
     // Find a specific payroll entry by payroll run ID and employee ID
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.payrollRun.id = :payrollRunId AND pe.employee.id = :employeeId")
     Optional<PayrollEntry> findByPayrollRunIdAndEmployeeId(@Param("payrollRunId") UUID payrollRunId, @Param("employeeId") UUID employeeId);
+
+    // Per-run entry counts for the whole tenant, backing the payroll list's "employees"
+    // column without lazy-loading every run's full entry collection. Returns rows of
+    // [runId (UUID), Long]; runs with no entries (uncomputed drafts) are absent.
+    @Query("SELECT e.payrollRun.id, COUNT(e) FROM PayrollEntry e " +
+            "WHERE e.payrollRun.tenant.id = :tenantId GROUP BY e.payrollRun.id")
+    List<Object[]> countEntriesByRunForTenant(@Param("tenantId") UUID tenantId);
 }
