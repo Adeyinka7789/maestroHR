@@ -4,7 +4,11 @@ import com.admtechhub.maestrohr.attendance.AttendanceRecord;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
 import com.admtechhub.maestrohr.attendance.AttendanceStatus;
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +51,11 @@ public class AttendanceListService {
             AttendanceStatus.ABSENT,
             AttendanceStatus.HALF_DAY);
 
+    /** Upper bound on employees loaded into the "Mark Attendance" picker (no pagination on this form). */
+    private static final int MAX_EMPLOYEES = 2000;
+
     private final AttendanceRepository attendanceRepository;
+    private final EmployeeRepository employeeRepository;
 
     @Transactional(readOnly = true)
     public AttendanceListView buildList(LocalDate date, String search, AttendanceStatus status) {
@@ -66,7 +74,25 @@ public class AttendanceListService {
                 day.format(DATE_FORMAT),
                 normalizedSearch,
                 status == null ? null : status.name(),
-                buildChips(tenantId, day, status));
+                buildChips(tenantId, day, status),
+                loadEmployees(tenantId));
+    }
+
+    // ── employee picker (Mark Attendance form) ──────────────────────────────────────
+
+    /** Tenant roster for the Mark form's employee dropdown, name-sorted; mirrors the calendar picker. */
+    private List<AttendanceListView.EmployeeOption> loadEmployees(UUID tenantId) {
+        return employeeRepository
+                .findAllByTenantId(tenantId, PageRequest.of(0, MAX_EMPLOYEES, Sort.by("firstName", "lastName")))
+                .map(e -> new AttendanceListView.EmployeeOption(e.getId(), optionLabel(e)))
+                .getContent();
+    }
+
+    private String optionLabel(Employee e) {
+        String number = e.getEmployeeNumber();
+        return (number == null || number.isBlank())
+                ? e.getFullName()
+                : e.getFullName() + " (" + number + ")";
     }
 
     // ── chips ──────────────────────────────────────────────────────────────────
@@ -97,10 +123,13 @@ public class AttendanceListService {
         String statusName = r.getStatus() != null ? r.getStatus().name() : AttendanceStatus.PRESENT.name();
         return new AttendanceListView.Row(
                 r.getId(),
+                r.getEmployee().getId(),
                 r.getEmployee().getFullName(),
                 initials(r.getEmployee().getFirstName(), r.getEmployee().getLastName()),
                 formatTime(r.getClockInTime()),
                 formatTime(r.getClockOutTime()),
+                timeValue(r.getClockInTime()),
+                timeValue(r.getClockOutTime()),
                 formatHours(r.getHoursWorked()),
                 statusName,
                 humanize(statusName),
@@ -121,6 +150,11 @@ public class AttendanceListService {
 
     private String formatTime(LocalTime time) {
         return time == null ? "—" : time.format(TIME_FORMAT);
+    }
+
+    /** Raw "HH:mm" value for an Edit form's {@code <input type=time>}, or "" when not set. */
+    private String timeValue(LocalTime time) {
+        return time == null ? "" : time.format(TIME_FORMAT);
     }
 
     private String formatHours(BigDecimal hours) {

@@ -97,9 +97,10 @@ public class AttendanceController {
             @RequestParam LocalDate date,
             @RequestParam AttendanceStatus status,
             @RequestParam(required = false) String clockInTime,
-            @RequestParam(required = false) String clockOutTime) {
+            @RequestParam(required = false) String clockOutTime,
+            @RequestParam(required = false) String notes) {
 
-        AttendanceRecordDTO record = attendanceService.markAttendance(employeeId, date, status, clockInTime, clockOutTime);
+        AttendanceRecordDTO record = attendanceService.markAttendance(employeeId, date, status, clockInTime, clockOutTime, notes);
         return ResponseEntity.ok(ApiResponse.success("Attendance marked successfully", record));
     }
 

@@ -62,6 +62,19 @@
     </button>
 </div>
 
+<!--
+  ===================== STATUS OPTIONS (Step C) =====================
+  The four HR-markable statuses for the Mark Attendance / per-row Edit <select>s. ON_LEAVE is
+  deliberately excluded — those records are created by the leave module, not marked here (the
+  per-row Edit is likewise hidden on ON_LEAVE rows). `selected` is the raw status name to pre-select.
+-->
+<th:block th:fragment="statusOptions(selected)">
+    <option value="PRESENT"  th:selected="${selected == 'PRESENT'}">Present</option>
+    <option value="ABSENT"   th:selected="${selected == 'ABSENT'}">Absent</option>
+    <option value="LATE"     th:selected="${selected == 'LATE'}">Late</option>
+    <option value="HALF_DAY" th:selected="${selected == 'HALF_DAY'}">Half Day</option>
+</th:block>
+
 <!-- ============================ CONTENT ============================ -->
 <div th:fragment="content" class="font-body-md text-on-surface">
 
@@ -73,6 +86,83 @@
                 Daily attendance roster for your team
             </p>
         </div>
+
+        <!--
+          Mark Attendance (Step C) — HR/manager write for ANY employee on ANY (non-future) day.
+          An inline <details> dropdown (no modal), mirroring the leave page's inline forms. Posts
+          to /htmx/attendance/mark and swaps the whole #page-content so the date picker, chips, and
+          roster re-render for the marked day. data-confirm-absent makes the layout.js htmx:confirm
+          hook prompt only when the chosen status is ABSENT (the pay-reducing case). The date defaults
+          to the day being viewed but stays editable for back-dating.
+        -->
+        <details class="relative" data-popover>
+            <summary class="list-none cursor-pointer inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                <span class="material-symbols-outlined text-[20px]">edit_calendar</span>
+                Mark Attendance
+            </summary>
+            <form hx-post="/htmx/attendance/mark" hx-target="#page-content" hx-swap="innerHTML"
+                  hx-include="[name='q']" data-confirm-absent
+                  class="absolute right-0 z-20 mt-xs w-[360px] p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                <p class="font-label-md text-label-md text-on-surface mb-sm">Mark attendance</p>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Employee</label>
+                <select name="employeeId" required
+                        class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <option value="">Select an employee…</option>
+                    <option th:each="emp : ${view.employees}" th:value="${emp.id}" th:text="${emp.label}">Jane Doe (E001)</option>
+                </select>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Date</label>
+                <input type="date" name="date" th:value="${view.date}" required
+                       class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Status</label>
+                <select name="status"
+                        class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <th:block th:replace="~{attendance :: statusOptions('PRESENT')}"></th:block>
+                </select>
+
+                <div class="grid grid-cols-2 gap-sm mb-sm">
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Clock In</label>
+                        <input type="time" name="clockInTime"
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Clock Out</label>
+                        <input type="time" name="clockOutTime"
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Notes (optional)</label>
+                <input type="text" name="notes" placeholder="Optional note…"
+                       class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                        Save
+                    </button>
+                </div>
+            </form>
+        </details>
+    </div>
+
+    <!--
+      Mark result banners (Step C). Rendered only after a Mark Attendance POST re-renders this
+      `content` fragment — success (the row was saved) or error (a guard rejected it: future date,
+      reversed clock times, bad time, unknown employee). Absent on the plain GET/tab load.
+    -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${success}">Attendance saved.</span>
+    </div>
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Cannot mark attendance for a future date</span>
     </div>
 
     <!-- Today / Calendar toggle -->
@@ -147,6 +237,7 @@
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Clock Out</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Hours</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant">
@@ -166,11 +257,64 @@
                               th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
                               th:text="${row.statusLabel}">Present</span>
                     </td>
+
+                    <!--
+                      Per-row Edit (Step C) — inline <details> form pre-filled with this row's
+                      employee (hidden), the viewed day (hidden), and the current status / clock
+                      times. Hidden on ON_LEAVE rows (leave-driven, not HR-markable here). Posts to
+                      the same /htmx/attendance/mark and swaps #page-content; data-confirm-absent
+                      prompts only when the chosen status is ABSENT. Leaving Notes blank keeps any
+                      existing note (the service only overwrites notes when a non-blank value is sent).
+                    -->
+                    <td class="px-md py-md text-right whitespace-nowrap">
+                        <details th:if="${row.statusName != 'ON_LEAVE'}" class="relative inline-block text-left" data-popover>
+                            <summary class="list-none cursor-pointer px-3 py-1.5 rounded-lg border border-outline-variant bg-white text-on-surface font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                                Edit
+                            </summary>
+                            <form hx-post="/htmx/attendance/mark" hx-target="#page-content" hx-swap="innerHTML"
+                                  hx-include="[name='q']" data-confirm-absent
+                                  class="absolute right-0 z-20 mt-xs w-[320px] p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                                <input type="hidden" name="employeeId" th:value="${row.employeeId}">
+                                <input type="hidden" name="date" th:value="${view.date}">
+                                <p class="font-label-md text-label-md text-on-surface mb-sm" th:text="${row.employeeName}">Tayo Shonibare</p>
+
+                                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Status</label>
+                                <select name="status"
+                                        class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                                    <th:block th:replace="~{attendance :: statusOptions(${row.statusName})}"></th:block>
+                                </select>
+
+                                <div class="grid grid-cols-2 gap-sm mb-sm">
+                                    <div>
+                                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Clock In</label>
+                                        <input type="time" name="clockInTime" th:value="${row.clockInValue}"
+                                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Clock Out</label>
+                                        <input type="time" name="clockOutTime" th:value="${row.clockOutValue}"
+                                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                                    </div>
+                                </div>
+
+                                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Notes (optional)</label>
+                                <input type="text" name="notes" placeholder="Leave blank to keep existing…"
+                                       class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+
+                                <div class="flex justify-end">
+                                    <button type="submit"
+                                            class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                        Save
+                                    </button>
+                                </div>
+                            </form>
+                        </details>
+                    </td>
                 </tr>
 
                 <!-- Empty state -->
                 <tr th:if="${view.rows.isEmpty()}">
-                    <td colspan="5" class="px-md py-xl text-center">
+                    <td colspan="6" class="px-md py-xl text-center">
                         <p class="font-label-md text-label-md text-on-surface mb-xs">No attendance records found</p>
                         <p class="font-body-sm text-body-sm text-on-surface-variant">Try a different date, search, or status filter.</p>
                     </td>

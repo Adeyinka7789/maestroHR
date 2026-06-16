@@ -36,16 +36,22 @@ class AttendanceTemplateRenderTest {
                 new AttendanceListView.StatusChip("HALF_DAY", "Half Day", 1, "HALF_DAY".equals(active)));
     }
 
+    private static List<AttendanceListView.EmployeeOption> markEmployees() {
+        return List.of(
+                new AttendanceListView.EmployeeOption(UUID.randomUUID(), "Tayo Shonibare (E001)"),
+                new AttendanceListView.EmployeeOption(UUID.randomUUID(), "Amaka Obi (E002)"));
+    }
+
     private static AttendanceListView viewWithRows() {
         AttendanceListView.Row present = new AttendanceListView.Row(
-                UUID.randomUUID(), "Tayo Shonibare", "TS",
-                "09:05", "17:30", "8.25", "PRESENT", "Present", "success");
+                UUID.randomUUID(), UUID.randomUUID(), "Tayo Shonibare", "TS",
+                "09:05", "17:30", "09:05", "17:30", "8.25", "PRESENT", "Present", "success");
         AttendanceListView.Row absent = new AttendanceListView.Row(
-                UUID.randomUUID(), "Amaka Obi", "AO",
-                "—", "—", "—", "ABSENT", "Absent", "error");
+                UUID.randomUUID(), UUID.randomUUID(), "Amaka Obi", "AO",
+                "—", "—", "", "", "—", "ABSENT", "Absent", "error");
         return new AttendanceListView(
                 List.of(present, absent), 2,
-                "2026-06-15", "Monday, 15 June 2026", null, null, chips(null));
+                "2026-06-15", "Monday, 15 June 2026", null, null, chips(null), markEmployees());
     }
 
     @Test
@@ -60,6 +66,35 @@ class AttendanceTemplateRenderTest {
         assertTrue(html.contains("value=\"2026-06-15\""), "date picker carries the selected day");
         assertTrue(html.contains("/htmx/attendance/table"), "filters swap the table fragment");
         assertTrue(html.contains("Tayo Shonibare"), "first roster row (results inserted into content)");
+    }
+
+    @Test
+    void contentFragment_rendersMarkAttendanceForm() {
+        Context ctx = new Context();
+        ctx.setVariable("view", viewWithRows());
+
+        String html = templateEngine.process("attendance", Set.of("content"), ctx);
+
+        assertTrue(html.contains("Mark Attendance"), "Mark Attendance trigger present");
+        assertTrue(html.contains("hx-post=\"/htmx/attendance/mark\""), "form posts to the mark endpoint");
+        assertTrue(html.contains("data-confirm-absent"), "ABSENT confirm hook attribute present");
+        assertTrue(html.contains("name=\"employeeId\""), "employee picker present");
+        assertTrue(html.contains("Tayo Shonibare (E001)"), "employee option populated from the roster");
+    }
+
+    @Test
+    void contentFragment_rendersResultBanners() {
+        Context successCtx = new Context();
+        successCtx.setVariable("view", viewWithRows());
+        successCtx.setVariable("success", "Attendance saved for Amaka Obi on 2026-06-15 (ABSENT).");
+        String successHtml = templateEngine.process("attendance", Set.of("content"), successCtx);
+        assertTrue(successHtml.contains("Attendance saved for Amaka Obi"), "success banner rendered");
+
+        Context errorCtx = new Context();
+        errorCtx.setVariable("view", viewWithRows());
+        errorCtx.setVariable("error", "Cannot mark attendance for a future date");
+        String errorHtml = templateEngine.process("attendance", Set.of("content"), errorCtx);
+        assertTrue(errorHtml.contains("Cannot mark attendance for a future date"), "error banner rendered");
     }
 
     @Test
@@ -83,10 +118,25 @@ class AttendanceTemplateRenderTest {
     }
 
     @Test
+    void tableFragment_rendersPerRowEditForm() {
+        Context ctx = new Context();
+        ctx.setVariable("view", viewWithRows());
+
+        String html = templateEngine.process("attendance", Set.of("table"), ctx);
+
+        assertTrue(html.contains("</summary>"), "per-row Edit <details>/<summary> trigger present");
+        assertTrue(html.contains("hx-post=\"/htmx/attendance/mark\""), "Edit form posts to the mark endpoint");
+        assertTrue(html.contains("name=\"employeeId\""), "Edit form carries the row's employee id");
+        assertTrue(html.contains("data-confirm-absent"), "ABSENT confirm hook attribute present");
+        // The PRESENT row's status select pre-selects PRESENT via the shared statusOptions fragment.
+        assertTrue(html.contains("value=\"PRESENT\" selected"), "current status pre-selected in the Edit form");
+    }
+
+    @Test
     void tableFragment_emptyView_rendersEmptyState() {
         Context ctx = new Context();
         ctx.setVariable("view", new AttendanceListView(
-                List.of(), 0, "2026-06-15", "Monday, 15 June 2026", "missing", null, chips(null)));
+                List.of(), 0, "2026-06-15", "Monday, 15 June 2026", "missing", null, chips(null), markEmployees()));
 
         String html = templateEngine.process("attendance", Set.of("table"), ctx);
 

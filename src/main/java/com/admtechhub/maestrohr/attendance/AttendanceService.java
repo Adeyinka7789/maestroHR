@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -72,9 +73,29 @@ public class AttendanceService {
         return toDto(record);
     }
 
+    /**
+     * HR/manager-driven mark: upserts the attendance record for {@code (employeeId, date)} with the
+     * given status and optional clock times + notes. Single source of truth for the REST
+     * {@code /api/attendance/mark} endpoint and the server-rendered web form. This is the
+     * payroll-impacting write — an ABSENT record here drives the attendance deduction in
+     * {@link com.admtechhub.maestrohr.payroll.PayrollEngine}.
+     *
+     * Guards (Step C): rejects a future date and a clock-out that isn't after the clock-in
+     * ({@link IllegalStateException}), and surfaces a malformed time string as
+     * {@link IllegalArgumentException} (via {@link #parseTime}) rather than a 500.
+     *
+     * KNOWN ITEMS (deferred, same treatment as the {@link #checkIn} flip-to-PRESENT and the
+     * negative-balance leave follow-up — they need a deliberate redesign of the update semantics,
+     * not a Step C bundle):
+     *   - on UPDATE, {@code hoursWorked} is recomputed from THIS call's times only, so re-marking
+     *     an existing record with no times nulls out previously-computed hours while leaving the
+     *     stored clock times in place;
+     *   - on UPDATE, {@code checkInMethod} is not reset, so a MANUAL overwrite of a SELF_SERVICE
+     *     record keeps reporting SELF_SERVICE.
+     */
     @Transactional
     public AttendanceRecordDTO markAttendance(UUID employeeId, LocalDate date, AttendanceStatus status,
-                                              String clockInTimeStr, String clockOutTimeStr) {
+                                              String clockInTimeStr, String clockOutTimeStr, String notes) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
@@ -82,13 +103,23 @@ public class AttendanceService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
 
+        // Guard #1: attendance can only be recorded for today or a past day.
+        if (date.isAfter(LocalDate.now())) {
+            throw new IllegalStateException("Cannot mark attendance for a future date");
+        }
+
         // Check if attendance already exists for this employee on this date
         AttendanceRecord record = attendanceRepository
                 .findByEmployeeIdAndAttendanceDate(employeeId, date)
                 .orElse(null);
 
-        LocalTime clockIn = clockInTimeStr != null ? LocalTime.parse(clockInTimeStr) : null;
-        LocalTime clockOut = clockOutTimeStr != null ? LocalTime.parse(clockOutTimeStr) : null;
+        LocalTime clockIn = parseTime(clockInTimeStr);
+        LocalTime clockOut = parseTime(clockOutTimeStr);
+
+        // Guard #3: when both times are supplied, clock-out must be strictly after clock-in.
+        if (clockIn != null && clockOut != null && !clockOut.isAfter(clockIn)) {
+            throw new IllegalStateException("Clock-out time must be after clock-in time");
+        }
 
         BigDecimal hoursWorked = null;
         if (clockIn != null && clockOut != null) {
@@ -109,16 +140,38 @@ public class AttendanceService {
                     .checkInMethod("MANUAL")
                     .build();
         } else {
-            // Update existing record
+            // Update existing record (see KNOWN ITEMS: hoursWorked recompute + checkInMethod).
             record.setStatus(status);
             if (clockIn != null) record.setClockInTime(clockIn);
             if (clockOut != null) record.setClockOutTime(clockOut);
             record.setHoursWorked(hoursWorked);
         }
 
+        // Guard #6: persist optional notes, blank-safe and trimmed (mirrors checkIn/checkOut;
+        // a blank value leaves any existing note untouched rather than clearing it).
+        if (notes != null && !notes.isBlank()) {
+            record.setNotes(notes.trim());
+        }
+
         AttendanceRecord saved = attendanceRepository.save(record);
         log.info("Attendance marked/updated for employee {} on {}: {}", employeeId, date, status);
         return toDto(saved);
+    }
+
+    /**
+     * Parses an "HH:mm" clock-time param, surfacing a malformed value as an
+     * {@link IllegalArgumentException} (→ 400) instead of letting the raw
+     * {@link DateTimeParseException} fall through to the generic 500 handler. Null/blank → null.
+     */
+    private LocalTime parseTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(value.trim());
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid time format (expected HH:mm): " + value);
+        }
     }
 
     @Transactional

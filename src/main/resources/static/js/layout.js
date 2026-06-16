@@ -348,4 +348,22 @@
     });
 
     // Optional: hide skeleton after swap (not needed because content replaces it)
+
+    // ── Conditional confirm for payroll-impacting Mark Attendance (Step C) ──────────
+    // htmx fires htmx:confirm before EVERY request. We only intervene for elements tagged
+    // data-confirm-absent (the Mark Attendance / per-row Edit forms): if the form's chosen
+    // status is ABSENT — the only status that reduces pay — we take over and prompt; for any
+    // other status (or any other request) we return early and let htmx proceed as normal, so
+    // this never interferes with the built-in hx-confirm used elsewhere (e.g. leave approve).
+    document.body.addEventListener('htmx:confirm', function (evt) {
+        const elt = evt.detail.elt;
+        if (!elt || !elt.matches('[data-confirm-absent]')) return;
+        const scope = elt.closest('form') || elt;
+        const status = scope.querySelector('[name="status"]')?.value;
+        if (status !== 'ABSENT') return; // not pay-impacting — proceed without a prompt
+        evt.preventDefault();            // we own the confirm; htmx waits for issueRequest
+        if (window.confirm('Marking this employee ABSENT will reduce their pay for this period. Continue?')) {
+            evt.detail.issueRequest(true); // true = skip any further confirm processing
+        }
+    });
 })();

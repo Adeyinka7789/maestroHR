@@ -28,16 +28,20 @@ public record AttendanceListView(
         String dateFormatted,      // active day humanized, e.g. "Monday, 15 June 2026"
         String search,             // active search term, or null
         String status,             // active status filter raw name (e.g. "PRESENT"), or null for All
-        List<StatusChip> statusChips
+        List<StatusChip> statusChips,
+        List<EmployeeOption> employees   // tenant roster for the "Mark Attendance" form's picker (Step C)
 ) {
 
     /** A single rendered attendance row for the selected day. */
     public record Row(
             UUID id,
+            UUID employeeId,           // the employee the row belongs to — the per-row Edit form's target
             String employeeName,
             String employeeInitials,
-            String clockInFormatted,   // e.g. "09:05", or "—" when not clocked in
-            String clockOutFormatted,  // e.g. "17:30", or "—" when not clocked out
+            String clockInFormatted,   // e.g. "09:05", or "—" when not clocked in (display)
+            String clockOutFormatted,  // e.g. "17:30", or "—" when not clocked out (display)
+            String clockInValue,       // e.g. "09:05", or "" — feeds the Edit form's <input type=time>
+            String clockOutValue,      // e.g. "17:30", or "" — feeds the Edit form's <input type=time>
             String hoursFormatted,     // e.g. "8.25", or "—" when not computed
             String statusName,         // raw enum name, e.g. "PRESENT"
             String statusLabel,        // humanized, e.g. "Present"
@@ -50,5 +54,11 @@ public record AttendanceListView(
             String label,
             long count,
             boolean selected
+    ) {}
+
+    /** An option in the "Mark Attendance" employee picker: id + display label (name + number). */
+    public record EmployeeOption(
+            UUID id,
+            String label
     ) {}
 }
