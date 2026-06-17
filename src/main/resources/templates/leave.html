@@ -23,9 +23,12 @@
    - Each chip carries its own status in the hx-get URL and pulls the current search
      term along via hx-include="[name='q']".
 
-  SCOPE (Step B): read-only list + per-row Approve/Reject write actions on PENDING
-  rows (HTMX posts to /htmx/leave/{id}/approve|reject, re-rendering this fragment).
-  The admin "apply for leave" form remains a deferred follow-up step.
+  SCOPE (Step C): read-only list + per-row Approve/Reject write actions on PENDING
+  rows + an "Apply for Leave" form (HTMX posts to /htmx/leave/{id}/approve|reject and
+  /htmx/leave/apply, re-rendering this fragment). The Apply form is an inline <details>
+  in the header, mirroring the attendance Mark Attendance form: HR/admin can apply on
+  behalf of any employee; a self-service EMPLOYEE has the picker locked to themselves
+  (the server enforces this — see the IDOR guard in LeaveListController#apply).
 
   The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
   document; only the th:fragment nodes are emitted.
@@ -44,6 +47,91 @@
                 Review and track employee leave requests
             </p>
         </div>
+
+        <!--
+          Apply for Leave (Step C) — inline <details> dropdown (no modal), mirroring the
+          attendance Mark Attendance form. Posts to /htmx/leave/apply and swaps the whole
+          #page-content so the new request and the refreshed chip counts re-render. For a
+          self-service EMPLOYEE the picker is locked to their own record: a disabled <select>
+          (display only) plus a hidden employeeId carrier — a disabled control submits no
+          value, so the hidden input is what actually rides along. HR/admin get the full roster.
+        -->
+        <details class="relative" data-popover>
+            <summary class="list-none cursor-pointer inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                <span class="material-symbols-outlined text-[20px]">add</span>
+                Apply for Leave
+            </summary>
+            <form hx-post="/htmx/leave/apply" hx-target="#page-content" hx-swap="innerHTML"
+                  hx-include="[name='q']"
+                  class="absolute right-0 z-20 mt-xs w-[360px] p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                <p class="font-label-md text-label-md text-on-surface mb-sm">Apply for leave</p>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Employee</label>
+                <!-- Locked to self for an EMPLOYEE: disabled select (display) + hidden id carrier. -->
+                <div th:if="${view.isEmployeeRole}" class="mb-sm">
+                    <input type="hidden" name="employeeId" th:value="${view.currentEmployeeId}">
+                    <select disabled
+                            class="w-full px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface-variant">
+                        <option th:each="emp : ${view.employees}" th:text="${emp.label}" selected>You</option>
+                    </select>
+                </div>
+                <!-- Full roster for HR/admin. -->
+                <select th:unless="${view.isEmployeeRole}" name="employeeId" required
+                        class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <option value="">Select an employee…</option>
+                    <option th:each="emp : ${view.employees}" th:value="${emp.id}" th:text="${emp.label}">Jane Doe (E001)</option>
+                </select>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Leave Type</label>
+                <select name="leaveTypeId" required
+                        class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <option value="">Select a leave type…</option>
+                    <option th:each="type : ${view.leaveTypes}" th:value="${type.id}" th:text="${type.name}">Annual Leave</option>
+                </select>
+
+                <div class="grid grid-cols-2 gap-sm mb-sm">
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Start Date</label>
+                        <input type="date" name="startDate" required
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">End Date</label>
+                        <input type="date" name="endDate" required
+                               class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Reason (optional)</label>
+                <textarea name="reason" rows="3" placeholder="Reason for the leave request…"
+                          class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary resize-none"></textarea>
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                        Submit Request
+                    </button>
+                </div>
+            </form>
+        </details>
+    </div>
+
+    <!--
+      Apply result banners (Step C). Rendered only after an /htmx/leave/apply POST re-renders
+      this `content` fragment — success (the request was submitted) or formError (a guard
+      rejected it: insufficient balance, overlapping leave, unknown employee/type, bad dates).
+      Distinct from the table fragment's ${error} (approve/reject) so the two never collide when
+      content inserts the table. Absent on the plain GET/tab load.
+    -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${success}">Leave request submitted.</span>
+    </div>
+    <div th:if="${formError}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${formError}">Insufficient leave balance.</span>
     </div>
 
     <!--

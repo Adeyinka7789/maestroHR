@@ -13,7 +13,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.aop.aspectj.annotation.AspectJProxyFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,6 +51,7 @@ class FeatureCheckAspectTest {
     @AfterEach
     void clearTenant() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     /** Wrap a target in a proxy with the real aspect + real FeatureFlagService. */
@@ -113,6 +118,34 @@ class FeatureCheckAspectTest {
         assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
         // hasFeature is never reached when there is no tenant bound.
         assertFalse(new FeatureFlagService(subscriptionService).isEnabled(SubscriptionFeature.LEAVE_MANAGEMENT));
+    }
+
+    // ── SUPER_ADMIN is exempt: gate is skipped even when the plan lacks the feature ─
+    @Test
+    void superAdmin_bypassesGate_evenWhenPlanLacksFeature() {
+        // Platform owner authenticated. No hasFeature stub: the aspect must short-circuit
+        // before ever consulting the subscription (strict stubs would flag an unused stub).
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        "owner@platform.io", "n/a",
+                        List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))));
+        GatedService svc = proxy(new GatedService());
+
+        assertEquals("done", svc.leaveAction());
+    }
+
+    // ── A non-SUPER_ADMIN principal is still gated normally ────────────────────
+    @Test
+    void nonSuperAdmin_withoutFeature_stillThrows() {
+        when(subscriptionService.hasFeature(CONTEXT_TENANT, SubscriptionFeature.LEAVE_MANAGEMENT))
+                .thenReturn(false);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        "hr@tenant.io", "n/a",
+                        List.of(new SimpleGrantedAuthority("ROLE_HR_ADMIN"))));
+        GatedService svc = proxy(new GatedService());
+
+        assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
     }
 
     // ── 402 mapping in the global handler ──────────────────────────────────────

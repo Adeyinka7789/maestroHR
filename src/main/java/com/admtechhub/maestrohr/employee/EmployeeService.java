@@ -200,7 +200,7 @@ public class EmployeeService {
     }
 
     @Transactional
-    public EmployeeDetailsDTO updateEmployee(UUID id, EmployeeRequest request) {
+    public EmployeeDetailsDTO updateEmployee(UUID id, UpdateEmployeeRequest request) {
         UUID tenantId = getCurrentTenantId();
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));

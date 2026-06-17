@@ -1,10 +1,19 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
+import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.leave.LeaveRequest;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
+import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,11 +46,56 @@ public class LeaveListService {
     private static final List<LeaveStatus> CHIP_STATUSES =
             List.of(LeaveStatus.PENDING, LeaveStatus.APPROVED, LeaveStatus.REJECTED);
 
-    private final LeaveRequestRepository leaveRequestRepository;
+    /** Upper bound on employees loaded into the Apply form's picker (no pagination on this form). */
+    private static final int MAX_EMPLOYEES = 2000;
 
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final EmployeeRepository employeeRepository;
+    private final EmployeeService employeeService;
+    private final LeaveService leaveService;
+
+    /**
+     * Table-only view (the chip strip + table swap target). Leaves the Apply-form fields
+     * empty/false since the {@code table} fragment doesn't reference them — used by the
+     * search/chip swaps and the approve/reject re-renders.
+     */
     @Transactional(readOnly = true)
     public LeaveListView buildList(String search, LeaveStatus status) {
         UUID tenantId = currentTenantId();
+        return assemble(tenantId, search, status, List.of(), List.of(), null, false);
+    }
+
+    /**
+     * Full {@code content} view, including the Apply-for-Leave form's pickers. For a
+     * self-service EMPLOYEE the employee picker is locked to their own record (single
+     * option + {@code isEmployeeRole}=true); anyone else gets the full tenant roster.
+     * Used by the initial page render and the post-submit re-render.
+     */
+    @Transactional(readOnly = true)
+    public LeaveListView buildContent(String search, LeaveStatus status) {
+        UUID tenantId = currentTenantId();
+        boolean employeeRole = isEmployeeRole();
+        EmployeeDetailsDTO self = employeeRole ? currentEmployeeOrNull() : null;
+        UUID currentEmployeeId = self != null ? self.getId() : null;
+
+        List<LeaveListView.EmployeeOption> employees;
+        if (employeeRole) {
+            // Lock the picker to the authenticated employee (one option, or none if no profile).
+            employees = self != null
+                    ? List.of(new LeaveListView.EmployeeOption(self.getId(), self.getFullName()))
+                    : List.of();
+        } else {
+            employees = loadEmployees(tenantId);
+        }
+
+        return assemble(tenantId, search, status, employees, loadLeaveTypes(),
+                currentEmployeeId, employeeRole);
+    }
+
+    private LeaveListView assemble(UUID tenantId, String search, LeaveStatus status,
+                                   List<LeaveListView.EmployeeOption> employees,
+                                   List<LeaveListView.LeaveTypeOption> leaveTypes,
+                                   UUID currentEmployeeId, boolean isEmployeeRole) {
         String normalizedSearch = (search == null || search.isBlank()) ? null : search.trim();
 
         List<LeaveRequest> results =
@@ -53,7 +107,52 @@ public class LeaveListService {
                 rows.size(),
                 normalizedSearch,
                 status == null ? null : status.name(),
-                buildChips(tenantId, status));
+                buildChips(tenantId, status),
+                employees,
+                leaveTypes,
+                currentEmployeeId,
+                isEmployeeRole);
+    }
+
+    // ── Apply-form pickers ───────────────────────────────────────────────────────
+
+    /** Tenant roster for the Apply form's employee dropdown, name-sorted; mirrors the attendance picker. */
+    private List<LeaveListView.EmployeeOption> loadEmployees(UUID tenantId) {
+        return employeeRepository
+                .findAllByTenantId(tenantId, PageRequest.of(0, MAX_EMPLOYEES, Sort.by("firstName", "lastName")))
+                .map(e -> new LeaveListView.EmployeeOption(e.getId(), optionLabel(e)))
+                .getContent();
+    }
+
+    private String optionLabel(Employee e) {
+        String number = e.getEmployeeNumber();
+        return (number == null || number.isBlank())
+                ? e.getFullName()
+                : e.getFullName() + " (" + number + ")";
+    }
+
+    /** Leave types for the Apply form's type dropdown (tenant-scoped via the shared service query). */
+    private List<LeaveListView.LeaveTypeOption> loadLeaveTypes() {
+        return leaveService.getAllLeaveTypes().stream()
+                .map(t -> new LeaveListView.LeaveTypeOption(t.getId(), t.getName()))
+                .toList();
+    }
+
+    /** True when the authenticated user holds the EMPLOYEE role (the self-service surface). */
+    private boolean isEmployeeRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_EMPLOYEE".equals(a.getAuthority()));
+    }
+
+    /** Resolve the authenticated user's own Employee record, or null for admin/owner accounts with no profile. */
+    private EmployeeDetailsDTO currentEmployeeOrNull() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            return auth == null ? null : employeeService.findByEmail(auth.getName());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     // ── chips ──────────────────────────────────────────────────────────────────
