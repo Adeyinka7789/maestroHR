@@ -159,7 +159,8 @@
                     + '; SameSite=Lax'
                     + secure;
 
-                window.location.href = '/dashboard';
+                const role = payload.role || '';
+                window.location.href = role === 'SUPER_ADMIN' ? '/htmx/admin' : '/dashboard';
 
             } catch (err) {
                 console.error('[MaestroHR] Login error:', err);

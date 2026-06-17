@@ -14,7 +14,7 @@
 
     // Redirect root to HTMX dashboard
     if (window.location.pathname === '/') {
-        window.location.href = '/htmx/dashboard';
+        window.location.href = userRole === 'SUPER_ADMIN' ? '/htmx/admin' : '/htmx/dashboard';
         return;
     }
 
@@ -69,10 +69,12 @@
     }
     if (companyName) document.getElementById('sidebar-tenant').textContent = companyName;
 
-    // Show admin section for SUPER_ADMIN only
+    // Show admin section for SUPER_ADMIN only; hide HR nav
     if (userRole === 'SUPER_ADMIN') {
         const adminSection = document.getElementById('admin-section');
         if (adminSection) adminSection.style.display = 'block';
+        const hrSections = document.getElementById('hr-sections');
+        if (hrSections) hrSections.style.display = 'none';
     }
 
     // Hide audit log link for non‑authorized roles
