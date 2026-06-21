@@ -31,6 +31,7 @@ import java.util.UUID;
  */
 @Controller
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
 public class DepartmentsController {
 
     private final DepartmentListService departmentListService;

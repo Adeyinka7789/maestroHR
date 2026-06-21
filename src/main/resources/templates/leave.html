@@ -203,7 +203,7 @@
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Reason</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Submitted</th>
-                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
+                    <th th:if="${view.isHrRole}" class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant">
@@ -243,7 +243,7 @@
                       Both carry the active filter/search via hx-include so the re-rendered
                       view matches what the user was looking at.
                     -->
-                    <td class="px-md py-md text-right whitespace-nowrap">
+                    <td th:if="${view.isHrRole}" class="px-md py-md text-right whitespace-nowrap">
                         <div th:if="${row.statusName == 'PENDING'}" class="inline-flex items-center gap-xs">
                             <button type="button"
                                     th:attr="hx-post='/htmx/leave/' + ${row.id} + '/approve'"

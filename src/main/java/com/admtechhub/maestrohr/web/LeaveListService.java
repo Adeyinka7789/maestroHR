@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -111,7 +112,8 @@ public class LeaveListService {
                 employees,
                 leaveTypes,
                 currentEmployeeId,
-                isEmployeeRole);
+                isEmployeeRole,
+                isHrRole());
     }
 
     // ── Apply-form pickers ───────────────────────────────────────────────────────
@@ -143,6 +145,19 @@ public class LeaveListService {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null && auth.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_EMPLOYEE".equals(a.getAuthority()));
+    }
+
+    /** True when the authenticated user holds an approver role (HR / manager / finance / superadmin). */
+    private boolean isHrRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        return auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).anyMatch(a ->
+                "ROLE_HR_ADMIN".equals(a)
+                        || "ROLE_DEPT_MANAGER".equals(a)
+                        || "ROLE_FINANCE_OFFICER".equals(a)
+                        || "ROLE_SUPER_ADMIN".equals(a));
     }
 
     /** Resolve the authenticated user's own Employee record, or null for admin/owner accounts with no profile. */

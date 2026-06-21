@@ -36,6 +36,15 @@ public class TenantValidationFilter extends OncePerRequestFilter {
         }
 
         if (TenantContext.getCurrentTenant() == null) {
+            // A browser/HTMX navigation (e.g. refresh after the JWT expired) asks for
+            // HTML — send it to the login page instead of dumping a raw JSON body into
+            // the document. Genuine API clients (Accept: application/json) still get 403.
+            String accept = request.getHeader("Accept");
+            if (accept != null && accept.contains("text/html")) {
+                response.sendRedirect("/login");
+                return;
+            }
+
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json");
             response.getWriter().write(

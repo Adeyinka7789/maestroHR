@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +27,7 @@ import java.util.UUID;
  */
 @Controller
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'DEPT_MANAGER', 'SUPER_ADMIN')")
 public class EmployeesController {
 
     private final EmployeeListService employeeListService;

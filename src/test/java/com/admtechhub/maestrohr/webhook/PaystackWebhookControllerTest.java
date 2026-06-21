@@ -8,6 +8,7 @@ import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -61,6 +62,16 @@ class PaystackWebhookControllerTest {
     @Autowired @Qualifier("privilegedJdbcTemplate") private JdbcTemplate privilegedJdbc;
 
     private final List<UUID> createdTenantIds = new ArrayList<>();
+
+    @BeforeEach
+    void cleanupBefore() {
+        // Delete any rows left by a previous crashed run (FK order: children first).
+        privilegedJdbc.update("DELETE FROM invoices WHERE paystack_reference LIKE 'TEST-PHASE-B-%'");
+        privilegedJdbc.update(
+                "DELETE FROM tenant_subscriptions WHERE tenant_id IN "
+                + "(SELECT id FROM tenants WHERE company_name = 'TEST-PHASE-B Webhook Tenant')");
+        privilegedJdbc.update("DELETE FROM tenants WHERE company_name = 'TEST-PHASE-B Webhook Tenant'");
+    }
 
     @AfterEach
     void cleanup() {

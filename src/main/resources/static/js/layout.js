@@ -6,9 +6,31 @@
     const userRole    = localStorage.getItem('maestrohr_role')    || '';
     const companyName = localStorage.getItem('maestrohr_company') || '';
 
-    // Redirect to login if no token (skip login/register pages)
-    if (!token && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+    // Decode a JWT's exp claim and report whether it has passed. A malformed token is
+    // treated as expired; a token with no exp claim is treated as still valid.
+    function isJwtExpired(jwt) {
+        try {
+            const payload = JSON.parse(
+                atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return typeof payload.exp === 'number' && Date.now() >= payload.exp * 1000;
+        } catch {
+            return true;
+        }
+    }
+
+    // Clear stale auth and bounce to login. Single helper so every auth-failure path
+    // (page load, HTMX response, background apiCall) behaves identically.
+    function redirectToLogin() {
+        localStorage.clear();
         window.location.href = '/login';
+    }
+
+    // Redirect to login if the token is missing OR already expired (skip login/register
+    // pages). Checking expiry here avoids firing requests that would just 401/403.
+    const onAuthPage = window.location.pathname.startsWith('/login')
+                    || window.location.pathname.startsWith('/register');
+    if (!onAuthPage && (!token || isJwtExpired(token))) {
+        redirectToLogin();
         return;
     }
 
@@ -33,6 +55,11 @@
                     'Authorization': `Bearer ${token}`,
                     ...(options.headers || {})
                 }
+            }).then(res => {
+                // Token expired/revoked mid-session: bail to login instead of letting
+                // callers render an error from the JSON 401/403 body.
+                if (res.status === 401 || res.status === 403) redirectToLogin();
+                return res;
             });
         },
 
@@ -77,6 +104,30 @@
         if (hrSections) hrSections.style.display = 'none';
     }
 
+    // EMPLOYEE sees only their own pages; hide all HR/admin nav items
+    if (userRole === 'EMPLOYEE') {
+        const allowed = new Set(['dashboard', 'leave', 'attendance-me', 'payslips']);
+        const hrSections = document.getElementById('hr-sections');
+        if (hrSections) {
+            hrSections.querySelectorAll('.nav-item').forEach(el => {
+                if (!allowed.has(el.dataset.route)) el.style.display = 'none';
+            });
+            // Hide section labels whose nav items are all hidden
+            hrSections.querySelectorAll('.nav-section').forEach(section => {
+                let sib = section.nextElementSibling;
+                let hasVisible = false;
+                while (sib && !sib.classList.contains('nav-section')) {
+                    if (sib.classList.contains('nav-item') && sib.style.display !== 'none') {
+                        hasVisible = true;
+                        break;
+                    }
+                    sib = sib.nextElementSibling;
+                }
+                if (!hasVisible) section.style.display = 'none';
+            });
+        }
+    }
+
     // Hide audit log link for non‑authorized roles
     if (userRole !== 'HR_ADMIN' && userRole !== 'SUPER_ADMIN') {
         const auditLink = document.querySelector('a[data-route="audit"]');
@@ -105,7 +156,8 @@
         if (path.startsWith('htmx/')) {
             path = path.substring(5); // remove 'htmx/'
         }
-        const currentRoute = path.split('/')[0] || 'dashboard';
+        // attendance/me has its own route key so EMPLOYEE nav filtering can target it
+        const currentRoute = path === 'attendance/me' ? 'attendance-me' : (path.split('/')[0] || 'dashboard');
 
         document.querySelectorAll('.nav-item').forEach(el => {
             el.classList.toggle('active', el.dataset.route === currentRoute);
@@ -123,6 +175,15 @@
     }
     updateActiveNav();
     document.body.addEventListener('htmx:afterSwap', () => updateActiveNav());
+
+    // ── Redirect to login on auth failure from any HTMX request ─────
+    // Covers nav clicks / fragment swaps that 401/403 after the JWT expires: HTMX fires
+    // htmx:responseError for non-2xx, so we bounce to login rather than swapping the
+    // JSON error body into the page.
+    document.body.addEventListener('htmx:responseError', function (evt) {
+        const status = evt.detail.xhr.status;
+        if (status === 401 || status === 403) redirectToLogin();
+    });
 
     // ── Global search ──────────────────────────────────────────────
     let searchTimer;
@@ -238,10 +299,17 @@
                 headers: { 'HX-Request': 'true' }
             })
             .then(response => {
+                // Session expired between page load and this fetch: go to login rather
+                // than rendering the JSON 401/403 error into the content area.
+                if (response.status === 401 || response.status === 403) {
+                    redirectToLogin();
+                    return null;
+                }
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return response.text();
             })
             .then(html => {
+                if (html === null) return;
                 const contentDiv = document.getElementById('page-content');
                 if (contentDiv) {
                     contentDiv.innerHTML = html;

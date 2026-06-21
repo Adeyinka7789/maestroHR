@@ -25,7 +25,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.BASIC_EMPLOYEES,
             SubscriptionFeature.BASIC_PAYROLL,
             SubscriptionFeature.EMAIL_SUPPORT,
-            SubscriptionFeature.SMS_NOTIFICATIONS
+            SubscriptionFeature.SMS_NOTIFICATIONS,
+            SubscriptionFeature.ATTENDANCE_TRACKING
     ),
     PROFESSIONAL(
             "Professional",
@@ -38,7 +39,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.API_ACCESS,
             SubscriptionFeature.EMAIL_SUPPORT,
             SubscriptionFeature.SMS_NOTIFICATIONS,
-            SubscriptionFeature.LEAVE_MANAGEMENT
+            SubscriptionFeature.LEAVE_MANAGEMENT,
+            SubscriptionFeature.ATTENDANCE_TRACKING
     ),
     ENTERPRISE(
             "Enterprise",

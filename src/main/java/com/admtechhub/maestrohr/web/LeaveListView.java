@@ -36,7 +36,8 @@ public record LeaveListView(
         List<EmployeeOption> employees,    // tenant roster for the Apply form's picker (content builds only)
         List<LeaveTypeOption> leaveTypes,  // leave types for the Apply form's picker (content builds only)
         UUID currentEmployeeId,            // the authenticated user's own employee id, or null (no profile)
-        boolean isEmployeeRole             // true → self-service employee: lock the picker to currentEmployeeId
+        boolean isEmployeeRole,            // true → self-service employee: lock the picker to currentEmployeeId
+        boolean isHrRole                   // true → HR/manager/finance/superadmin: show the approve/reject actions
 ) {
 
     /** A single rendered leave-request row. */

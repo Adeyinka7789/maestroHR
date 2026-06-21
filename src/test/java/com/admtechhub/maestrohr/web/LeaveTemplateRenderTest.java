@@ -49,11 +49,12 @@ class LeaveTemplateRenderTest {
     }
 
     private static LeaveListView viewWithRows() {
-        return viewWithRows(employees(), null, false);
+        return viewWithRows(employees(), null, false, true);
     }
 
     private static LeaveListView viewWithRows(List<LeaveListView.EmployeeOption> employees,
-                                              UUID currentEmployeeId, boolean isEmployeeRole) {
+                                              UUID currentEmployeeId, boolean isEmployeeRole,
+                                              boolean isHrRole) {
         LeaveListView.Row pending = new LeaveListView.Row(
                 UUID.randomUUID(), "Tayo Shonibare", "TS", "Annual Leave",
                 "02 Jun 2025", "06 Jun 2025", 5, "Family event",
@@ -63,7 +64,7 @@ class LeaveTemplateRenderTest {
                 "10 May 2025", "11 May 2025", 2, "Flu",
                 "APPROVED", "Approved", "success", "09 May 2025");
         return new LeaveListView(List.of(pending, approved), 2, null, "PENDING", chips("PENDING"),
-                employees, leaveTypes(), currentEmployeeId, isEmployeeRole);
+                employees, leaveTypes(), currentEmployeeId, isEmployeeRole, isHrRole);
     }
 
     @Test
@@ -99,7 +100,7 @@ class LeaveTemplateRenderTest {
         UUID self = UUID.randomUUID();
         Context ctx = new Context();
         ctx.setVariable("view", viewWithRows(
-                List.of(new LeaveListView.EmployeeOption(self, "Tayo Shonibare (E001)")), self, true));
+                List.of(new LeaveListView.EmployeeOption(self, "Tayo Shonibare (E001)")), self, true, false));
 
         String html = templateEngine.process("leave", Set.of("content"), ctx);
 
@@ -146,7 +147,7 @@ class LeaveTemplateRenderTest {
     void tableFragment_emptyView_rendersEmptyState() {
         Context ctx = new Context();
         ctx.setVariable("view", new LeaveListView(List.of(), 0, "missing", null, chips(null),
-                List.of(), List.of(), null, false));
+                List.of(), List.of(), null, false, true));
 
         String html = templateEngine.process("leave", Set.of("table"), ctx);
 

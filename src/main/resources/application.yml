@@ -17,19 +17,14 @@ spring:
     password: ${APP_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
-# Phase E4b: a second, privileged datasource for the handful of bootstrap and
-# cross-tenant read operations that must see every tenant's rows (login lookups,
-# webhook tenant-resolution, the lapse sweep, admin aggregates). It connects as the
-# table owner / superuser (no set_config wrapper) so it bypasses RLS. Today it shares
-# the primary's postgres credentials; it intentionally keeps its own connection
-# settings so it stays postgres after E4c flips the PRIMARY datasource to maestro_app.
-privileged:
-  datasource:
-    hikari:
-      jdbc-url: ${PRIVILEGED_DB_URL:${DB_URL}}
-      username: ${PRIVILEGED_DB_USERNAME:${DB_USERNAME}}
-      password: ${PRIVILEGED_DB_PASSWORD:${DB_PASSWORD}}
-      driver-class-name: org.postgresql.Driver
+# Phase E4b: a second, privileged (non-pooled) datasource for the handful of bootstrap
+# and cross-tenant operations that must see every tenant's rows (login lookups,
+# webhook tenant-resolution, the lapse sweep, admin aggregates, audit writes). It
+# connects as the table owner / superuser (no set_config wrapper) so it bypasses RLS.
+# Non-pooled (DriverManagerDataSource) to avoid exhausting max_connections when Spring
+# caches multiple test contexts — each context already holds a primary Hikari pool.
+# Credentials are read directly by PrivilegedDataSourceConfig via @Value; no YAML
+# binding block is needed.
 
   jpa:
     hibernate:
