@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<!--
+  department-detail.html — server-rendered HTMX fragment (Option 3), companion to
+  the departments list. Rendered by DepartmentsController as
+  "department-detail :: content" for GET /htmx/departments/{id} and swapped into
+  #page-content. Styled with the Stitch design system tokens compiled into
+  /css/dashboard.css.
+
+  The page is assembled once on the server from DepartmentDetailView (see
+  DepartmentDetailService): header + 4 stat cards + employee roster table. The
+  "Monthly Payroll Cost" is the sum of ACTIVE employees' pay-grade gross salary,
+  not a payroll-run figure.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment node is emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Back link -->
+    <a href="/htmx/departments" hx-get="/htmx/departments" hx-target="#page-content"
+       hx-push-url="true" hx-swap="innerHTML"
+       class="inline-flex items-center gap-xs mb-md font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">
+        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+        Departments
+    </a>
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs" th:text="${detail.name}">Engineering</h1>
+            <div class="flex flex-wrap items-center gap-md font-body-sm text-body-sm text-on-surface-variant">
+                <span class="inline-flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-[18px]">badge</span>
+                    Head: <span th:text="${detail.headName}">Not assigned</span>
+                </span>
+                <span class="inline-flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-[18px]">event</span>
+                    Created <span th:text="${detail.createdFormatted}">02 Jun 2025</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
+
+        <!-- Total Employees -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+            <div class="flex items-center justify-between mb-md">
+                <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary">groups</span>
+                </div>
+            </div>
+            <div>
+                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Total Employees</p>
+                <h2 class="font-headline-lg text-display-lg text-primary" th:text="${detail.totalEmployees}">12</h2>
+            </div>
+        </div>
+
+        <!-- Active Employees -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+            <div class="flex items-center justify-between mb-md">
+                <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+                    <span class="material-symbols-outlined text-on-secondary-container">check_circle</span>
+                </div>
+            </div>
+            <div>
+                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Active Employees</p>
+                <h2 class="font-headline-lg text-display-lg text-primary" th:text="${detail.activeEmployees}">11</h2>
+            </div>
+        </div>
+
+        <!-- On Leave -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+            <div class="flex items-center justify-between mb-md">
+                <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary">beach_access</span>
+                </div>
+            </div>
+            <div>
+                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">On Leave</p>
+                <h2 class="font-headline-lg text-display-lg text-primary" th:text="${detail.onLeave}">1</h2>
+            </div>
+        </div>
+
+        <!-- Monthly Payroll Cost -->
+        <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+            <div class="flex items-center justify-between mb-md">
+                <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary">payments</span>
+                </div>
+            </div>
+            <div>
+                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Monthly Payroll Cost</p>
+                <h2 class="font-headline-lg text-headline-lg text-primary" th:text="${detail.monthlyPayrollFormatted}">₦4,250,000</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee roster -->
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-md">Employees</h2>
+
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Name</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Job Title</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Pay Grade</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Start Date</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="emp : ${detail.employees}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md font-label-md text-label-md text-on-surface" th:text="${emp.fullName}">Ada Lovelace</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${emp.jobTitle}">Engineer</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${emp.payGradeName}">Level 5</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${emp.startDateFormatted}">02 Jun 2025</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                              th:classappend="${emp.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (emp.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (emp.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${emp.statusLabel}">Active</span>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${detail.employees.isEmpty()}">
+                    <td colspan="5" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No employees in this department</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Assign employees to this department to see them here.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

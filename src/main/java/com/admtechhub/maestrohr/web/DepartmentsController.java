@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,6 +36,7 @@ import java.util.UUID;
 public class DepartmentsController {
 
     private final DepartmentListService departmentListService;
+    private final DepartmentDetailService departmentDetailService;
     private final DepartmentService departmentService;
 
     /** Carries submitted form values back into the template on validation error. */
@@ -53,6 +55,33 @@ public class DepartmentsController {
 
         model.addAttribute("view", departmentListService.buildList(q));
         return "departments :: content";
+    }
+
+    /**
+     * Department detail page. App shell on a cold visit (layout.js re-requests this
+     * route under HTMX); the populated fragment under HTMX. A department id that does
+     * not belong to the current tenant reads as not-found (hidden by the entity's
+     * {@code @SQLRestriction}) and falls back to the list with an error banner.
+     */
+    @GetMapping("/htmx/departments/{id}")
+    public String departmentDetail(
+            @PathVariable("id") UUID id,
+            @RequestHeader(value = "HX-Request", required = false) String htmx,
+            Model model) {
+
+        if (htmx == null) {
+            return "forward:/layout.html";
+        }
+
+        DepartmentDetailView detail = departmentDetailService.buildDetail(id);
+        if (detail == null) {
+            model.addAttribute("error", "Department not found.");
+            model.addAttribute("view", departmentListService.buildList(null));
+            return "departments :: content";
+        }
+
+        model.addAttribute("detail", detail);
+        return "department-detail :: content";
     }
 
     /** Table body only — the swap target for the search box. */

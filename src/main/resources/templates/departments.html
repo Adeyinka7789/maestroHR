@@ -177,7 +177,13 @@
                 </thead>
                 <tbody class="divide-y divide-outline-variant">
                 <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
-                    <td class="px-md py-md font-label-md text-label-md text-on-surface" th:text="${row.name}">Engineering</td>
+                    <td class="px-md py-md">
+                        <a th:href="@{/htmx/departments/{id}(id=${row.id})}"
+                           th:attr="hx-get=@{/htmx/departments/{id}(id=${row.id})}"
+                           hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                           class="font-label-md text-label-md text-primary hover:underline"
+                           th:text="${row.name}">Engineering</a>
+                    </td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.employeeCount}">12</td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.createdFormatted}">02 Jun 2025</td>
                     <td class="px-md py-md text-right">
