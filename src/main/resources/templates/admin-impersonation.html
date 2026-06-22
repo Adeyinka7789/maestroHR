@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<!--
+  admin-impersonation.html — server-rendered HTMX fragment for the super-admin impersonation
+  picker (Feature 4). Rendered by SuperAdminImpersonationController as "admin-impersonation ::
+  content" and swapped into #page-content in layout.html. Styled with the Stitch design-system
+  tokens compiled into /css/dashboard.css (same set as admin-dashboard.html).
+
+  The per-row "Impersonate" action is handled client-side by the inline script: it calls
+  POST /api/admin/impersonate/{userId}, stashes the admin session, installs the impersonation
+  session into BOTH localStorage and the maestrohr_token cookie (the cookie is what authenticates
+  server-rendered /htmx/* pages), then redirects to /dashboard.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Impersonation</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Sign in as any tenant user for support and debugging. Every action is audit-logged
+                against you, and the session ends automatically after 20 minutes.
+            </p>
+        </div>
+    </div>
+
+    <!-- Search + user table -->
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="flex items-center justify-between px-md py-4 border-b border-outline-variant gap-md">
+            <h3 class="font-headline-sm text-headline-sm text-primary">All Users</h3>
+            <div class="relative w-full max-w-xs">
+                <span class="material-symbols-outlined text-[18px] text-on-surface-variant absolute left-3 top-1/2 -translate-y-1/2">search</span>
+                <input id="impersonation-search" type="search"
+                       placeholder="Search by company, email or role…"
+                       class="w-full pl-9 pr-3 py-2 border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-wider">
+                <tr>
+                    <th class="px-md py-3 font-semibold">Company</th>
+                    <th class="px-md py-3 font-semibold">Email</th>
+                    <th class="px-md py-3 font-semibold">Role</th>
+                    <th class="px-md py-3 font-semibold">Status</th>
+                    <th class="px-md py-3 font-semibold text-right">Action</th>
+                </tr>
+                </thead>
+                <tbody id="impersonation-tbody" class="font-table-data text-table-data">
+                <tr th:each="u : ${users}"
+                    class="impersonation-row border-t border-outline-variant hover:bg-surface-container-low transition-colors"
+                    th:attr="data-search=${#strings.toLowerCase(u.companyName + ' ' + u.email + ' ' + u.role)}">
+                    <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${u.companyName}">Apex Logistics</td>
+                    <td class="px-md py-3 text-on-surface-variant" th:text="${u.email}">jane@apex.com</td>
+                    <td class="px-md py-3">
+                        <span class="px-2 py-1 rounded text-[11px] font-bold bg-surface-container text-on-surface-variant"
+                              th:text="${u.role}">HR_ADMIN</span>
+                    </td>
+                    <td class="px-md py-3">
+                        <span class="px-2 py-1 rounded-full text-[10px] font-bold"
+                              th:classappend="${u.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}"
+                              th:text="${u.active ? 'ACTIVE' : 'INACTIVE'}">ACTIVE</span>
+                    </td>
+                    <td class="px-md py-3 text-right">
+                        <button type="button"
+                                class="impersonate-btn inline-flex items-center gap-xs bg-primary text-white px-4 py-2 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition disabled:opacity-50"
+                                th:attr="data-user-id=${u.id}, data-email=${u.email}, data-company=${u.companyName}">
+                            <span class="material-symbols-outlined text-[18px]">login</span>
+                            Impersonate
+                        </button>
+                    </td>
+                </tr>
+                <tr th:if="${users.isEmpty()}">
+                    <td colspan="5" class="px-md py-12 text-center text-on-surface-variant font-body-sm text-body-sm">
+                        No users found.
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <div id="impersonation-empty" class="hidden px-md py-12 text-center text-on-surface-variant font-body-sm text-body-sm">
+                No users match your search.
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="none">
+        (function () {
+            // ── Client-side search filter over the rendered rows ──────────────────────
+            var search = document.getElementById('impersonation-search');
+            var rows = Array.prototype.slice.call(document.querySelectorAll('.impersonation-row'));
+            var emptyMsg = document.getElementById('impersonation-empty');
+            if (search) {
+                search.addEventListener('input', function () {
+                    var q = search.value.trim().toLowerCase();
+                    var anyVisible = false;
+                    rows.forEach(function (row) {
+                        var match = !q || (row.getAttribute('data-search') || '').indexOf(q) !== -1;
+                        row.style.display = match ? '' : 'none';
+                        if (match) anyVisible = true;
+                    });
+                    if (emptyMsg) emptyMsg.classList.toggle('hidden', anyVisible || rows.length === 0);
+                });
+            }
+
+            // ── Start impersonation: swap the session, then redirect ──────────────────
+            function startImpersonation(btn) {
+                var userId = btn.getAttribute('data-user-id');
+                var email = btn.getAttribute('data-email');
+                var company = btn.getAttribute('data-company');
+                if (!window.confirm('Impersonate ' + email + ' (' + company + ')?\n\n' +
+                        'You will act as this user and every action is logged against you.')) {
+                    return;
+                }
+                btn.disabled = true;
+                MaestroHR.apiCall('/api/admin/impersonate/' + userId, { method: 'POST' })
+                    .then(function (res) { return res.json(); })
+                    .then(function (body) {
+                        var d = body && body.data;
+                        if (!d || !d.token) {
+                            MaestroHR.showToast((body && body.message) || 'Impersonation failed.', 'error');
+                            btn.disabled = false;
+                            return;
+                        }
+
+                        // Stash the admin's current session so Exit can restore it verbatim.
+                        sessionStorage.setItem('__adminToken',   localStorage.getItem('maestrohr_token')   || '');
+                        sessionStorage.setItem('__adminEmail',   localStorage.getItem('maestrohr_email')   || '');
+                        sessionStorage.setItem('__adminRole',    localStorage.getItem('maestrohr_role')    || '');
+                        sessionStorage.setItem('__adminTenant',  localStorage.getItem('maestrohr_tenant')  || '');
+                        sessionStorage.setItem('__adminCompany', localStorage.getItem('maestrohr_company') || '');
+
+                        // Install the impersonation session everywhere the app reads auth from:
+                        // localStorage (used by layout.js / apiCall) AND the maestrohr_token cookie
+                        // (the ONLY credential sent on server-rendered /htmx/* page requests).
+                        localStorage.setItem('maestrohr_token',   d.token);
+                        localStorage.setItem('maestrohr_email',   d.email || '');
+                        localStorage.setItem('maestrohr_role',    d.role || '');
+                        localStorage.setItem('maestrohr_tenant',  d.tenantId || '');
+                        localStorage.setItem('maestrohr_company', d.companyName || '');
+
+                        var secure = window.location.protocol === 'https:' ? '; Secure' : '';
+                        document.cookie = 'maestrohr_token=' + encodeURIComponent(d.token)
+                            + '; Path=/'
+                            + '; Max-Age=' + (20 * 60)   // 20 min — matches the token TTL
+                            + '; SameSite=Lax'
+                            + secure;
+
+                        window.location.href = '/dashboard';
+                    })
+                    .catch(function () {
+                        MaestroHR.showToast('Impersonation request failed.', 'error');
+                        btn.disabled = false;
+                    });
+            }
+
+            document.querySelectorAll('.impersonate-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () { startImpersonation(btn); });
+            });
+        })();
+    </script>
+
+</div>
+</body>
+</html>

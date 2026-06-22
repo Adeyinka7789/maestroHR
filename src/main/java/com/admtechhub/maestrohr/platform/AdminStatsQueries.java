@@ -70,6 +70,27 @@ public class AdminStatsQueries {
                         rs.getLong("user_count")));
     }
 
+    /**
+     * All users across every tenant, with their company name, for the impersonation picker
+     * (Feature 4). Unlike {@link #findAllUsers()} this joins {@code tenants} so the list shows
+     * <em>which company</em> each user belongs to rather than a bare tenant UUID. SUPER_ADMIN
+     * users are excluded — impersonating another super-admin is disallowed (see
+     * {@code AdminImpersonationController}), so there's no reason to list them.
+     */
+    public List<ImpersonationUserRow> findAllUsersForImpersonation() {
+        return jdbc.query(
+                "SELECT u.id, u.email, u.role, u.is_active, t.company_name "
+                        + "FROM users u JOIN tenants t ON t.id = u.tenant_id "
+                        + "WHERE u.role <> 'SUPER_ADMIN' "
+                        + "ORDER BY t.company_name ASC, u.email ASC",
+                (rs, n) -> new ImpersonationUserRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("email"),
+                        rs.getString("role"),
+                        rs.getBoolean("is_active"),
+                        rs.getString("company_name")));
+    }
+
     /** All users across every tenant, for the admin user list. */
     public List<AdminUserRow> findAllUsers() {
         return jdbc.query(
@@ -226,6 +247,15 @@ public class AdminStatsQueries {
             boolean locked,
             OffsetDateTime lockedUntil,
             OffsetDateTime createdAt) {
+    }
+
+    /** A user row for the impersonation picker — carries the company name for display/search. */
+    public record ImpersonationUserRow(
+            UUID id,
+            String email,
+            String role,
+            boolean active,
+            String companyName) {
     }
 
     /** A row of the super-admin dashboard's "Recent Tenants" table. */

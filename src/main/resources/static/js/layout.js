@@ -134,6 +134,59 @@
         if (auditLink) auditLink.style.display = 'none';
     }
 
+    // ── Impersonation banner (Feature 4) ───────────────────────────
+    // When the active token carries impersonation=true, show the red banner and wire Exit to
+    // restore the admin session stashed in sessionStorage by the impersonation picker.
+    (function setupImpersonationBanner() {
+        function decodeJwt(jwt) {
+            try {
+                return JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            } catch { return null; }
+        }
+        const payload = token ? decodeJwt(token) : null;
+        if (!payload || payload.impersonation !== true) return;
+
+        const banner = document.getElementById('impersonation-banner');
+        const text   = document.getElementById('impersonation-banner-text');
+        if (!banner || !text) return;
+
+        const who   = userEmail || payload.sub || 'user';
+        const where = companyName ? ` (${companyName})` : '';
+        text.textContent = `Impersonating ${who}${where}`;
+        banner.style.display = 'flex';
+
+        // Restore the admin's own session from sessionStorage and bounce back to the picker.
+        function restoreAdminSession() {
+            const adminToken = sessionStorage.getItem('__adminToken');
+            if (!adminToken) { redirectToLogin(); return; }
+            localStorage.setItem('maestrohr_token',   adminToken);
+            localStorage.setItem('maestrohr_email',   sessionStorage.getItem('__adminEmail')   || '');
+            localStorage.setItem('maestrohr_role',    sessionStorage.getItem('__adminRole')    || '');
+            localStorage.setItem('maestrohr_tenant',  sessionStorage.getItem('__adminTenant')  || '');
+            localStorage.setItem('maestrohr_company', sessionStorage.getItem('__adminCompany') || '');
+            const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = 'maestrohr_token=' + encodeURIComponent(adminToken)
+                + '; Path=/; Max-Age=' + (60 * 60 * 24 * 7) + '; SameSite=Lax' + secure;
+            ['__adminToken', '__adminEmail', '__adminRole', '__adminTenant', '__adminCompany']
+                .forEach(k => sessionStorage.removeItem(k));
+            window.location.href = '/htmx/admin/impersonation';
+        }
+
+        document.getElementById('impersonation-exit-btn')?.addEventListener('click', async () => {
+            // Log the exit event with the impersonation token, then restore the admin session no
+            // matter how the call resolves (use a raw fetch so MaestroHR.apiCall's 401/403→login
+            // bounce can't strip the stashed admin token before we restore it).
+            try {
+                await fetch('/api/admin/impersonate/exit', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            } catch { /* ignore — restore regardless */ }
+            restoreAdminSession();
+        });
+    })();
+
     // ── Sidebar pin (persist in localStorage) ─────────────────
     if (localStorage.getItem('sidebar-pinned') === 'true') {
         document.body.classList.add('sidebar-pinned');

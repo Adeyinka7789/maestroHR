@@ -73,6 +73,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             TenantContext.setCurrentTenant(tenantId);
             MDC.put("tenantId", tenantId);
 
+            // Impersonation (Feature 4): tag the request with the originating super-admin so the
+            // AuditTrailInterceptor records impersonatedBy on every audit row for this session.
+            // The role/tenant above are already the target user's, so authorization and RLS
+            // scoping behave exactly as if the target user were signed in.
+            if (jwtService.isImpersonationToken(token)) {
+                request.setAttribute("impersonatedBy", jwtService.extractImpersonatedBy(token));
+            }
+
             UserDetails userDetails = User.builder()
                     .username(email)
                     .password("")

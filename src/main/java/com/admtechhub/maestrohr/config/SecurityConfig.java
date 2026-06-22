@@ -45,6 +45,10 @@ public class SecurityConfig {
                         // These run through the privileged, RLS-bypassing datasource and/or
                         // expose every tenant's data, so they must be SUPER_ADMIN-only at the
                         // authorization layer (the client-side nav hide in layout.js is cosmetic).
+                        // Impersonation exit is called while holding the impersonation token,
+                        // whose role is the target user's (not SUPER_ADMIN), so it must be matched
+                        // as authenticated-only BEFORE the /api/admin/** super-admin gate below.
+                        .requestMatchers("/api/admin/impersonate/exit").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/htmx/admin", "/htmx/admin/**", "/htmx/subscribers", "/htmx/subscribers/**").hasRole("SUPER_ADMIN")
 

@@ -57,6 +57,9 @@ public class AuditTrailInterceptor implements HandlerInterceptor {
                 ? "durationMs=" + durationMs
                 : "durationMs=" + durationMs + ", error=" + ex.getClass().getSimpleName();
 
+        // Set by JwtAuthFilter when the request carries an impersonation token; NULL otherwise.
+        Object impersonatedBy = request.getAttribute("impersonatedBy");
+
         auditTrailService.record(
                 tenantId,
                 actorEmail,
@@ -67,7 +70,8 @@ public class AuditTrailInterceptor implements HandlerInterceptor {
                 method,
                 request.getRemoteAddr(),
                 response.getStatus(),
-                details
+                details,
+                impersonatedBy instanceof String s ? s : null
         );
     }
 }

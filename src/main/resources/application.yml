@@ -95,6 +95,7 @@ security:
     secret: ${JWT_SECRET}
     expiry-ms: 86400000
     refresh-expiry-ms: 604800000
+    impersonation-expiry-ms: 1200000   # 20 minutes — short-lived, no refresh (Feature 4)
 
 paystack:
   secret-key: ${PAYSTACK_SECRET_KEY}

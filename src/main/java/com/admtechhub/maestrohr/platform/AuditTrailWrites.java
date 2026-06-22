@@ -27,13 +27,24 @@ public class AuditTrailWrites {
     public void insert(UUID tenantId, String actorEmail, String action, String entityType,
                        String entityId, String requestPath, String httpMethod,
                        String ipAddress, int statusCode, String details) {
+        insert(tenantId, actorEmail, action, entityType, entityId,
+                requestPath, httpMethod, ipAddress, statusCode, details, null);
+    }
+
+    /**
+     * Same insert, additionally tagging the row with the super-admin who initiated the
+     * impersonation session (Feature 4). {@code impersonatedBy} is NULL for normal requests.
+     */
+    public void insert(UUID tenantId, String actorEmail, String action, String entityType,
+                       String entityId, String requestPath, String httpMethod,
+                       String ipAddress, int statusCode, String details, String impersonatedBy) {
         jdbc.update(
                 "INSERT INTO audit_trail " +
                 "(id, tenant_id, actor_email, action, entity_type, entity_id, " +
                 " request_path, http_method, ip_address, status_code, details, " +
-                " created_at, updated_at) " +
-                "VALUES (gen_random_uuid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())",
+                " impersonated_by, created_at, updated_at) " +
+                "VALUES (gen_random_uuid(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())",
                 tenantId, actorEmail, action, entityType, entityId,
-                requestPath, httpMethod, ipAddress, statusCode, details);
+                requestPath, httpMethod, ipAddress, statusCode, details, impersonatedBy);
     }
 }

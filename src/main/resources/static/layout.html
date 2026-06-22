@@ -141,6 +141,11 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
                     <span class="nav-label">Analytics</span>
                 </a>
+                <a href="/htmx/admin/impersonation" class="nav-item" data-route="impersonation" data-label="Impersonation"
+                   hx-get="/htmx/admin/impersonation" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-2-2"/></svg>
+                    <span class="nav-label">Impersonation</span>
+                </a>
                 <a href="/htmx/subscribers" class="nav-item" data-route="subscribers" data-label="Subscribers"
                    hx-get="/htmx/subscribers" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -171,6 +176,20 @@
 
     <!-- MAIN AREA -->
     <div class="flex flex-col flex-1 overflow-hidden sidebar-content">
+
+        <!-- Impersonation banner (Feature 4) — shown by layout.js only when the active token
+             carries impersonation=true. Hidden by default. -->
+        <div id="impersonation-banner"
+             style="display:none; align-items:center; justify-content:space-between; gap:16px; background:#dc2626; color:white; padding:9px 24px; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0;"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                <span id="impersonation-banner-text" style="font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Impersonating</span>
+            </div>
+            <button id="impersonation-exit-btn" type="button"
+                    style="background:white; color:#dc2626; border:none; cursor:pointer; font-size:12.5px; font-weight:600; padding:5px 12px; border-radius:6px; flex-shrink:0;">
+                Exit Impersonation
+            </button>
+        </div>
 
         <!-- Topbar -->
         <header style="height:56px; background:white; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; padding:0 24px; flex-shrink:0;">

@@ -52,4 +52,11 @@ public class AuditTrail extends BaseEntity {
 
     @Column(name = "details", columnDefinition = "TEXT")
     private String details;
+
+    /**
+     * When this request was made under an impersonation token, the email of the super-admin who
+     * initiated the impersonation session; NULL for all normal (non-impersonated) requests.
+     */
+    @Column(name = "impersonated_by", length = 255)
+    private String impersonatedBy;
 }
