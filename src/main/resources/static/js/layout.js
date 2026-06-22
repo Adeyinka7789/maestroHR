@@ -340,6 +340,57 @@
 
     if (token) fetchNotifications();
 
+    // ── Platform broadcasts (Feature 5) ────────────────────────────
+    // Unread platform announcements, filtered server-side to this tenant's plan tier, shown as
+    // dismissible banners above the topbar. Dismiss = POST .../read, which removes it for good.
+    async function fetchBroadcasts() {
+        const container = document.getElementById('broadcast-banner-container');
+        if (!container) return;
+        try {
+            const res = await MaestroHR.apiCall('/api/broadcasts/unread');
+            const data = await res.json();
+            const broadcasts = (data && data.data) || [];
+            if (broadcasts.length === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+            container.innerHTML = broadcasts.map(b => `
+                <div class="broadcast-banner" data-id="${b.id}"
+                     style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; background:#eff6ff; border-bottom:1px solid #bfdbfe; color:#1e3a8a; padding:9px 24px;">
+                    <div style="display:flex; align-items:flex-start; gap:10px; min-width:0;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0; margin-top:2px;"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+                        <div style="min-width:0;">
+                            <span style="font-size:13px; font-weight:600;">${MaestroHR.escapeHtml(b.title)}</span>
+                            <span style="font-size:12.5px; color:#1d4ed8; margin-left:6px;">${MaestroHR.escapeHtml(b.body)}</span>
+                        </div>
+                    </div>
+                    <button type="button" class="broadcast-dismiss-btn" data-id="${b.id}" title="Dismiss"
+                            style="background:none; border:none; cursor:pointer; color:#1e40af; padding:2px; flex-shrink:0; line-height:0;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>`).join('');
+            container.style.display = 'block';
+
+            container.querySelectorAll('.broadcast-dismiss-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    btn.disabled = true;
+                    try {
+                        await MaestroHR.apiCall(`/api/broadcasts/${id}/read`, { method: 'POST' });
+                    } catch (e) { /* removed below regardless; it will reappear on reload if it truly failed */ }
+                    const row = container.querySelector(`.broadcast-banner[data-id="${id}"]`);
+                    if (row) row.remove();
+                    if (!container.querySelector('.broadcast-banner')) container.style.display = 'none';
+                });
+            });
+        } catch (err) {
+            console.error('Broadcasts error:', err);
+        }
+    }
+
+    if (token) fetchBroadcasts();
+
     // ── Auto‑load content for the current route ─────────────────
     (function autoLoadInitialContent() {
         const currentPath = window.location.pathname;

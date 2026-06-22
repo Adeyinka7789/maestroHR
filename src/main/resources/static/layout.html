@@ -146,6 +146,11 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-2-2"/></svg>
                     <span class="nav-label">Impersonation</span>
                 </a>
+                <a href="/htmx/admin/broadcasts" class="nav-item" data-route="admin-broadcasts" data-label="Broadcasts"
+                   hx-get="/htmx/admin/broadcasts" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+                    <span class="nav-label">Broadcasts</span>
+                </a>
                 <a href="/htmx/subscribers" class="nav-item" data-route="subscribers" data-label="Subscribers"
                    hx-get="/htmx/subscribers" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -190,6 +195,10 @@
                 Exit Impersonation
             </button>
         </div>
+
+        <!-- Broadcast banners (Feature 5) — one dismissible row per unread platform broadcast.
+             Populated by layout.js from /api/broadcasts/unread; dismiss marks it read. Hidden when empty. -->
+        <div id="broadcast-banner-container" style="display:none; flex-shrink:0;"></div>
 
         <!-- Topbar -->
         <header style="height:56px; background:white; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; padding:0 24px; flex-shrink:0;">
