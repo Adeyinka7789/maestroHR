@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 
@@ -28,6 +29,7 @@ public class AuthService {
     private final AuthBootstrapQueries authBootstrapQueries;
     private final LoginAttemptWrites loginAttemptWrites;
     private final TenantUserWrites tenantUserWrites;
+    private final UserRepository userRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
@@ -129,6 +131,31 @@ public class AuthService {
                 .tenantId(auth.tenantId())
                 .companyName(companyName)
                 .build();
+    }
+
+    /**
+     * Self-service password change for an authenticated user. Unlike {@link #register} and
+     * {@link #login} — which run with no tenant session bound and so go through the privileged
+     * datasource — this is invoked from a request that already carries the caller's JWT, so the
+     * tenant context is set and the user's own row is visible and writable through the normal
+     * RLS-enforced JPA path. Hence this method (and only this one) is {@code @Transactional}.
+     *
+     * <p>The caller's identity comes from the security context (resolved to {@code email} by the
+     * controller), never from a param, so a user can only ever change their own password. Throws
+     * {@link IllegalArgumentException} on an unknown user or a wrong current password.
+     */
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        log.info("Password changed for user: {}", email);
     }
 
     private boolean isLocked(AuthBootstrapQueries.UserAuthRow auth) {
