@@ -111,9 +111,9 @@ public class PageController {
         return htmxRequest != null ? "forward:/checkout.html" : "forward:/layout.html";
     }
 
-    @GetMapping("/htmx/subscribers")
-    public String subscribers(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/subscribers.html" : "forward:/layout.html";
-    }
+    // NOTE: /htmx/subscribers (+ /htmx/subscribers/table) is owned by SubscribersListController
+    //       (server-rendered fragment, Option 3 pattern, with company/plan search + status/plan
+    //       filters). static/subscribers.html remains on disk as the legacy fallback until the
+    //       new fragment is browser-verified.
 
 }

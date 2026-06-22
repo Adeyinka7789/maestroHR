@@ -101,6 +101,81 @@ public class TenantUserWrites {
         });
     }
 
+    /**
+     * Suspend a tenant: cancel the subscription and deactivate the tenant row atomically.
+     * @return false if no subscription row exists for the given tenantId (tenant not found / not provisioned)
+     */
+    public boolean suspendTenant(UUID tenantId) {
+        Boolean result = jdbc.execute((Connection con) -> {
+            boolean prev = con.getAutoCommit();
+            con.setAutoCommit(false);
+            try {
+                int subRows;
+                try (PreparedStatement ps = con.prepareStatement(
+                        "UPDATE tenant_subscriptions SET status = 'CANCELLED' WHERE tenant_id = ?")) {
+                    ps.setObject(1, tenantId);
+                    subRows = ps.executeUpdate();
+                }
+                if (subRows == 0) {
+                    con.rollback();
+                    return false;
+                }
+                try (PreparedStatement ps = con.prepareStatement(
+                        "UPDATE tenants SET is_active = false WHERE id = ?")) {
+                    ps.setObject(1, tenantId);
+                    ps.executeUpdate();
+                }
+                con.commit();
+                return true;
+            } catch (SQLException | RuntimeException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(prev);
+            }
+        });
+        return Boolean.TRUE.equals(result);
+    }
+
+    /**
+     * Reactivate a tenant: set subscription status to ACTIVE, extend the period end by 30 days
+     * (from whichever is later — the existing end or now), and re-enable the tenant row.
+     * @return false if no subscription row exists for the given tenantId
+     */
+    public boolean reactivateTenant(UUID tenantId) {
+        Boolean result = jdbc.execute((Connection con) -> {
+            boolean prev = con.getAutoCommit();
+            con.setAutoCommit(false);
+            try {
+                int subRows;
+                try (PreparedStatement ps = con.prepareStatement(
+                        "UPDATE tenant_subscriptions SET status = 'ACTIVE', "
+                        + "current_period_end = GREATEST(COALESCE(current_period_end, now()), now()) + INTERVAL '30 days' "
+                        + "WHERE tenant_id = ?")) {
+                    ps.setObject(1, tenantId);
+                    subRows = ps.executeUpdate();
+                }
+                if (subRows == 0) {
+                    con.rollback();
+                    return false;
+                }
+                try (PreparedStatement ps = con.prepareStatement(
+                        "UPDATE tenants SET is_active = true WHERE id = ?")) {
+                    ps.setObject(1, tenantId);
+                    ps.executeUpdate();
+                }
+                con.commit();
+                return true;
+            } catch (SQLException | RuntimeException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(prev);
+            }
+        });
+        return Boolean.TRUE.equals(result);
+    }
+
     /** Full-replace update of a tenant by id (admin update-tenant). @return whether the row existed. */
     public boolean updateTenant(Tenant tenant) {
         int rows = jdbc.update(UPDATE_TENANT,

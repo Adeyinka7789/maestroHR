@@ -67,10 +67,11 @@
                     <th style="padding:12px 16px;text-align:left;">Expires</th>
                     <th style="padding:12px 16px;text-align:left;">RC</th>
                     <th style="padding:12px 16px;text-align:left;">Users</th>
+                    <th style="padding:12px 16px;text-align:left;"></th>
                 </tr>
                 </thead>
                 <tbody id="subscribers-table-body">
-                <tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#757682;">Loading subscribers...</td></tr>
+                <tr><td colspan="8" style="padding:48px 16px;text-align:center;color:#757682;">Loading subscribers...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -106,7 +107,7 @@
                 }
             } catch (error) {
                 console.error('Failed to load subscribers:', error);
-                document.getElementById('subscribers-table-body').innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#757682;">Failed to load subscribers.<\/td></tr>';
+                document.getElementById('subscribers-table-body').innerHTML = '<tr><td colspan="8" style="padding:48px 16px;text-align:center;color:#757682;">Failed to load subscribers.<\/td></tr>';
             }
         }
 
@@ -125,7 +126,7 @@
         function renderSubscribersTable(tenants) {
             const tbody = document.getElementById('subscribers-table-body');
             if (tenants.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:48px 16px;text-align:center;color:#757682;">No subscribers found.<\/td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="padding:48px 16px;text-align:center;color:#757682;">No subscribers found.<\/td></tr>';
                 return;
             }
             tbody.innerHTML = tenants.map(tenant => `
@@ -140,8 +141,17 @@
                     <td style="padding:14px 16px;">${formatDate(tenant.subscriptionExpiresAt)}</td>
                     <td style="padding:14px 16px;">${tenant.rcNumber || '—'}</td>
                     <td style="padding:14px 16px;">${tenant.userCount || 0}</td>
+                    <td style="padding:14px 16px;">
+                        <a hx-get="/htmx/admin/tenants/${tenant.id}"
+                           hx-target="#page-content"
+                           hx-push-url="/htmx/admin/tenants/${tenant.id}"
+                           hx-swap="innerHTML"
+                           role="link" tabindex="0"
+                           style="cursor:pointer;color:#1a56db;font-size:13px;font-weight:500;">View</a>
+                    </td>
                 </tr>
             `).join('');
+            if (window.htmx) htmx.process(tbody);
             applyFilters();
         }
 

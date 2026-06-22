@@ -120,6 +120,78 @@ public class AdminStatsQueries {
                 limit);
     }
 
+    /**
+     * Full tenant detail for the super-admin detail view. Returns null if the tenant id is unknown.
+     * Five separate privileged queries assembled into a single DTO — all bypass RLS so they span
+     * the target tenant regardless of the admin's own session.
+     */
+    public TenantDetailDTO findTenantDetail(UUID id) {
+        List<TenantInfoRow> tenants = jdbc.query(
+                "SELECT id, company_name, rc_number, industry, company_size, is_active, created_at "
+                        + "FROM tenants WHERE id = ?",
+                (rs, n) -> new TenantInfoRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("company_name"),
+                        rs.getString("rc_number"),
+                        rs.getString("industry"),
+                        rs.getString("company_size"),
+                        rs.getBoolean("is_active"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                id);
+        if (tenants.isEmpty()) return null;
+
+        List<SubscriptionRow> subs = jdbc.query(
+                "SELECT plan, status, current_period_start, current_period_end, price_kobo "
+                        + "FROM tenant_subscriptions WHERE tenant_id = ?",
+                (rs, n) -> new SubscriptionRow(
+                        rs.getString("plan"),
+                        rs.getString("status"),
+                        rs.getObject("current_period_start", OffsetDateTime.class),
+                        rs.getObject("current_period_end", OffsetDateTime.class),
+                        rs.getLong("price_kobo")),
+                id);
+
+        List<InvoiceRow> invoices = jdbc.query(
+                "SELECT id, amount_kobo, status, plan, period, paid_at, created_at "
+                        + "FROM invoices WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 5",
+                (rs, n) -> new InvoiceRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getLong("amount_kobo"),
+                        rs.getString("status"),
+                        rs.getString("plan"),
+                        rs.getString("period"),
+                        rs.getObject("paid_at", OffsetDateTime.class),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                id);
+
+        List<TenantUserRow> users = jdbc.query(
+                "SELECT id, email, role, is_active, created_at, last_login_at "
+                        + "FROM users WHERE tenant_id = ? ORDER BY created_at DESC",
+                (rs, n) -> new TenantUserRow(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("email"),
+                        rs.getString("role"),
+                        rs.getBoolean("is_active"),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        rs.getObject("last_login_at", OffsetDateTime.class)),
+                id);
+
+        List<RecentLogRow> activity = jdbc.query(
+                "SELECT action, actor_email, request_path, http_method, status_code, created_at "
+                        + "FROM audit_trail WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 5",
+                (rs, n) -> new RecentLogRow(
+                        rs.getString("action"),
+                        rs.getString("actor_email"),
+                        rs.getString("request_path"),
+                        rs.getString("http_method"),
+                        rs.getInt("status_code"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                id);
+
+        return new TenantDetailDTO(tenants.get(0), subs.isEmpty() ? null : subs.get(0),
+                invoices, users, activity);
+    }
+
     private long count(String sql) {
         Long value = jdbc.queryForObject(sql, Long.class);
         return value != null ? value : 0L;
@@ -174,5 +246,55 @@ public class AdminStatsQueries {
             String httpMethod,
             int statusCode,
             OffsetDateTime createdAt) {
+    }
+
+    /** Base tenant info for the admin detail view header. */
+    public record TenantInfoRow(
+            UUID id,
+            String companyName,
+            String rcNumber,
+            String industry,
+            String companySize,
+            boolean active,
+            OffsetDateTime createdAt) {
+    }
+
+    /** Subscription state for the admin detail view plan card. */
+    public record SubscriptionRow(
+            String plan,
+            String status,
+            OffsetDateTime currentPeriodStart,
+            OffsetDateTime currentPeriodEnd,
+            long priceKobo) {
+    }
+
+    /** One invoice row on the admin detail view. */
+    public record InvoiceRow(
+            UUID id,
+            long amountKobo,
+            String status,
+            String plan,
+            String period,
+            OffsetDateTime paidAt,
+            OffsetDateTime createdAt) {
+    }
+
+    /** One user row on the admin detail view (no password hash). */
+    public record TenantUserRow(
+            UUID id,
+            String email,
+            String role,
+            boolean active,
+            OffsetDateTime createdAt,
+            OffsetDateTime lastLoginAt) {
+    }
+
+    /** Full tenant detail DTO returned by {@code GET /api/admin/tenants/{id}/detail}. */
+    public record TenantDetailDTO(
+            TenantInfoRow tenant,
+            SubscriptionRow subscription,
+            List<InvoiceRow> recentInvoices,
+            List<TenantUserRow> users,
+            List<RecentLogRow> recentActivity) {
     }
 }

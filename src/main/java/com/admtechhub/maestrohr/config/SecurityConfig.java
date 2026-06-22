@@ -46,7 +46,7 @@ public class SecurityConfig {
                         // expose every tenant's data, so they must be SUPER_ADMIN-only at the
                         // authorization layer (the client-side nav hide in layout.js is cosmetic).
                         .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
-                        .requestMatchers("/htmx/admin", "/htmx/admin/**", "/htmx/subscribers").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/htmx/admin", "/htmx/admin/**", "/htmx/subscribers", "/htmx/subscribers/**").hasRole("SUPER_ADMIN")
 
                         .anyRequest().authenticated()
                 )

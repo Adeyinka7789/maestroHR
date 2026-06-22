@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!--
+  subscribers.html — super-admin subscribers list, server-rendered HTMX fragment (Option 3),
+  the same pattern as employees.html. Rendered by SubscribersListController as
+  "subscribers :: content" and swapped into #page-content in layout.html. Styled with the
+  Stitch design-system tokens compiled into /css/dashboard.css.
+
+  Two fragments:
+   - content : header + stat cards + filter bar (#subscriber-filters) + table container
+   - table   : the table card — the lightweight swap target for search + status/plan
+               filters (GET /htmx/subscribers/table).
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document;
+  only the th:fragment nodes are emitted.
+
+  Replaces the legacy static/subscribers.html, whose JS-rendered rows injected their
+  "View" links via innerHTML — htmx.process never reliably bound the hx-* attributes, so
+  the browser followed the href and reloaded the whole shell. Here every row is in the
+  server markup, so HTMX wires the View link at parse time.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Subscribers</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Tenant portfolio, subscription plans, and account posture.
+            </p>
+        </div>
+        <a href="/htmx/admin" hx-get="/htmx/admin" hx-target="#page-content"
+           hx-push-url="true" hx-swap="innerHTML"
+           class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+            <span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+            Open Admin Console
+        </a>
+    </div>
+
+    <!-- Stat cards (global portfolio totals — unaffected by the filters below) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-lg mb-lg">
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Subscribers</p>
+            <p class="font-headline-lg text-headline-lg text-primary mt-xs" th:text="${view.totalSubscribers}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Active</p>
+            <p class="font-headline-lg text-headline-lg text-secondary mt-xs" th:text="${view.activeCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Trials</p>
+            <p class="font-headline-lg text-headline-lg text-tertiary mt-xs" th:text="${view.trialCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Users</p>
+            <p class="font-headline-lg text-headline-lg text-on-surface mt-xs" th:text="${view.totalUsers}">0</p>
+        </div>
+    </div>
+
+    <!--
+      Filter bar — lives in `content` (NOT re-rendered on table swaps) so the user's typed
+      search and selected filters persist across swaps and are picked up by
+      hx-include="#subscriber-filters" on every search / filter request.
+    -->
+    <div id="subscriber-filters" class="flex flex-col md:flex-row gap-sm mb-md">
+        <div class="relative flex-1">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <input type="search" name="q" th:value="${view.search}"
+                   placeholder="Filter by company, industry, RC, or plan…"
+                   autocomplete="off"
+                   hx-get="/htmx/subscribers/table" hx-target="#subscribers-table" hx-swap="innerHTML"
+                   hx-include="#subscriber-filters" hx-trigger="keyup changed delay:300ms, search"
+                   class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+        </div>
+
+        <select name="status"
+                hx-get="/htmx/subscribers/table" hx-target="#subscribers-table" hx-swap="innerHTML"
+                hx-include="#subscriber-filters" hx-trigger="change"
+                class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            <option value="" th:selected="${view.statusFilter == ''}">All statuses</option>
+            <option value="Active" th:selected="${view.statusFilter == 'Active'}">Active</option>
+            <option value="Inactive" th:selected="${view.statusFilter == 'Inactive'}">Inactive</option>
+        </select>
+
+        <select name="plan"
+                hx-get="/htmx/subscribers/table" hx-target="#subscribers-table" hx-swap="innerHTML"
+                hx-include="#subscriber-filters" hx-trigger="change"
+                class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            <option value="" th:selected="${view.planFilter == ''}">All plans</option>
+            <option value="FREE_TRIAL" th:selected="${view.planFilter == 'FREE_TRIAL'}">FREE_TRIAL</option>
+            <option value="BASIC" th:selected="${view.planFilter == 'BASIC'}">BASIC</option>
+            <option value="PROFESSIONAL" th:selected="${view.planFilter == 'PROFESSIONAL'}">PROFESSIONAL</option>
+            <option value="ENTERPRISE" th:selected="${view.planFilter == 'ENTERPRISE'}">ENTERPRISE</option>
+        </select>
+    </div>
+
+    <!-- Table container — only this is swapped on search / filter -->
+    <div id="subscribers-table" th:insert="~{subscribers :: table}"></div>
+</div>
+
+<!-- ============================= TABLE ============================= -->
+<div th:fragment="table">
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Company</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Industry</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Plan</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Expires</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">RC</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Users</th>
+                    <th class="px-md py-sm"></th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md font-label-md text-label-md text-on-surface" th:text="${row.companyName}">Acme Ltd</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant"
+                        th:text="${row.industry} + ' · ' + ${row.companySize}">Logistics · 50–200</td>
+                    <td class="px-md py-md font-table-data text-table-data" th:text="${row.plan}">ENTERPRISE</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded-full text-[10px] font-bold"
+                              th:classappend="${row.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                              th:text="${row.statusLabel}">Active</span>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.expiresFormatted}">31 Dec 2025</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.rcNumber}">12345678</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface" th:text="${row.userCount}">12</td>
+                    <td class="px-md py-md">
+                        <div class="flex justify-end">
+                            <a th:href="@{/htmx/admin/tenants/{id}(id=${row.id})}"
+                               th:attr="hx-get=@{/htmx/admin/tenants/{id}(id=${row.id})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="px-3 py-1.5 rounded-lg border border-outline-variant font-label-sm text-label-sm text-primary hover:bg-surface-container-low transition-colors">View</a>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="8" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No subscribers found</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search or filters.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

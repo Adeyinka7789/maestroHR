@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<!--
+  admin-tenant-detail.html — super-admin tenant detail fragment.
+  Rendered by SuperAdminTenantDetailController as "admin-tenant-detail :: content"
+  and swapped into #page-content. Styled with Stitch design-system tokens,
+  matching admin-dashboard.html conventions.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- 404 / not found -->
+    <div th:if="${detail == null}" class="flex flex-col items-center justify-center py-24 gap-md">
+        <span class="material-symbols-outlined text-[64px] text-on-surface-variant">search_off</span>
+        <p class="font-headline-sm text-headline-sm text-on-surface-variant">Tenant not found</p>
+        <a href="/htmx/subscribers" hx-get="/htmx/subscribers" hx-target="#page-content"
+           hx-push-url="true" hx-swap="innerHTML"
+           class="font-label-md text-label-md text-primary hover:underline flex items-center gap-xs">
+            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to Subscribers
+        </a>
+    </div>
+
+    <!-- Main content (detail != null) -->
+    <div th:if="${detail != null}">
+
+        <!-- Back link -->
+        <div class="mb-md">
+            <a href="/htmx/subscribers" hx-get="/htmx/subscribers" hx-target="#page-content"
+               hx-push-url="true" hx-swap="innerHTML"
+               class="inline-flex items-center gap-xs font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors">
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                Back to Subscribers
+            </a>
+        </div>
+
+        <!-- Header card -->
+        <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-md">
+                <!-- Left: identity -->
+                <div class="flex items-start gap-md">
+                    <div class="w-14 h-14 rounded-xl bg-primary-fixed flex items-center justify-center text-primary font-bold text-[20px] shrink-0"
+                         th:text="${#strings.toUpperCase(#strings.substring(detail.tenant.companyName, 0, 2))}">AL</div>
+                    <div>
+                        <h1 class="font-headline-lg text-headline-lg text-primary"
+                            th:text="${detail.tenant.companyName}">Acme Ltd</h1>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs"
+                           th:text="${detail.tenant.industry} + ' · RC ' + (${detail.tenant.rcNumber} ?: '—')">
+                            Logistics · RC 12345678</p>
+                        <div class="flex items-center flex-wrap gap-sm mt-sm">
+                            <!-- Plan badge -->
+                            <span class="px-2 py-0.5 rounded text-[11px] font-bold"
+                                  th:classappend="${detail.subscription != null and detail.subscription.plan == 'ENTERPRISE'
+                                      ? 'bg-tertiary-fixed text-tertiary'
+                                      : (detail.subscription != null and detail.subscription.plan == 'PROFESSIONAL'
+                                          ? 'bg-primary-fixed text-primary'
+                                          : 'bg-surface-container text-on-surface-variant')}"
+                                  th:text="${detail.subscription != null ? detail.subscription.plan : 'NO PLAN'}">
+                                ENTERPRISE</span>
+                            <!-- Status badge -->
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold"
+                                  th:classappend="${detail.subscription != null and detail.subscription.status == 'ACTIVE'
+                                      ? 'bg-secondary-container text-on-secondary-container'
+                                      : (detail.subscription != null and detail.subscription.status == 'TRIALING'
+                                          ? 'bg-primary-fixed text-primary'
+                                          : (detail.subscription != null and detail.subscription.status == 'PAST_DUE'
+                                              ? 'bg-tertiary-fixed text-tertiary'
+                                              : 'bg-error-container text-on-error-container'))}"
+                                  th:text="${detail.subscription != null ? detail.subscription.status : '—'}">
+                                ACTIVE</span>
+                            <!-- Active / Inactive tenant -->
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold"
+                                  th:classappend="${detail.tenant.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                                  th:text="${detail.tenant.active ? 'Tenant Active' : 'Tenant Inactive'}">
+                                Tenant Active</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Right: action button -->
+                <div class="flex items-center gap-sm shrink-0">
+                    <!-- Suspend — shown when subscription is not already CANCELLED -->
+                    <button th:if="${detail.subscription != null and detail.subscription.status != 'CANCELLED'}"
+                            th:attr="hx-post=@{/htmx/admin/tenants/{id}/suspend(id=${detail.tenant.id})}"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            hx-confirm="Suspend this tenant? They will lose access immediately."
+                            class="flex items-center gap-xs bg-error-container text-on-error-container px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-80 transition-all duration-200">
+                        <span class="material-symbols-outlined text-[18px]">block</span>
+                        Suspend
+                    </button>
+                    <!-- Reactivate — shown only when CANCELLED -->
+                    <button th:if="${detail.subscription != null and detail.subscription.status == 'CANCELLED'}"
+                            th:attr="hx-post=@{/htmx/admin/tenants/{id}/reactivate(id=${detail.tenant.id})}"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            class="flex items-center gap-xs bg-secondary text-white px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-200">
+                        <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                        Reactivate
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscription + Activity row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-lg mb-lg">
+
+            <!-- Subscription card (2/3) -->
+            <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-md">
+                <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                    <span class="material-symbols-outlined text-primary">payments</span>
+                    <h3 class="font-headline-sm text-headline-sm text-primary">Subscription</h3>
+                </div>
+                <div th:if="${detail.subscription == null}" class="py-8 text-center text-on-surface-variant font-body-sm text-body-sm">
+                    No subscription record found.
+                </div>
+                <div th:if="${detail.subscription != null}" class="grid grid-cols-2 sm:grid-cols-4 gap-md">
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Plan</p>
+                        <p class="font-label-md text-label-md text-on-surface" th:text="${detail.subscription.plan}">PROFESSIONAL</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Status</p>
+                        <p class="font-label-md text-label-md text-on-surface" th:text="${detail.subscription.status}">ACTIVE</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Period End</p>
+                        <p class="font-label-md text-label-md text-on-surface"
+                           th:text="${detail.subscription.currentPeriodEnd != null
+                               ? #temporals.format(detail.subscription.currentPeriodEnd, 'dd MMM yyyy')
+                               : '—'}">31 Dec 2025</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">MRR Contribution</p>
+                        <p class="font-label-md text-label-md text-tertiary"
+                           th:text="'₦' + ${#numbers.formatInteger(detail.subscription.priceKobo / 100, 1, 'COMMA')}">₦15,000</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity (1/3) -->
+            <div class="bg-white border border-outline-variant rounded-xl p-md flex flex-col">
+                <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                    <span class="material-symbols-outlined text-primary">receipt_long</span>
+                    <h3 class="font-headline-sm text-headline-sm text-primary">Recent Activity</h3>
+                </div>
+                <div class="space-y-3 flex-1">
+                    <div th:each="log : ${detail.recentActivity}"
+                         class="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-container-low transition-colors">
+                        <span class="material-symbols-outlined text-[18px] mt-0.5 text-on-surface-variant">radio_button_checked</span>
+                        <div class="min-w-0">
+                            <p class="font-label-sm text-label-sm text-on-surface truncate" th:text="${log.action}">LOGIN</p>
+                            <p class="text-[11px] text-on-surface-variant truncate"
+                               th:text="${log.actorEmail ?: 'system'}">user@example.com</p>
+                            <p class="text-[10px] text-outline mt-0.5"
+                               th:text="${#temporals.format(log.createdAt, 'dd MMM yyyy, HH:mm')}">01 Jan 2025, 09:00</p>
+                        </div>
+                    </div>
+                    <p th:if="${detail.recentActivity.isEmpty()}"
+                       class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm">
+                        No recent activity.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users table -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden mb-lg">
+            <div class="flex items-center justify-between px-md py-4 border-b border-outline-variant">
+                <h3 class="font-headline-sm text-headline-sm text-primary">Users
+                    <span class="ml-sm px-2 py-0.5 rounded bg-primary-fixed text-primary text-[11px] font-bold"
+                          th:text="${detail.users.size()}">3</span>
+                </h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-wider">
+                    <tr>
+                        <th class="px-md py-3 font-semibold">Email</th>
+                        <th class="px-md py-3 font-semibold">Role</th>
+                        <th class="px-md py-3 font-semibold">Status</th>
+                        <th class="px-md py-3 font-semibold">Joined</th>
+                        <th class="px-md py-3 font-semibold">Last Login</th>
+                    </tr>
+                    </thead>
+                    <tbody class="font-table-data text-table-data">
+                    <tr th:each="u : ${detail.users}"
+                        class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                        <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${u.email}">user@example.com</td>
+                        <td class="px-md py-3">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-bold"
+                                  th:classappend="${u.role == 'HR_ADMIN'
+                                      ? 'bg-primary-fixed text-primary'
+                                      : (u.role == 'FINANCE_OFFICER'
+                                          ? 'bg-tertiary-fixed text-tertiary'
+                                          : 'bg-surface-container text-on-surface-variant')}"
+                                  th:text="${u.role}">HR_ADMIN</span>
+                        </td>
+                        <td class="px-md py-3">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                                  th:classappend="${u.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}"
+                                  th:text="${u.active ? 'Active' : 'Inactive'}">Active</span>
+                        </td>
+                        <td class="px-md py-3 text-on-surface-variant"
+                            th:text="${#temporals.format(u.createdAt, 'dd MMM yyyy')}">01 Jan 2025</td>
+                        <td class="px-md py-3 text-on-surface-variant"
+                            th:text="${u.lastLoginAt != null ? #temporals.format(u.lastLoginAt, 'dd MMM yyyy, HH:mm') : '—'}">—</td>
+                    </tr>
+                    <tr th:if="${detail.users.isEmpty()}">
+                        <td colspan="5" class="px-md py-12 text-center text-on-surface-variant font-body-sm text-body-sm">
+                            No users for this tenant.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Invoices -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="px-md py-4 border-b border-outline-variant">
+                <h3 class="font-headline-sm text-headline-sm text-primary">Recent Invoices</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-wider">
+                    <tr>
+                        <th class="px-md py-3 font-semibold">Invoice ID</th>
+                        <th class="px-md py-3 font-semibold">Amount</th>
+                        <th class="px-md py-3 font-semibold">Plan</th>
+                        <th class="px-md py-3 font-semibold">Status</th>
+                        <th class="px-md py-3 font-semibold">Paid</th>
+                        <th class="px-md py-3 font-semibold">Created</th>
+                    </tr>
+                    </thead>
+                    <tbody class="font-table-data text-table-data">
+                    <tr th:each="inv : ${detail.recentInvoices}"
+                        class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                        <td class="px-md py-3 font-mono text-[12px] text-on-surface-variant"
+                            th:text="${#strings.substring(inv.id.toString(), 0, 8) + '…'}">ab12cd34…</td>
+                        <td class="px-md py-3 font-label-md text-label-md text-on-surface"
+                            th:text="'₦' + ${#numbers.formatInteger(inv.amountKobo / 100, 1, 'COMMA')}">₦15,000</td>
+                        <td class="px-md py-3 text-on-surface-variant" th:text="${inv.plan}">PROFESSIONAL</td>
+                        <td class="px-md py-3">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                                  th:classappend="${inv.status == 'PAID'
+                                      ? 'bg-secondary-container text-on-secondary-container'
+                                      : (inv.status == 'PENDING'
+                                          ? 'bg-tertiary-fixed text-tertiary'
+                                          : 'bg-error-container text-on-error-container')}"
+                                  th:text="${inv.status}">PAID</span>
+                        </td>
+                        <td class="px-md py-3 text-on-surface-variant"
+                            th:text="${inv.paidAt != null ? #temporals.format(inv.paidAt, 'dd MMM yyyy') : '—'}">—</td>
+                        <td class="px-md py-3 text-on-surface-variant"
+                            th:text="${#temporals.format(inv.createdAt, 'dd MMM yyyy')}">01 Jan 2025</td>
+                    </tr>
+                    <tr th:if="${detail.recentInvoices.isEmpty()}">
+                        <td colspan="6" class="px-md py-12 text-center text-on-surface-variant font-body-sm text-body-sm">
+                            No invoices yet.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /detail != null -->
+
+</div>
+</body>
+</html>

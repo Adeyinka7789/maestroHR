@@ -4,11 +4,13 @@ import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.common.ApiResponse;
 import com.admtechhub.maestrohr.platform.AdminStatsQueries;
+import com.admtechhub.maestrohr.platform.AuditTrailWrites;
 import com.admtechhub.maestrohr.platform.AuthBootstrapQueries;
 import com.admtechhub.maestrohr.platform.TenantUserWrites;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantWithUserCountDTO;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +41,7 @@ public class AdminManagementController {
     private final AdminStatsQueries adminStatsQueries;
     private final AuthBootstrapQueries authBootstrapQueries;
     private final TenantUserWrites tenantUserWrites;
+    private final AuditTrailWrites auditTrailWrites;
     private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/tenants")
@@ -149,6 +153,42 @@ public class AdminManagementController {
         user.setId(id);
         tenantUserWrites.updateUser(user);
         return ResponseEntity.ok(ApiResponse.success("User updated", user));
+    }
+
+    @PostMapping("/tenants/{id}/suspend")
+    public ResponseEntity<ApiResponse<Void>> suspendTenant(
+            @PathVariable UUID id, HttpServletRequest request) {
+        if (!tenantUserWrites.suspendTenant(id)) {
+            throw new IllegalArgumentException("Tenant not found or has no subscription: " + id);
+        }
+        auditTrailWrites.insert(id, actorEmail(), "TENANT_SUSPENDED", "tenant", id.toString(),
+                request.getRequestURI(), "POST", request.getRemoteAddr(), 200, null);
+        return ResponseEntity.ok(ApiResponse.success("Tenant suspended", null));
+    }
+
+    @PostMapping("/tenants/{id}/reactivate")
+    public ResponseEntity<ApiResponse<Void>> reactivateTenant(
+            @PathVariable UUID id, HttpServletRequest request) {
+        if (!tenantUserWrites.reactivateTenant(id)) {
+            throw new IllegalArgumentException("Tenant not found or has no subscription: " + id);
+        }
+        auditTrailWrites.insert(id, actorEmail(), "TENANT_REACTIVATED", "tenant", id.toString(),
+                request.getRequestURI(), "POST", request.getRemoteAddr(), 200, null);
+        return ResponseEntity.ok(ApiResponse.success("Tenant reactivated", null));
+    }
+
+    @GetMapping("/tenants/{id}/detail")
+    public ResponseEntity<ApiResponse<AdminStatsQueries.TenantDetailDTO>> tenantDetail(
+            @PathVariable UUID id) {
+        AdminStatsQueries.TenantDetailDTO detail = adminStatsQueries.findTenantDetail(id);
+        if (detail == null) {
+            throw new IllegalArgumentException("Tenant not found: " + id);
+        }
+        return ResponseEntity.ok(ApiResponse.success("Tenant detail retrieved", detail));
+    }
+
+    private String actorEmail() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
     private String blankToNull(String value) {
