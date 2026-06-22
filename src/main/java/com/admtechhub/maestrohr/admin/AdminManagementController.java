@@ -3,13 +3,17 @@ package com.admtechhub.maestrohr.admin;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.platform.AdminBillingWrites;
 import com.admtechhub.maestrohr.platform.AdminStatsQueries;
 import com.admtechhub.maestrohr.platform.AuditTrailWrites;
 import com.admtechhub.maestrohr.platform.AuthBootstrapQueries;
 import com.admtechhub.maestrohr.platform.TenantUserWrites;
+import com.admtechhub.maestrohr.tenant.PaymentPeriod;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantWithUserCountDTO;
+import com.admtechhub.maestrohr.web.AdminBillingService;
+import com.admtechhub.maestrohr.web.AdminBillingView;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -41,6 +45,8 @@ public class AdminManagementController {
     private final AdminStatsQueries adminStatsQueries;
     private final AuthBootstrapQueries authBootstrapQueries;
     private final TenantUserWrites tenantUserWrites;
+    private final AdminBillingWrites adminBillingWrites;
+    private final AdminBillingService adminBillingService;
     private final AuditTrailWrites auditTrailWrites;
     private final PasswordEncoder passwordEncoder;
 
@@ -187,6 +193,55 @@ public class AdminManagementController {
         return ResponseEntity.ok(ApiResponse.success("Tenant detail retrieved", detail));
     }
 
+    // ── Billing control (Feature 2) ───────────────────────────────────────────
+
+    @PostMapping("/tenants/{id}/upgrade")
+    public ResponseEntity<ApiResponse<Void>> upgradePlan(
+            @PathVariable UUID id, @RequestBody PlanChangeRequest request, HttpServletRequest http) {
+        return changePlan(id, request, "TENANT_UPGRADED", http);
+    }
+
+    @PostMapping("/tenants/{id}/downgrade")
+    public ResponseEntity<ApiResponse<Void>> downgradePlan(
+            @PathVariable UUID id, @RequestBody PlanChangeRequest request, HttpServletRequest http) {
+        return changePlan(id, request, "TENANT_DOWNGRADED", http);
+    }
+
+    @PostMapping("/tenants/{id}/extend-trial")
+    public ResponseEntity<ApiResponse<Void>> extendTrial(
+            @PathVariable UUID id, @RequestBody ExtendTrialRequest request, HttpServletRequest http) {
+        if (request.getDays() <= 0) {
+            throw new IllegalArgumentException("Days to extend must be positive");
+        }
+        if (!adminBillingWrites.extendTrial(id, request.getDays())) {
+            throw new IllegalArgumentException("Tenant not found or not on a trial: " + id);
+        }
+        auditTrailWrites.insert(id, actorEmail(), "TRIAL_EXTENDED", "tenant", id.toString(),
+                http.getRequestURI(), "POST", http.getRemoteAddr(), 200, "+" + request.getDays() + " days");
+        return ResponseEntity.ok(ApiResponse.success("Trial extended", null));
+    }
+
+    @GetMapping("/billing/overview")
+    public ResponseEntity<ApiResponse<AdminBillingView>> billingOverview() {
+        return ResponseEntity.ok(
+                ApiResponse.success("Billing overview retrieved", adminBillingService.buildOverview()));
+    }
+
+    /** Shared upgrade/downgrade path — same write, distinguished only by the audit action recorded. */
+    private ResponseEntity<ApiResponse<Void>> changePlan(
+            UUID id, PlanChangeRequest request, String auditAction, HttpServletRequest http) {
+        if (request.getNewPlan() == null || request.getNewPeriod() == null) {
+            throw new IllegalArgumentException("newPlan and newPeriod are required");
+        }
+        if (!adminBillingWrites.changePlan(id, request.getNewPlan(), request.getNewPeriod())) {
+            throw new IllegalArgumentException("Tenant not found or has no subscription: " + id);
+        }
+        auditTrailWrites.insert(id, actorEmail(), auditAction, "tenant", id.toString(),
+                http.getRequestURI(), "POST", http.getRemoteAddr(), 200,
+                request.getNewPlan() + " / " + request.getNewPeriod());
+        return ResponseEntity.ok(ApiResponse.success("Plan changed", null));
+    }
+
     private String actorEmail() {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
@@ -219,5 +274,18 @@ public class AdminManagementController {
         private UserRole role = UserRole.HR_ADMIN;
         private boolean active = true;
         private boolean unlockAccount;
+    }
+
+    /** Body for upgrade/downgrade — the target plan and billing period to move the tenant to. */
+    @Data
+    public static class PlanChangeRequest {
+        private SubscriptionPlan newPlan;
+        private PaymentPeriod newPeriod;
+    }
+
+    /** Body for extend-trial — number of days to push the trial end out by. */
+    @Data
+    public static class ExtendTrialRequest {
+        private int days;
     }
 }
