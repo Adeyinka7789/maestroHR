@@ -15,4 +15,5 @@ public class DepartmentDTO {
     private String name;
     private OffsetDateTime createdAt;
     private Long employeeCount;
+    private String headEmployeeId;
 }

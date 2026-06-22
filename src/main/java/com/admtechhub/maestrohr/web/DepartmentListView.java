@@ -21,6 +21,17 @@ public record DepartmentListView(
             UUID id,
             String name,
             long employeeCount,
-            String createdFormatted   // e.g. "02 Jun 2025" or "—"
+            String createdFormatted,        // e.g. "02 Jun 2025" or "—"
+            String headEmployeeId,          // currently assigned HOD (UUID string) or null; pre-selects the edit modal
+            String departmentEmployeesJson  // THIS department's members as a JSON array
+                                            // [{"id","label"},…], embedded in the row's data-employees
+                                            // attribute so the modal's HOD dropdown can be populated
+                                            // client-side on Edit without a separate API call
+    ) {}
+
+    /** A selectable employee for the Head-of-Department dropdown. */
+    public record EmployeeOption(
+            UUID id,
+            String label   // e.g. "Ada Lovelace (EMP-001)"
     ) {}
 }

@@ -40,7 +40,7 @@ public class DepartmentsController {
     private final DepartmentService departmentService;
 
     /** Carries submitted form values back into the template on validation error. */
-    record DeptForm(UUID id, String name) {}
+    record DeptForm(UUID id, String name, String headEmployeeId) {}
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/departments")
@@ -105,12 +105,13 @@ public class DepartmentsController {
     public String save(
             @RequestParam(value = "id", defaultValue = "") String idStr,
             @RequestParam(value = "name", defaultValue = "") String name,
+            @RequestParam(value = "headEmployeeId", defaultValue = "") String headEmployeeId,
             Model model) {
 
         String trimmedName = name.trim();
         boolean isEdit = !idStr.isBlank();
         UUID id = isEdit ? UUID.fromString(idStr) : null;
-        DeptForm form = new DeptForm(id, name);
+        DeptForm form = new DeptForm(id, name, headEmployeeId);
 
         if (trimmedName.isBlank()) {
             return modalError(model, form, "Department name is required.");
@@ -118,10 +119,10 @@ public class DepartmentsController {
 
         try {
             if (isEdit) {
-                departmentService.update(id, trimmedName);
+                departmentService.update(id, trimmedName, headEmployeeId);
                 model.addAttribute("success", "Department updated.");
             } else {
-                departmentService.create(trimmedName);
+                departmentService.create(trimmedName, headEmployeeId);
                 model.addAttribute("success", "Department created.");
             }
         } catch (IllegalArgumentException ex) {
@@ -132,9 +133,19 @@ public class DepartmentsController {
         return "departments :: content";
     }
 
+    /**
+     * Re-renders the list with the modal reopened (server-side) and an in-modal banner.
+     * On an <em>edit</em> error the department's roster is loaded so the HOD dropdown
+     * renders with the in-progress selection preserved — the client-side data-employees
+     * path only runs on a fresh Edit click, not on this server re-render. On a
+     * <em>create</em> error there is no department yet, so the dropdown shows only "None".
+     */
     private String modalError(Model model, DeptForm form, String message) {
         model.addAttribute("formValues", form);
         model.addAttribute("modalError", message);
+        if (form.id() != null) {
+            model.addAttribute("formEmployees", departmentListService.employeesForDepartment(form.id()));
+        }
         model.addAttribute("view", departmentListService.buildList(null));
         return "departments :: content";
     }

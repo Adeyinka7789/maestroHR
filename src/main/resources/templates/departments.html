@@ -113,6 +113,24 @@
                            placeholder="e.g., Engineering, Finance"
                            autocomplete="off"
                            class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+
+                    <label class="block font-label-sm text-label-sm text-on-surface-variant mt-md mb-xs">
+                        Head of Department
+                    </label>
+                    <!--
+                      Options are normally populated client-side from the clicked row's
+                      data-employees JSON (openDeptEdit). The server-rendered th:each only
+                      fires on a validation-error re-render of an edit, where formEmployees
+                      carries that department's roster and the chosen head stays selected.
+                    -->
+                    <select id="dept-head" name="headEmployeeId"
+                            class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="">None / Select employee</option>
+                        <option th:each="emp : ${formEmployees}"
+                                th:value="${emp.id}"
+                                th:text="${emp.label}"
+                                th:selected="${formValues != null and formValues.headEmployeeId == emp.id.toString()}">Ada Lovelace</option>
+                    </select>
                 </div>
 
                 <!-- Modal footer -->
@@ -138,10 +156,28 @@
         (function () {
             function dpt(id) { return document.getElementById(id); }
 
+            // Rebuild the HOD dropdown from a [{id,label},…] list (this department's
+            // members), then select `selected`. Labels are escaped to guard against
+            // names containing markup.
+            function setHeadOptions(list, selected) {
+                var esc = (window.MaestroHR && MaestroHR.escapeHtml)
+                    ? MaestroHR.escapeHtml
+                    : function (s) { return s == null ? '' : String(s); };
+                var html = '<option value="">None / Select employee</option>';
+                (list || []).forEach(function (e) {
+                    html += '<option value="' + esc(e.id) + '">' + esc(e.label) + '</option>';
+                });
+                var sel = dpt('dept-head');
+                sel.innerHTML = html;
+                sel.value = selected || '';
+            }
+
             window.openDeptCreate = function () {
                 dpt('dept-modal-heading').textContent = 'New Department';
                 dpt('dept-modal').querySelector('[name=id]').value = '';
                 dpt('dept-name').value = '';
+                // A new department has no members yet — only "None" is selectable.
+                setHeadOptions([], '');
                 dpt('dept-modal').style.display = 'flex';
                 setTimeout(function () { dpt('dept-name').focus(); }, 50);
             };
@@ -150,6 +186,9 @@
                 dpt('dept-modal-heading').textContent = 'Edit Department';
                 dpt('dept-modal').querySelector('[name=id]').value = btn.dataset.id;
                 dpt('dept-name').value = btn.dataset.name || '';
+                var list = [];
+                try { list = JSON.parse(btn.dataset.employees || '[]'); } catch (e) { list = []; }
+                setHeadOptions(list, btn.dataset.head || '');
                 dpt('dept-modal').style.display = 'flex';
                 setTimeout(function () { dpt('dept-name').focus(); }, 50);
             };
@@ -188,7 +227,7 @@
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.createdFormatted}">02 Jun 2025</td>
                     <td class="px-md py-md text-right">
                         <button type="button" onclick="openDeptEdit(this)"
-                                th:attr="data-id=${row.id},data-name=${row.name}"
+                                th:attr="data-id=${row.id},data-name=${row.name},data-head=${row.headEmployeeId},data-employees=${row.departmentEmployeesJson}"
                                 class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
                             <span class="material-symbols-outlined text-[18px]">edit</span>
                         </button>

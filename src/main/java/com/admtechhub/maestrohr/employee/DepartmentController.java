@@ -24,13 +24,16 @@ public class DepartmentController {
     static class DepartmentRequest {
         @NotBlank(message = "Department name is required")
         private String name;
+
+        /** Optional employee id (UUID string) to assign as Head of Department; null/blank = none. */
+        private String headEmployeeId;
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Department>> create(
             @Valid @RequestBody DepartmentRequest request) {
-        Department department = departmentService.create(request.getName());
+        Department department = departmentService.create(request.getName(), request.getHeadEmployeeId());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Department created", department));
@@ -50,7 +53,7 @@ public class DepartmentController {
     public ResponseEntity<ApiResponse<Department>> update(
             @PathVariable UUID id,
             @Valid @RequestBody DepartmentRequest request) {
-        Department updated = departmentService.update(id, request.getName());
+        Department updated = departmentService.update(id, request.getName(), request.getHeadEmployeeId());
         return ResponseEntity.ok(
                 ApiResponse.success("Department updated", updated));
     }

@@ -23,10 +23,10 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     @Query("SELECT COUNT(d) FROM Department d WHERE d.tenant.id = :tenantId")
     long countByTenantId(@Param("tenantId") UUID tenantId);
 
-    @Query("SELECT new com.admtechhub.maestrohr.employee.DepartmentDTO(d.id, d.name, d.createdAt, COUNT(e.id)) " +
+    @Query("SELECT new com.admtechhub.maestrohr.employee.DepartmentDTO(d.id, d.name, d.createdAt, COUNT(e.id), d.headEmployeeId) " +
             "FROM Department d LEFT JOIN Employee e ON e.department.id = d.id " +
             "WHERE d.tenant.id = :tenantId " +
-            "GROUP BY d.id, d.name, d.createdAt")
+            "GROUP BY d.id, d.name, d.createdAt, d.headEmployeeId")
     List<DepartmentDTO> findAllWithEmployeeCountByTenantId(@Param("tenantId") UUID tenantId);
 
     @Query("SELECT d FROM Department d WHERE d.tenant.id = :tenantId " +
@@ -41,11 +41,11 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     // adding an optional name search. Null-safe: CAST(:search AS string) makes Hibernate emit
     // cast(? as varchar) so Postgres gets a concrete type for a null :search instead of inferring
     // bytea (which triggers "function lower(bytea) does not exist"); search is bypassed when null.
-    @Query("SELECT new com.admtechhub.maestrohr.employee.DepartmentDTO(d.id, d.name, d.createdAt, COUNT(e.id)) " +
+    @Query("SELECT new com.admtechhub.maestrohr.employee.DepartmentDTO(d.id, d.name, d.createdAt, COUNT(e.id), d.headEmployeeId) " +
             "FROM Department d LEFT JOIN Employee e ON e.department.id = d.id " +
             "WHERE d.tenant.id = :tenantId " +
             "AND (:search IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
-            "GROUP BY d.id, d.name, d.createdAt " +
+            "GROUP BY d.id, d.name, d.createdAt, d.headEmployeeId " +
             "ORDER BY LOWER(d.name)")
     List<DepartmentDTO> findFilteredWithEmployeeCount(@Param("tenantId") UUID tenantId,
                                                       @Param("search") String search);

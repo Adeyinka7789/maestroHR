@@ -76,11 +76,29 @@ public class DepartmentDetailService {
         return new DepartmentDetailView(
                 dept.getId(),
                 dept.getName(),
-                "Not assigned",   // head_employee_id is unused until head assignment ships
+                resolveHeadName(dept.getHeadEmployeeId()),
                 formatDate(dept.getCreatedAt()),
                 total, active, onLeave,
                 formatNaira(monthlyPayrollKobo),
                 rows);
+    }
+
+    /**
+     * Resolve the stored head employee id (UUID string) to a display name, or
+     * "Not assigned" when unset. A blank, malformed, or stale id (employee deleted)
+     * also falls back to "Not assigned" rather than failing the page.
+     */
+    private String resolveHeadName(String headEmployeeId) {
+        if (headEmployeeId == null || headEmployeeId.isBlank()) {
+            return "Not assigned";
+        }
+        try {
+            return employeeRepository.findById(UUID.fromString(headEmployeeId.trim()))
+                    .map(Employee::getFullName)
+                    .orElse("Not assigned");
+        } catch (IllegalArgumentException ex) {
+            return "Not assigned";
+        }
     }
 
     private DepartmentDetailView.Row toRow(Employee e) {

@@ -21,7 +21,7 @@ public class DepartmentService {
     private final TenantRepository tenantRepository;  // Add this dependency
 
     @Transactional
-    public Department create(String name) {
+    public Department create(String name, String headEmployeeId) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
 
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -36,6 +36,7 @@ public class DepartmentService {
         Department department = Department.builder()
                 .tenant(tenant)  // Changed from .tenantId(tenantId) to .tenant(tenant)
                 .name(name)
+                .headEmployeeId(normalizeHead(headEmployeeId))
                 .build();
 
         return departmentRepository.save(department);
@@ -79,14 +80,20 @@ public class DepartmentService {
     }
 
     @Transactional
-    public Department update(UUID id, String name) {
+    public Department update(UUID id, String name, String headEmployeeId) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         if (departmentRepository.existsByNameAndTenantIdAndIdNot(name, tenantId, id)) {
             throw new IllegalArgumentException("Department '" + name + "' already exists");
         }
         Department department = findById(id);
         department.setName(name);
+        department.setHeadEmployeeId(normalizeHead(headEmployeeId));
         return departmentRepository.save(department);
+    }
+
+    /** Treat blank/empty HOD selections (the "None" option) as no head assigned. */
+    private String normalizeHead(String headEmployeeId) {
+        return (headEmployeeId == null || headEmployeeId.isBlank()) ? null : headEmployeeId.trim();
     }
 
     @Transactional
