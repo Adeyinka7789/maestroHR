@@ -99,23 +99,30 @@ public class EmployeeService {
             throw new IllegalArgumentException("Employee with email " + request.getEmail() + " already exists");
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("User with email " + request.getEmail() + " already exists");
-        }
-
         String employeeNumber = generateEmployeeNumber(tenantId);
 
-        User user = User.builder()
-                .tenantId(tenantId)
-                .email(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(UserRole.EMPLOYEE)
-                .isActive(true)
-                .failedLoginAttempts(0)
-                .build();
-
-        User savedUser = userRepository.save(user);
-        log.info("Created user account for employee: {}", savedUser.getEmail());
+        // Reuse an existing login when this work email already has a User account in THIS
+        // tenant (e.g. an HR_ADMIN being given an Employee profile); only provision a new
+        // EMPLOYEE login when none exists. Scoped to the tenant so a same-email user in
+        // another tenant is never linked across the boundary — that tenant gets its own User.
+        User savedUser = userRepository.findByEmailAndTenantId(request.getEmail(), tenantId)
+                .map(existing -> {
+                    log.info("Linking employee to existing user account: {}", existing.getEmail());
+                    return existing;
+                })
+                .orElseGet(() -> {
+                    User user = User.builder()
+                            .tenantId(tenantId)
+                            .email(request.getEmail())
+                            .passwordHash(passwordEncoder.encode(request.getPassword()))
+                            .role(UserRole.EMPLOYEE)
+                            .isActive(true)
+                            .failedLoginAttempts(0)
+                            .build();
+                    User created = userRepository.save(user);
+                    log.info("Created user account for employee: {}", created.getEmail());
+                    return created;
+                });
 
         Employee employee = Employee.builder()
                 .tenant(tenant)
