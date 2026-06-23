@@ -57,6 +57,7 @@ public enum SubscriptionPlan {
             SubscriptionFeature.LEAVE_MANAGEMENT,
             SubscriptionFeature.ATTENDANCE_TRACKING,
             SubscriptionFeature.LOAN_MANAGEMENT
+
     );
 
     private final String displayName;

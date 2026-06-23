@@ -1,13 +1,16 @@
 package com.admtechhub.maestrohr.config;
 
+import com.admtechhub.maestrohr.auth.DeviceAuthFilter;
 import com.admtechhub.maestrohr.auth.JwtAuthFilter;
 import com.admtechhub.maestrohr.auth.LapsedAccessFilter;
 import com.admtechhub.maestrohr.auth.PublicPaths;
 import com.admtechhub.maestrohr.auth.TenantValidationFilter;
+import com.admtechhub.maestrohr.platform.DeviceBootstrapQueries;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -27,7 +30,28 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final SubscriptionService subscriptionService;
 
+    /**
+     * Device sync chain — @Order(1) so it intercepts /api/v1/device/** before the main chain.
+     * Authentication is via X-Device-Api-Key (SHA-256 lookup); no JWT, no tenant pre-validation.
+     * DeviceAuthFilter is instantiated here (not a @Component) to prevent Spring Boot from
+     * registering it as a standalone servlet filter across all paths.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain deviceFilterChain(HttpSecurity http,
+                                                 DeviceBootstrapQueries deviceBootstrapQueries) throws Exception {
+        http
+                .securityMatcher("/api/v1/device/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .addFilterBefore(new DeviceAuthFilter(deviceBootstrapQueries),
+                        UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)

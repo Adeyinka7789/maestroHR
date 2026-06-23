@@ -69,7 +69,8 @@ public final class PublicPaths {
             "/leave/**",
             "/attendance/**",
             "/reports/**",
-            "/subscription/**"
+            "/subscription/**",
+            "/attendance/devices/**"
     );
 
     /**
@@ -81,6 +82,19 @@ public final class PublicPaths {
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/favicon.ico"
+    );
+
+    /**
+     * Device sync paths: authenticated via {@code X-Device-Api-Key} in the device
+     * {@link com.admtechhub.maestrohr.config.SecurityConfig} chain (@Order(1)). Exempt from
+     * JWT extraction in {@link JwtAuthFilter} (no JWT is present on device requests), and exempt
+     * from {@link TenantValidationFilter} / {@link LapsedAccessFilter} (those run only in the
+     * main chain which never receives these requests). Listed here so {@link #isNoTenant} returns
+     * {@code true} and JwtAuthFilter skips the JWT extraction attempt rather than logging a
+     * spurious "no token" path.
+     */
+    public static final List<String> DEVICE = List.of(
+            "/api/v1/device/**"
     );
 
     /**
@@ -104,7 +118,7 @@ public final class PublicPaths {
 
     /** True if the path requires no tenant context (exempt from {@link TenantValidationFilter}). */
     public static boolean isNoTenant(String path) {
-        return matchesAny(NO_TENANT, path) || matchesAny(DOCS, path);
+        return matchesAny(NO_TENANT, path) || matchesAny(DOCS, path) || matchesAny(DEVICE, path);
     }
 
     /** True if the path bypasses the lapsed-tenant read-only freeze. */

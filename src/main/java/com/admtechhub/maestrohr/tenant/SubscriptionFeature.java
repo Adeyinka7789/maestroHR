@@ -25,5 +25,8 @@ public enum SubscriptionFeature {
     CUSTOM_REPORTING,
 
     // Notifications
-    SMS_NOTIFICATIONS
+    SMS_NOTIFICATIONS,
+
+    // Hardware integration
+    HARDWARE_SYNC
 }

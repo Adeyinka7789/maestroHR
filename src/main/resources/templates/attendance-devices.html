@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<!--
+  attendance-devices.html — Device Sync management page (Attendance → Device Sync).
+  HR_ADMIN / SUPER_ADMIN only. Rendered by DeviceManagementWebController as
+  "attendance-devices :: content" and swapped into #page-content.
+
+  Two tabs:
+    - Devices: list of registered biometric devices with enrollment sub-table
+    - Sync Errors: unresolved push errors HR needs to fix (typically enrollment mismatches)
+
+  Key generation: the raw key is shown exactly ONCE in a highlighted banner after creation
+  and is never retrievable again.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Device Sync</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant">
+            Register biometric devices, map employee IDs, and review sync errors
+        </p>
+    </div>
+
+    <!-- One-time raw key banner -->
+    <div th:if="${newKey != null}" role="alert"
+         class="mb-md p-4 rounded-xl border-2 border-primary bg-primary-fixed">
+        <div class="flex items-start gap-sm mb-sm">
+            <span class="material-symbols-outlined text-primary text-[20px] flex-shrink-0">key</span>
+            <div>
+                <p class="font-label-md text-label-md text-on-surface mb-xs">
+                    API key for <strong th:text="${newKey.deviceName}">Device</strong> — save it now, it won't be shown again
+                </p>
+                <code class="block font-mono text-sm bg-white px-3 py-2 rounded-lg border border-outline-variant break-all select-all"
+                      th:text="${newKey.rawKey}">mhrdev_...</code>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                    Configure this key as the <code class="text-xs bg-surface-container px-1 rounded">X-Device-Api-Key</code> header on the device.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success banner -->
+    <div th:if="${success != null and newKey == null}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${success}">Done.</span>
+    </div>
+
+    <!-- Error banner -->
+    <div th:if="${formError != null}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${formError}">Something went wrong.</span>
+    </div>
+
+    <!-- Tab strip -->
+    <div class="flex gap-xs mb-lg border-b border-outline-variant">
+        <button type="button"
+                hx-get="/htmx/attendance/devices?tab=devices" hx-target="#page-content" hx-swap="innerHTML"
+                th:classappend="${tab == 'devices'} ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+                class="px-4 py-2.5 -mb-px border-b-2 bg-transparent font-label-md text-label-md transition-colors cursor-pointer">
+            Devices
+        </button>
+        <button type="button"
+                hx-get="/htmx/attendance/devices?tab=errors" hx-target="#page-content" hx-swap="innerHTML"
+                th:classappend="${tab == 'errors'} ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+                class="px-4 py-2.5 -mb-px border-b-2 bg-transparent font-label-md text-label-md transition-colors cursor-pointer">
+            Sync Errors
+            <span th:if="${unresolvedErrorCount > 0}"
+                  class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-error text-on-error"
+                  th:text="${unresolvedErrorCount}">0</span>
+        </button>
+    </div>
+
+    <!-- ── DEVICES TAB ─────────────────────────────────────────────────────── -->
+    <div th:if="${tab == 'devices' or tab == null}">
+
+        <!-- Add Device form -->
+        <details class="mb-md group">
+            <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-outline-variant hover:bg-surface-container-lowest transition-colors">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-primary text-[20px]">add_circle</span>
+                    <span class="font-label-md text-label-md text-on-surface">Register New Device</span>
+                </div>
+                <span class="material-symbols-outlined text-on-surface-variant text-[18px] group-open:rotate-180 transition-transform">expand_more</span>
+            </summary>
+            <div class="mt-sm px-4 py-4 rounded-xl bg-white border border-outline-variant">
+                <form hx-post="/htmx/attendance/devices"
+                      hx-target="#page-content" hx-swap="innerHTML">
+                    <div class="grid grid-cols-1 gap-md sm:grid-cols-3">
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Device Name *</label>
+                            <input type="text" name="deviceName" required placeholder="e.g. Main Gate ZKTeco"
+                                   class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-white font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Device Serial / ID</label>
+                            <input type="text" name="deviceIdentifier" placeholder="e.g. ZK-001"
+                                   class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-white font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Location</label>
+                            <input type="text" name="location" placeholder="e.g. Head Office Lobby"
+                                   class="w-full px-3 py-2 rounded-lg border border-outline-variant bg-white font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                    <div class="mt-md flex justify-end">
+                        <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                            Generate API Key
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </details>
+
+        <!-- Device list -->
+        <div th:if="${#lists.isEmpty(devices)}"
+             class="text-center py-16 text-on-surface-variant font-body-md text-body-md">
+            No devices registered yet. Add one above to get started.
+        </div>
+
+        <div th:each="device : ${devices}" th:if="${not #lists.isEmpty(devices)}"
+             class="mb-md bg-white border border-outline-variant rounded-xl overflow-hidden">
+
+            <!-- Device header row -->
+            <div class="flex items-center justify-between px-md py-sm bg-surface-container-low">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-on-surface-variant text-[18px]">fingerprint</span>
+                    <div>
+                        <p class="font-label-md text-label-md text-on-surface" th:text="${device.deviceName}">Device</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant"
+                           th:text="${(device.deviceIdentifier != null ? device.deviceIdentifier + ' · ' : '') + (device.location != null ? device.location : '')}"></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-sm">
+                    <span th:if="${device.active}"
+                          class="px-2 py-1 rounded text-[10px] font-bold bg-secondary-container text-on-secondary-container">Active</span>
+                    <span th:unless="${device.active}"
+                          class="px-2 py-1 rounded text-[10px] font-bold bg-surface-container text-on-surface-variant">Revoked</span>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant" th:if="${device.lastUsedAt}"
+                       th:text="'Last used: ' + ${#temporals.format(device.lastUsedAt, 'dd MMM yyyy HH:mm')}"></p>
+                    <!-- Revoke -->
+                    <button th:if="${device.active}" type="button"
+                            th:attr="hx-post='/htmx/attendance/devices/' + ${device.id} + '/revoke'"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            hx-confirm="Revoke this device key? The device will stop being able to push events."
+                            class="px-3 py-1.5 rounded-lg border border-outline-variant bg-white text-on-surface font-label-sm text-label-sm hover:bg-surface-container-lowest transition-colors">
+                        Revoke
+                    </button>
+                    <!-- Delete -->
+                    <button type="button"
+                            th:attr="hx-post='/htmx/attendance/devices/' + ${device.id} + '/delete'"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            hx-confirm="Delete this device and all its enrollments permanently?"
+                            class="px-3 py-1.5 rounded-lg border border-error text-error bg-white font-label-sm text-label-sm hover:bg-error hover:text-white transition-colors">
+                        Delete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Enrollments sub-table -->
+            <div class="px-md py-sm border-t border-outline-variant">
+                <p class="font-label-sm text-label-sm text-on-surface-variant mb-sm">Employee Enrollments</p>
+                <div th:with="enrollments=${enrollmentsByDevice[device.id]}">
+                    <table th:if="${not #lists.isEmpty(enrollments)}" class="w-full text-left mb-sm">
+                        <thead>
+                        <tr class="border-b border-outline-variant">
+                            <th class="pb-xs font-label-sm text-label-sm text-on-surface-variant pr-md">Device Employee ID</th>
+                            <th class="pb-xs font-label-sm text-label-sm text-on-surface-variant pr-md">Employee</th>
+                            <th class="pb-xs font-label-sm text-label-sm text-on-surface-variant pr-md">Enrolled</th>
+                            <th class="pb-xs font-label-sm text-label-sm text-on-surface-variant"></th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="enrollment : ${enrollments}" class="border-b border-outline-variant last:border-0">
+                            <td class="py-xs pr-md font-mono text-sm text-on-surface" th:text="${enrollment.deviceEmployeeId}">101</td>
+                            <td class="py-xs pr-md font-body-sm text-body-sm text-on-surface" th:text="${enrollment.employeeName}">John Doe</td>
+                            <td class="py-xs pr-md font-body-sm text-body-sm text-on-surface-variant"
+                                th:text="${#temporals.format(enrollment.enrolledAt, 'dd MMM yyyy')}">01 Jun 2026</td>
+                            <td class="py-xs">
+                                <button type="button"
+                                        th:attr="hx-post='/htmx/attendance/devices/enrollments/' + ${enrollment.id} + '/delete'"
+                                        hx-target="#page-content" hx-swap="innerHTML"
+                                        hx-confirm="Remove this enrollment? The device will no longer recognize this employee."
+                                        class="text-error font-label-sm text-label-sm hover:underline bg-transparent border-0 cursor-pointer">
+                                    Remove
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <p th:if="${#lists.isEmpty(enrollments)}" class="font-body-sm text-body-sm text-on-surface-variant mb-sm italic">
+                        No employees enrolled on this device yet.
+                    </p>
+                </div>
+
+                <!-- Add enrollment inline form -->
+                <details class="mt-sm group">
+                    <summary class="cursor-pointer list-none flex items-center gap-xs text-primary font-label-sm text-label-sm hover:underline">
+                        <span class="material-symbols-outlined text-[16px]">person_add</span>
+                        Enroll an employee
+                    </summary>
+                    <form hx-post="/htmx/attendance/devices/enrollments"
+                          hx-target="#page-content" hx-swap="innerHTML"
+                          class="mt-sm flex flex-wrap items-end gap-sm">
+                        <input type="hidden" name="deviceApiKeyId" th:value="${device.id}">
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Device Employee ID</label>
+                            <input type="text" name="deviceEmployeeId" required placeholder="e.g. 101"
+                                   class="w-32 px-3 py-1.5 rounded-lg border border-outline-variant bg-white font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Employee</label>
+                            <select name="employeeId" required
+                                    class="px-3 py-1.5 rounded-lg border border-outline-variant bg-white font-body-sm text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">Select employee…</option>
+                                <option th:each="emp : ${employees}"
+                                        th:value="${emp.id}"
+                                        th:text="${emp.fullName + ' (' + emp.employeeNumber + ')'}">John Doe (E001)</option>
+                            </select>
+                        </div>
+                        <button type="submit"
+                                class="px-4 py-1.5 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                            Enroll
+                        </button>
+                    </form>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SYNC ERRORS TAB ─────────────────────────────────────────────────── -->
+    <div th:if="${tab == 'errors'}">
+        <div th:if="${#lists.isEmpty(syncErrors)}"
+             class="text-center py-16 text-on-surface-variant font-body-md text-body-md">
+            No unresolved sync errors. All device pushes are being processed correctly.
+        </div>
+
+        <div th:unless="${#lists.isEmpty(syncErrors)}"
+             class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                    <tr class="bg-surface-container-low">
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Device</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Device Emp ID</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Event</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Timestamp</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Reason</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Logged</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Action</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-outline-variant">
+                    <tr th:each="err : ${syncErrors}" class="hover:bg-surface-container-lowest transition-colors">
+                        <td class="px-md py-md font-body-sm text-body-sm text-on-surface" th:text="${err.deviceName}">Device A</td>
+                        <td class="px-md py-md font-mono text-sm text-on-surface" th:text="${err.deviceEmployeeId ?: '—'}">101</td>
+                        <td class="px-md py-md">
+                            <span class="px-2 py-1 rounded text-[10px] font-bold"
+                                  th:classappend="${err.eventType == 'CHECK_IN'} ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary-fixed text-on-primary-fixed-variant'"
+                                  th:text="${err.eventType ?: '—'}">CHECK_IN</span>
+                        </td>
+                        <td class="px-md py-md font-body-sm text-body-sm text-on-surface-variant whitespace-nowrap"
+                            th:text="${err.eventTimestamp != null ? #temporals.format(err.eventTimestamp, 'dd MMM yyyy HH:mm') : '—'}"></td>
+                        <td class="px-md py-md font-body-sm text-body-sm text-error max-w-xs truncate" th:text="${err.errorReason}">No enrollment</td>
+                        <td class="px-md py-md font-body-sm text-body-sm text-on-surface-variant whitespace-nowrap"
+                            th:text="${#temporals.format(err.createdAt, 'dd MMM HH:mm')}"></td>
+                        <td class="px-md py-md text-right">
+                            <button type="button"
+                                    th:attr="hx-post='/htmx/attendance/devices/sync-errors/' + ${err.id} + '/resolve'"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    class="px-3 py-1.5 rounded-lg border border-outline-variant bg-white font-label-sm text-label-sm hover:bg-surface-container-lowest transition-colors">
+                                Resolve
+                            </button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

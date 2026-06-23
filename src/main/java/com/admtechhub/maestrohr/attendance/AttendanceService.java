@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -292,6 +293,83 @@ public class AttendanceService {
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate = startDate.plusMonths(1).minusDays(1);
         return attendanceRepository.countPresentDays(employeeId, startDate, endDate);
+    }
+
+    /**
+     * Biometric device check-in for the given employee at a caller-supplied timestamp (which may
+     * be a past time when the device is pushing offline records). Guards are the same as
+     * {@link #checkIn}: throws {@link IllegalStateException} on double check-in so the device
+     * service can classify the outcome as DUPLICATE rather than ERROR.
+     */
+    @Transactional
+    public AttendanceRecordDTO processDeviceCheckIn(UUID employeeId, LocalDateTime timestamp) {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
+
+        LocalDate date = timestamp.toLocalDate();
+        if (date.isAfter(LocalDate.now())) {
+            throw new IllegalStateException("Cannot record attendance for a future date");
+        }
+
+        AttendanceRecord record = attendanceRepository
+                .findByEmployeeIdAndAttendanceDate(employeeId, date)
+                .orElse(null);
+
+        if (record != null && record.getClockInTime() != null) {
+            throw new IllegalStateException("Already checked in for " + date);
+        }
+
+        LocalTime clockIn = timestamp.toLocalTime();
+        if (record == null) {
+            record = AttendanceRecord.builder()
+                    .tenant(tenant)
+                    .employee(employee)
+                    .attendanceDate(date)
+                    .clockInTime(clockIn)
+                    .status(AttendanceStatus.PRESENT)
+                    .checkInMethod("BIOMETRIC")
+                    .build();
+        } else {
+            record.setClockInTime(clockIn);
+            record.setStatus(AttendanceStatus.PRESENT);
+            record.setCheckInMethod("BIOMETRIC");
+        }
+
+        AttendanceRecord saved = attendanceRepository.save(record);
+        log.info("Biometric check-in: employee={} date={} time={}", employeeId, date, clockIn);
+        return toDto(saved);
+    }
+
+    /**
+     * Biometric device check-out for the given employee at a caller-supplied timestamp.
+     * Throws {@link IllegalStateException} when no check-in exists or already checked out
+     * (DUPLICATE on the device service side).
+     */
+    @Transactional
+    public AttendanceRecordDTO processDeviceCheckOut(UUID employeeId, LocalDateTime timestamp) {
+        LocalDate date = timestamp.toLocalDate();
+        AttendanceRecord record = attendanceRepository
+                .findByEmployeeIdAndAttendanceDate(employeeId, date)
+                .orElseThrow(() -> new IllegalStateException("No check-in found for " + date));
+
+        if (record.getClockInTime() == null) {
+            throw new IllegalStateException("No check-in found for " + date);
+        }
+        if (record.getClockOutTime() != null) {
+            throw new IllegalStateException("Already checked out for " + date);
+        }
+
+        LocalTime clockOut = timestamp.toLocalTime();
+        record.setClockOutTime(clockOut);
+        long minutes = ChronoUnit.MINUTES.between(record.getClockInTime(), clockOut);
+        record.setHoursWorked(BigDecimal.valueOf(minutes / 60.0).setScale(2, java.math.RoundingMode.HALF_UP));
+
+        AttendanceRecord saved = attendanceRepository.save(record);
+        log.info("Biometric check-out: employee={} date={} time={}", employeeId, date, clockOut);
+        return toDto(saved);
     }
 
     /** Count of ABSENT records in the period — used to calculate attendance deduction in kobo. */
