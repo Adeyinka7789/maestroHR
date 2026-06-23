@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Audit Logs</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Cross-tenant system activity and user actions.
+            </p>
+        </div>
+        <div class="flex items-center gap-sm">
+            <a th:href="@{/api/admin/audit/export(tenantId=${tenantId},actor=${actor},action=${action},entityType=${entityType},statusGroup=${statusGroup},dateFrom=${dateFrom},dateTo=${dateTo})}"
+               class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">download</span>
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <form hx-get="/htmx/admin/audit" hx-target="#page-content" hx-swap="innerHTML"
+          class="bg-white border border-outline-variant rounded-xl p-md mb-lg">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-md">
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Tenant</label>
+                <select name="tenantId" class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+                    <option value="">All Tenants</option>
+                    <option th:each="t : ${view.tenants}"
+                            th:value="${t.id}"
+                            th:text="${t.companyName}"
+                            th:selected="${tenantId != null && tenantId == t.id.toString()}">
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Action</label>
+                <select name="action" class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+                    <option value="">All Actions</option>
+                    <option th:each="a : ${view.actions}"
+                            th:value="${a}"
+                            th:text="${a}"
+                            th:selected="${action != null && action.equals(a)}">
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Entity Type</label>
+                <select name="entityType" class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+                    <option value="">All Types</option>
+                    <option th:each="e : ${view.entityTypes}"
+                            th:value="${e}"
+                            th:text="${e}"
+                            th:selected="${entityType != null && entityType.equals(e)}">
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Status</label>
+                <select name="statusGroup" class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+                    <option value="">All Status</option>
+                    <option value="2xx" th:selected="${statusGroup == '2xx'}">2xx - Success</option>
+                    <option value="3xx" th:selected="${statusGroup == '3xx'}">3xx - Redirection</option>
+                    <option value="4xx" th:selected="${statusGroup == '4xx'}">4xx - Client Error</option>
+                    <option value="5xx" th:selected="${statusGroup == '5xx'}">5xx - Server Error</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-md mt-md">
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Actor Email</label>
+                <input type="text" name="actor" th:value="${actor}" placeholder="Search by email…"
+                       class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+            </div>
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Date From</label>
+                <input type="datetime-local" name="dateFrom" th:value="${dateFrom}"
+                       class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+            </div>
+            <div>
+                <label class="block text-label-sm text-on-surface-variant mb-xs">Date To</label>
+                <input type="datetime-local" name="dateTo" th:value="${dateTo}"
+                       class="w-full border border-outline rounded-lg px-3 py-2 text-body-sm">
+            </div>
+        </div>
+        <div class="flex gap-sm mt-md">
+            <button type="submit" class="bg-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-200">
+                Apply Filters
+            </button>
+            <button type="reset" class="border border-outline text-on-surface-variant px-5 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-200">
+                Clear
+            </button>
+        </div>
+    </form>
+
+    <!-- Table -->
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-wider">
+                <tr>
+                    <th class="px-md py-3">Tenant</th>
+                    <th class="px-md py-3">Timestamp</th>
+                    <th class="px-md py-3">Actor</th>
+                    <th class="px-md py-3">Action</th>
+                    <th class="px-md py-3">Entity</th>
+                    <th class="px-md py-3">Status</th>
+                    <th class="px-md py-3">Impersonated By</th>
+                    <th class="px-md py-3">Details</th>
+                </tr>
+                </thead>
+                <tbody class="font-table-data text-table-data">
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="8" class="px-md py-12 text-center text-on-surface-variant font-body-sm text-body-sm">
+                        No audit logs found.
+                    </td>
+                </tr>
+                <tr th:each="log : ${view.rows}" class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                    <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${log.companyName}">Acme Ltd</td>
+                    <td class="px-md py-3 font-mono text-[12px] text-on-surface-variant"
+                        th:text="${log.createdAt != null ? #temporals.format(log.createdAt, 'dd MMM yyyy HH:mm') : '-'}">01 Jun 2026</td>
+                    <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${log.actorEmail}">user@example.com</td>
+                    <td class="px-md py-3">
+                        <span class="px-2 py-1 rounded text-[11px] font-bold bg-surface-container text-on-surface-variant"
+                              th:text="${log.action}">EMPLOYEE_CREATE</span>
+                    </td>
+                    <td class="px-md py-3">
+                        <div class="text-sm" th:text="${log.entityType}">Employee</div>
+                        <div class="text-xs text-on-surface-variant" th:if="${log.entityId}">ID: <span th:text="${#strings.substring(log.entityId, 0, 8)}"></span>…</div>
+                    </td>
+                    <td class="px-md py-3">
+                        <span th:classappend="${log.statusCode >= 200 && log.statusCode < 300
+                                ? 'bg-secondary-container text-on-secondary-container'
+                                : (log.statusCode >= 400
+                                    ? 'bg-error-container text-on-error-container'
+                                    : 'bg-tertiary-fixed text-tertiary')}"
+                              class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                              th:text="${log.statusCode}">200</span>
+                    </td>
+                    <td class="px-md py-3 text-on-surface-variant" th:text="${log.impersonatedBy ?: '-'}">admin@maestrohr.com</td>
+                    <td class="px-md py-3">
+                        <div class="text-sm" th:text="${log.requestPath}">/api/employees</div>
+                        <div class="text-xs text-on-surface-variant" th:if="${log.details}" th:text="${#strings.abbreviate(log.details, 60)}">Created employee...</div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div th:if="${view.totalPages > 1}" class="flex items-center justify-between mt-md">
+        <div class="text-body-sm text-on-surface-variant">
+            Page <span th:text="${view.currentPage + 1}">1</span> of <span th:text="${view.totalPages}">1</span>
+            (<span th:text="${view.totalCount}">0</span> total)
+        </div>
+        <div class="flex gap-sm">
+            <button th:disabled="${view.currentPage == 0}"
+                    hx-get="@{/htmx/admin/audit(page=${view.currentPage - 1}, size=25, tenantId=${tenantId}, actor=${actor}, action=${action}, entityType=${entityType}, statusGroup=${statusGroup}, dateFrom=${dateFrom}, dateTo=${dateTo})}"
+                    hx-target="#page-content" hx-swap="innerHTML"
+                    class="px-4 py-2 border border-outline rounded-lg text-label-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-container-low">
+                Previous
+            </button>
+            <button th:disabled="${view.currentPage + 1 >= view.totalPages}"
+                    hx-get="@{/htmx/admin/audit(page=${view.currentPage + 1}, size=25, tenantId=${tenantId}, actor=${actor}, action=${action}, entityType=${entityType}, statusGroup=${statusGroup}, dateFrom=${dateFrom}, dateTo=${dateTo})}"
+                    hx-target="#page-content" hx-swap="innerHTML"
+                    class="px-4 py-2 bg-primary text-white rounded-lg text-label-sm disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90">
+                Next
+            </button>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

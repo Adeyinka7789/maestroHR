@@ -23,12 +23,13 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/audit")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasRole('HR_ADMIN')")
 public class AuditTrailController {
 
     private final AuditTrailService auditTrailService;
 
     @GetMapping("/logs")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN')")
     public ResponseEntity<ApiResponse<Page<AuditTrail>>> getAuditLogs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
@@ -64,7 +65,7 @@ public class AuditTrailController {
     }
 
     @GetMapping("/filter-options")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, List<String>>>> getFilterOptions() {
         Map<String, List<String>> options = new HashMap<>();
 
