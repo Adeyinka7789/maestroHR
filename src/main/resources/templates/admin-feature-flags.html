@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--
+  admin-feature-flags.html — super-admin global feature-flag page fragment.
+  Rendered by FeatureFlagsAdminController as "admin-feature-flags :: content" and swapped
+  into #page-content. Lists every platform_flags row with an Enable/Disable toggle. A
+  disabled flag removes the feature for every tenant regardless of plan. Stitch design-system
+  tokens, matching admin-deleted-records.html conventions.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Action result banner -->
+    <div th:if="${successMessage != null}"
+         class="flex items-center gap-sm mb-md px-md py-3 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${successMessage}">Flag updated.</span>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-center gap-md mb-lg">
+        <span class="material-symbols-outlined text-primary text-[28px]">toggle_on</span>
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary">Feature Flags</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                Global kill switches. Disabling a feature removes it for every tenant, regardless of
+                their subscription plan. Features with no flag default to enabled.
+            </p>
+        </div>
+        <span class="ml-auto px-2 py-0.5 rounded bg-primary-fixed text-primary text-[11px] font-bold"
+              th:text="${flags.size()} + ' flags'">0 flags</span>
+    </div>
+
+    <!-- Empty state -->
+    <div th:if="${flags.isEmpty()}"
+         class="flex flex-col items-center justify-center py-24 gap-md bg-white border border-outline-variant rounded-xl">
+        <span class="material-symbols-outlined text-[64px] text-on-surface-variant">flag</span>
+        <p class="font-headline-sm text-headline-sm text-on-surface-variant">No flags configured</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Every feature defaults to enabled.</p>
+    </div>
+
+    <!-- Flags table -->
+    <div th:if="${!flags.isEmpty()}" class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-wider">
+                <tr>
+                    <th class="px-md py-3 font-semibold">Flag</th>
+                    <th class="px-md py-3 font-semibold">Description</th>
+                    <th class="px-md py-3 font-semibold">Status</th>
+                    <th class="px-md py-3 font-semibold">Last Updated</th>
+                    <th class="px-md py-3 font-semibold text-right">Action</th>
+                </tr>
+                </thead>
+                <tbody class="font-table-data text-table-data">
+                <tr th:each="f : ${flags}"
+                    class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                    <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${f.name}">LOAN_MANAGEMENT</td>
+                    <td class="px-md py-3 text-on-surface-variant" th:text="${f.description}">—</td>
+                    <td class="px-md py-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                              th:classappend="${f.enabled
+                                  ? 'bg-secondary-container text-on-secondary-container'
+                                  : 'bg-error-container text-on-error-container'}"
+                              th:text="${f.enabled ? 'Enabled' : 'Disabled'}">Enabled</span>
+                    </td>
+                    <td class="px-md py-3 text-on-surface-variant">
+                        <span th:if="${f.updatedBy != null}" th:text="${f.updatedBy}">system</span>
+                        <span th:if="${f.updatedBy == null}">—</span>
+                    </td>
+                    <td class="px-md py-3">
+                        <div class="flex items-center justify-end">
+                            <!-- Disable button when currently enabled -->
+                            <button th:if="${f.enabled}"
+                                    th:attr="hx-post=@{/htmx/admin/feature-flags/{name}/disable(name=${f.name})}"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Disable this feature for ALL tenants? They will lose access regardless of plan."
+                                    class="inline-flex items-center gap-xs bg-white border border-error text-error px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-error hover:text-white transition-all duration-200">
+                                <span class="material-symbols-outlined text-[16px]">toggle_off</span>
+                                Disable
+                            </button>
+                            <!-- Enable button when currently disabled -->
+                            <button th:unless="${f.enabled}"
+                                    th:attr="hx-post=@{/htmx/admin/feature-flags/{name}/enable(name=${f.name})}"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Enable this feature platform-wide? Tenants whose plan includes it regain access."
+                                    class="inline-flex items-center gap-xs bg-secondary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all duration-200">
+                                <span class="material-symbols-outlined text-[16px]">toggle_on</span>
+                                Enable
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

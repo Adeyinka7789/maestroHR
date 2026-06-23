@@ -12,7 +12,23 @@
         </div>
         <div class="card" style="padding:22px;">
             <div style="display:flex;gap:10px;align-items:end;">
-                <div style="flex:1;"><label class="form-label">Month</label><input class="form-input" id="payrollMonth" type="number" min="1" max="12"></div>
+                <div style="flex:1;">
+                    <label class="form-label">Month</label>
+                    <select class="form-input" id="payrollMonth">
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                </div>
                 <div style="flex:1;"><label class="form-label">Year</label><input class="form-input" id="payrollYear" type="number" min="2024" max="2099"></div>
                 <button class="btn-primary" id="initiate-payroll-btn">Initiate</button>
             </div>
@@ -32,7 +48,7 @@
                 </tr>
                 </thead>
                 <tbody id="payroll-runs-table-body">
-                <tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading payroll runs...</span></tr>
+                <tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading payroll runs...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -71,13 +87,13 @@
             const tbody = document.getElementById('payroll-runs-table-body');
 
             if (!hasPayrollAccess()) {
-                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">You do not have permission to view payroll runs. Only HR Admins, Finance Officers, and Super Admins can access this page.办</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">You do not have permission to view payroll runs. Only HR Admins, Finance Officers, and Super Admins can access this page.</td></tr>';
                 document.getElementById('pending-approvals-count').textContent = '—';
                 document.getElementById('initiate-payroll-btn').disabled = true;
                 return;
             }
 
-            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading...</span></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">Loading...</td></tr>';
 
             try {
                 // Load pending approvals count
@@ -96,9 +112,9 @@
                 const runsRes = await apiCall('/api/payroll');
                 if (!runsRes.ok) {
                     if (runsRes.status === 403) {
-                        tbody.innerHTML = `<td><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Access denied. Your role "${escapeHtml(userRole)}" does not have permission to view payroll.办</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Access denied. Your role "${escapeHtml(userRole)}" does not have permission to view payroll.</td></tr>`;
                     } else {
-                        tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Please try again.办</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Please try again.</td></tr>';
                     }
                     return;
                 }
@@ -107,7 +123,7 @@
                 let runsData = runs.data || (Array.isArray(runs) ? runs : []);
 
                 if (runsData.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No payroll runs yet. Start by initiating a new run above.办</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#94a3b8;">No payroll runs yet. Start by initiating a new run above.</td></tr>';
                 } else {
                     tbody.innerHTML = runsData.map(run => `
                         <tr style="border-bottom:1px solid #f8fafc;">
@@ -123,13 +139,13 @@
                 }
             } catch (error) {
                 console.error('Failed to load payroll data:', error);
-                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Check console for details.办</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="padding:48px 16px;text-align:center;color:#ef4444;">Failed to load payroll runs. Check console for details.</td></tr>';
             }
         }
 
         // Set default month/year
         const now = new Date();
-        document.getElementById('payrollMonth').value = now.getMonth() + 1;
+        document.getElementById('payrollMonth').value = (now.getMonth() + 1).toString();
         document.getElementById('payrollYear').value = now.getFullYear();
 
         // Initiate payroll button
@@ -139,15 +155,33 @@
                 showToast('You do not have permission to initiate payroll.', 'error');
                 return;
             }
-            const month = document.getElementById('payrollMonth').value;
-            const year = document.getElementById('payrollYear').value;
+            const month = parseInt(document.getElementById('payrollMonth').value);
+            const year = parseInt(document.getElementById('payrollYear').value);
+
+            console.log('Initiating payroll with month:', month, 'year:', year);
+
             if (!month || !year) {
-                showToast('Please enter month and year', 'error');
+                showToast('Please select month and year', 'error');
                 return;
             }
+
+            if (month < 1 || month > 12) {
+                showToast('Please select a valid month (1-12)', 'error');
+                return;
+            }
+
             try {
-                const response = await apiCall(`/api/payroll/initiate?month=${month}&year=${year}`, { method: 'POST' });
+                // Use direct fetch to ensure we hit the correct API endpoint
+                const response = await fetch(`/api/payroll/initiate?month=${month}&year=${year}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
                 const result = await response.json();
+
                 if (!response.ok) {
                     showToast(result.error || result.message || 'Payroll initiation failed.', 'error');
                     return;
@@ -155,6 +189,7 @@
                 showToast('Payroll initiated successfully.', 'success');
                 loadPayrollData();
             } catch (error) {
+                console.error('Payroll initiation error:', error);
                 showToast('Failed to initiate payroll', 'error');
             }
         });

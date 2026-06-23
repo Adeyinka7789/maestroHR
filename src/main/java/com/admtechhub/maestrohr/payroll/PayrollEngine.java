@@ -26,10 +26,12 @@ public class PayrollEngine {
      * @param workingDays     Total working days in month
      * @param unpaidLeaveDays Approved unpaid leave days in the period — deducted post-statutory
      * @param absentDays      ABSENT attendance records in the period — deducted post-statutory
+     * @param loanDeduction   Active-loan repayment for the period (kobo) — deducted post-statutory.
+     *                        Calculated by LoanService and passed in; the engine only nets it out.
      * @return Complete PayrollResult including separate deduction line items
      */
     public PayrollResult calculateEmployeePayroll(Employee employee, int daysWorked, int workingDays,
-                                                  int unpaidLeaveDays, int absentDays) {
+                                                  int unpaidLeaveDays, int absentDays, long loanDeduction) {
         PayGrade payGrade = employee.getPayGrade();
 
         // Get base salaries from pay grade (all in kobo)
@@ -77,13 +79,15 @@ public class PayrollEngine {
         Long unpaidLeaveDeduction = dailyRateKobo * unpaidLeaveDays;
         Long attendanceDeduction  = dailyRateKobo * absentDays;
 
-        // Step 7: Calculate Net Salary
+        // Step 7: Calculate Net Salary. Loan repayment is post-tax (Nigerian loan
+        // repayments don't reduce taxable income), so it nets out alongside the other
+        // post-statutory deductions.
         Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeResult.getMonthlyPAYE();
-        Long netSalary = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction;
+        Long netSalary = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction - loanDeduction;
 
-        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}",
+        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}, Loan={}",
                 employee.getFullName(), grossSalary, netSalary, payeResult.getMonthlyPAYE(),
-                pensionResult.getEmployeeContribution(), nhfDeduction, unpaidLeaveDeduction, attendanceDeduction);
+                pensionResult.getEmployeeContribution(), nhfDeduction, unpaidLeaveDeduction, attendanceDeduction, loanDeduction);
 
         return PayrollResult.builder()
                 .employeeId(employee.getId())
@@ -102,6 +106,7 @@ public class PayrollEngine {
                 .otherDeductions(0L)
                 .unpaidLeaveDeduction(unpaidLeaveDeduction)
                 .attendanceDeduction(attendanceDeduction)
+                .loanDeduction(loanDeduction)
                 .netSalary(netSalary)
                 .daysWorked(daysWorked)
                 .workingDays(workingDays)
@@ -129,6 +134,7 @@ public class PayrollEngine {
         private Long otherDeductions;
         private Long unpaidLeaveDeduction;
         private Long attendanceDeduction;
+        private Long loanDeduction;
         private Long netSalary;
         private Integer daysWorked;
         private Integer workingDays;

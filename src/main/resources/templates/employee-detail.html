@@ -222,6 +222,40 @@
                 </a>
             </div>
 
+            <!-- Loans card — read-only summary of this employee's loans; managed on /htmx/loans -->
+            <div class="bg-white border border-outline-variant rounded-xl p-lg">
+                <div class="flex items-center justify-between mb-md">
+                    <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Loans</h2>
+                    <a href="/htmx/loans" hx-get="/htmx/loans" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                       class="font-label-sm text-label-sm text-primary hover:underline cursor-pointer">Manage</a>
+                </div>
+
+                <div th:if="${detail.loans.isEmpty()}" class="font-body-sm text-body-sm text-on-surface-variant">
+                    No loans on record.
+                </div>
+
+                <div th:unless="${detail.loans.isEmpty()}" class="flex flex-col gap-md">
+                    <div th:each="loan : ${detail.loans}" class="pb-md border-b border-outline-variant last:border-0 last:pb-0">
+                        <div class="flex items-center justify-between mb-xs">
+                            <span class="font-label-md text-label-md text-on-surface" th:text="${loan.amountFormatted}">₦150,000</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${loan.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (loan.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (loan.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                                  th:text="${loan.statusLabel}">Active</span>
+                        </div>
+                        <div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
+                            <span>Monthly</span><span th:text="${loan.monthlyFormatted}">₦25,000</span>
+                        </div>
+                        <div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
+                            <span>Remaining</span><span th:text="${loan.remainingFormatted}">₦100,000</span>
+                        </div>
+                        <div class="flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
+                            <span>Progress</span><span th:text="${loan.progress}">2 / 6 months</span>
+                        </div>
+                        <p th:if="${!loan.description.isEmpty()}" class="font-body-sm text-body-sm text-on-surface-variant mt-xs" th:text="${loan.description}">Salary advance</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Summary card -->
             <div class="bg-white border border-outline-variant rounded-xl p-lg">
                 <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Summary</h2>

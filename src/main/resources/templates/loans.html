@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<!--
+  loans.html — server-rendered HTMX fragment (Option 3), the HR/Finance loan approval +
+  tracking page. Rendered by LoanListController as "loans :: content" and swapped into
+  #page-content. Employees apply on their own "My Loans" page (loans-me.html); here HR/Finance
+  approve / reject PENDING requests and manage (pause / resume / cancel) ACTIVE ones. Stitch
+  design-system tokens. Every write posts to /htmx/loans/... and re-renders this fragment.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Loan Approvals</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant">
+            Review employee loan requests, then track repayments deducted through payroll
+        </p>
+    </div>
+
+    <!-- Result banners -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${success}">Loan approved.</span>
+    </div>
+    <div th:if="${formError}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${formError}">Something went wrong.</span>
+    </div>
+
+    <!-- Summary strip -->
+    <div class="flex flex-wrap gap-md mb-md">
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Pending requests</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.pendingCount}">0</p>
+        </div>
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Active loans</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.activeCount}">0</p>
+        </div>
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Total outstanding</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.totalOutstandingFormatted}">₦0</p>
+        </div>
+    </div>
+
+    <!-- Loans table -->
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employee</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Amount</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Monthly</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Remaining</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Progress</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Started</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
+                                 th:text="${row.employeeInitials}">TS</div>
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${row.employeeName}">Tayo Shonibare</p>
+                                <p class="font-body-sm text-body-sm text-on-surface-variant" th:text="${row.employeeNumber}">E001</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface" th:text="${row.loanAmountFormatted}">₦150,000</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.monthlyInstallmentFormatted}">₦25,000</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface" th:text="${row.remainingFormatted}">₦100,000</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant whitespace-nowrap" th:text="${row.progress}">2 / 6 months</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant whitespace-nowrap" th:text="${row.startDateFormatted}">01 Jun 2025</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${row.statusLabel}">Pending</span>
+                    </td>
+
+                    <!-- Per-row actions: Approve/Reject (PENDING), Pause (ACTIVE), Resume (PAUSED), Cancel. -->
+                    <td class="px-md py-md text-right whitespace-nowrap">
+                        <div class="inline-flex items-center gap-xs">
+                            <button th:if="${row.canApprove}" type="button"
+                                    th:attr="hx-post='/htmx/loans/' + ${row.id} + '/approve'"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Approve this loan? It will start deducting from the next payroll run."
+                                    class="px-3 py-1.5 rounded-lg border border-outline-variant bg-secondary-container text-on-secondary-container font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                Approve
+                            </button>
+                            <details th:if="${row.canReject}" class="relative">
+                                <summary class="list-none cursor-pointer px-3 py-1.5 rounded-lg border border-error text-error bg-white font-label-sm text-label-sm hover:bg-error hover:text-white transition-colors">
+                                    Reject
+                                </summary>
+                                <form th:attr="hx-post='/htmx/loans/' + ${row.id} + '/reject'"
+                                      hx-target="#page-content" hx-swap="innerHTML"
+                                      class="absolute right-0 z-10 mt-xs w-72 p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Reason for rejection</label>
+                                    <textarea name="reason" required rows="3"
+                                              placeholder="Explain why this request is being declined…"
+                                              class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary resize-none"></textarea>
+                                    <div class="flex justify-end gap-xs mt-sm">
+                                        <button type="submit"
+                                                class="px-3 py-1.5 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                            Confirm Reject
+                                        </button>
+                                    </div>
+                                </form>
+                            </details>
+
+                            <button th:if="${row.canPause}" type="button"
+                                    th:attr="hx-post='/htmx/loans/' + ${row.id} + '/pause'"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Pause this loan? No installment will be deducted until it is resumed."
+                                    class="px-3 py-1.5 rounded-lg border border-outline-variant bg-white text-on-surface font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                                Pause
+                            </button>
+                            <button th:if="${row.canResume}" type="button"
+                                    th:attr="hx-post='/htmx/loans/' + ${row.id} + '/resume'"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Resume this loan? Installments will be deducted again from the next payroll run."
+                                    class="px-3 py-1.5 rounded-lg border border-outline-variant bg-secondary-container text-on-secondary-container font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                Resume
+                            </button>
+                            <button th:if="${row.canCancel}" type="button"
+                                    th:attr="hx-post='/htmx/loans/' + ${row.id} + '/cancel'"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Cancel this loan? It will stop being deducted. This cannot be undone."
+                                    class="px-3 py-1.5 rounded-lg border border-error text-error bg-white font-label-sm text-label-sm hover:bg-error hover:text-white transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="8" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No loan requests yet</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Employees apply from their own "My Loans" page; requests appear here for approval.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

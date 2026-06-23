@@ -98,7 +98,7 @@ class PayrollIntegrationTest {
     @Test
     void threeUnpaidLeaveDays_deductedAsSeperateLineItemFromNet() {
         PayrollEngine.PayrollResult result =
-                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 3, 0);
+                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 3, 0, 0L);
 
         long expected = DAILY_RATE * 3; // 36,363 × 3 = 108,989 kobo
         assertEquals(expected,         result.getUnpaidLeaveDeduction(),
@@ -114,7 +114,7 @@ class PayrollIntegrationTest {
     @Test
     void twoAbsentDays_deductedAsSeperateLineItemFromNet() {
         PayrollEngine.PayrollResult result =
-                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 2);
+                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 2, 0L);
 
         long expected = DAILY_RATE * 2; // 36,363 × 2 = 72,726 kobo
         assertEquals(expected, result.getAttendanceDeduction(),
@@ -131,7 +131,7 @@ class PayrollIntegrationTest {
     @Test
     void noDeductions_netPayIsGrossMinusStatutoryOnly() {
         PayrollEngine.PayrollResult result =
-                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 0);
+                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 0, 0L);
 
         assertEquals(0L,              result.getUnpaidLeaveDeduction());
         assertEquals(0L,              result.getAttendanceDeduction());

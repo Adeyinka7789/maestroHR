@@ -50,6 +50,7 @@ public class PayslipGenerator {
             long nhfDeduction = entry.getNhfDeduction() != null ? entry.getNhfDeduction() : 0L;
             long unpaidLeaveDeduction = entry.getUnpaidLeaveDeduction() != null ? entry.getUnpaidLeaveDeduction() : 0L;
             long attendanceDeduction = entry.getAttendanceDeduction() != null ? entry.getAttendanceDeduction() : 0L;
+            long loanDeduction = entry.getLoanDeduction() != null ? entry.getLoanDeduction() : 0L;
             long otherDeductions = entry.getOtherDeductions() != null ? entry.getOtherDeductions() : 0L;
             int lateDaysInPeriod = entry.getLateDaysInPeriod() != null ? entry.getLateDaysInPeriod() : 0;
             long netPay = entry.getNetSalary() != null ? entry.getNetSalary() : 0L;
@@ -64,11 +65,13 @@ public class PayslipGenerator {
             context.setVariable("nhfDeduction", nhfDeduction / 100.0);
             context.setVariable("unpaidLeaveDeduction", unpaidLeaveDeduction / 100.0);
             context.setVariable("attendanceDeduction", attendanceDeduction / 100.0);
+            context.setVariable("loanDeduction", loanDeduction / 100.0);
+            context.setVariable("hasLoanDeduction", loanDeduction > 0);
             context.setVariable("otherDeductions", otherDeductions / 100.0);
             context.setVariable("lateDaysInPeriod", lateDaysInPeriod);
 
             long totalDeductions = payeTax + pensionEmployee + nhfDeduction
-                    + unpaidLeaveDeduction + attendanceDeduction + otherDeductions;
+                    + unpaidLeaveDeduction + attendanceDeduction + loanDeduction + otherDeductions;
             context.setVariable("totalDeductions", totalDeductions / 100.0);
             context.setVariable("netPay", netPay / 100.0);
 

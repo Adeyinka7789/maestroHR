@@ -40,7 +40,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.EMAIL_SUPPORT,
             SubscriptionFeature.SMS_NOTIFICATIONS,
             SubscriptionFeature.LEAVE_MANAGEMENT,
-            SubscriptionFeature.ATTENDANCE_TRACKING
+            SubscriptionFeature.ATTENDANCE_TRACKING,
+            SubscriptionFeature.LOAN_MANAGEMENT
     ),
     ENTERPRISE(
             "Enterprise",
@@ -54,7 +55,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.CUSTOM_REPORTING,
             SubscriptionFeature.SMS_NOTIFICATIONS,
             SubscriptionFeature.LEAVE_MANAGEMENT,
-            SubscriptionFeature.ATTENDANCE_TRACKING
+            SubscriptionFeature.ATTENDANCE_TRACKING,
+            SubscriptionFeature.LOAN_MANAGEMENT
     );
 
     private final String displayName;

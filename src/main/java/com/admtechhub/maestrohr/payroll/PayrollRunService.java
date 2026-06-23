@@ -8,6 +8,7 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.leave.LeaveService;
+import com.admtechhub.maestrohr.loan.LoanService;
 import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
@@ -42,6 +43,7 @@ public class PayrollRunService {
     private final NotificationService notificationService;
     private final LeaveService leaveService;
     private final AttendanceService attendanceService;
+    private final LoanService loanService;
 
     private static final int DEFAULT_WORKING_DAYS = 22;
 
@@ -134,8 +136,12 @@ public class PayrollRunService {
             int absentDays      = attendanceService.getAbsentDays(employee.getId(), periodStart, periodEnd);
             int lateDays        = attendanceService.getLateDays(employee.getId(), periodStart, periodEnd);
 
+            // Phase 1 (calculate): pure, idempotent — no loan balance is touched here, so a
+            // recompute never double-charges. The balance decrement happens once at approval.
+            long loanDeduction = loanService.computeLoanDeductionForEmployee(employee.getId());
+
             PayrollEngine.PayrollResult result = payrollEngine.calculateEmployeePayroll(
-                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays);
+                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays, loanDeduction);
 
             PayrollEntry entry = PayrollEntry.builder()
                     .tenant(employee.getTenant())
@@ -153,6 +159,7 @@ public class PayrollRunService {
                     .otherDeductions(result.getOtherDeductions())
                     .unpaidLeaveDeduction(result.getUnpaidLeaveDeduction())
                     .attendanceDeduction(result.getAttendanceDeduction())
+                    .loanDeduction(result.getLoanDeduction())
                     .lateDaysInPeriod(lateDays)
                     .netSalary(result.getNetSalary())
                     .daysWorked(result.getDaysWorked())
@@ -245,7 +252,21 @@ public class PayrollRunService {
         User approvedBy = userRepository.findById(approvedByUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + approvedByUserId));
 
+        // Guard: the loan deductions locked onto the entries at compute must still match the
+        // current loan state, or the payslip total and the ledger about to be written would
+        // disagree (a loan was paused / cancelled / added between compute and approval). On a
+        // mismatch this throws → the run stays PENDING_APPROVAL and finance is told to reject &
+        // recompute. Checked before any state change so nothing is half-applied.
+        loanService.verifyDeductionsCurrent(payrollRun.getEntries());
+
         payrollRun.setStatus(PayrollStatus.APPROVED);
+
+        // Phase 2 (apply): decrement loan balances and write the repayment ledger exactly once.
+        // Runs inside this approval transaction, so a failure rolls the approval back too. The
+        // ledger's UNIQUE(loan_id, payroll_run_id) plus canApprove() (PENDING_APPROVAL → APPROVED
+        // happens once) make a double-apply impossible.
+        loanService.applyRepaymentsForRun(payrollRun, payrollRun.getEntries());
+
         // After setting status to APPROVED, trigger notifications
         for (PayrollEntry entry : payrollRun.getEntries()) {
             notificationService.sendPayslipNotification(
@@ -411,6 +432,7 @@ public class PayrollRunService {
                         .payeTax(entry.getPayeTax())
                         .unpaidLeaveDeduction(entry.getUnpaidLeaveDeduction())
                         .attendanceDeduction(entry.getAttendanceDeduction())
+                        .loanDeduction(entry.getLoanDeduction())
                         .lateDaysInPeriod(entry.getLateDaysInPeriod())
                         .netSalary(entry.getNetSalary())
                         .employeeName(entry.getEmployee().getFullName())

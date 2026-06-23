@@ -19,6 +19,7 @@ public enum SubscriptionFeature {
     // HR features
     LEAVE_MANAGEMENT,
     ATTENDANCE_TRACKING,
+    LOAN_MANAGEMENT,
 
     // Reporting
     CUSTOM_REPORTING,

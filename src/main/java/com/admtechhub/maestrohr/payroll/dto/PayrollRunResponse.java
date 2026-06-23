@@ -65,6 +65,7 @@ public class PayrollRunResponse {
         private Long payeTax;
         private Long unpaidLeaveDeduction;
         private Long attendanceDeduction;
+        private Long loanDeduction;
         private Long netSalary;
         private String employeeName;
         private String employeeNumber;

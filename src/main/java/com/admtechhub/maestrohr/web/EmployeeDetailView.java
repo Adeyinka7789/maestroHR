@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.web;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -62,5 +63,21 @@ public record EmployeeDetailView(
         // Action permissions (computed from the viewer's roles + the employee's state),
         // so a destructive button is only rendered when the action would actually succeed.
         boolean canTerminate,      // HR_ADMIN/SUPER_ADMIN and not already terminated
-        boolean canHardDelete      // SUPER_ADMIN and the employee has no dependent records
-) {}
+        boolean canHardDelete,     // SUPER_ADMIN and the employee has no dependent records
+
+        // Loans — read-only summary of this employee's loans (newest first), or empty.
+        List<LoanSummary> loans
+) {
+
+    /** A single loan summarised for the employee detail page; money pre-formatted as naira. */
+    public record LoanSummary(
+            String amountFormatted,
+            String monthlyFormatted,
+            String remainingFormatted,
+            String progress,          // e.g. "2 / 6 months"
+            String startDateFormatted,
+            String description,       // may be blank
+            String statusLabel,       // humanized, e.g. "Active"
+            String statusKind         // success | warn | error | neutral
+    ) {}
+}

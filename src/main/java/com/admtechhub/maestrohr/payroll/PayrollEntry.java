@@ -77,6 +77,11 @@ public class PayrollEntry extends BaseEntity {
     @Builder.Default
     private Long attendanceDeduction = 0L;
 
+    /** Active-loan repayment deducted this period (kobo) — post-statutory line item. */
+    @Column(name = "loan_deduction", nullable = false)
+    @Builder.Default
+    private Long loanDeduction = 0L;
+
     /** LATE records in the period — informational, not deducted automatically. */
     @Column(name = "late_days_in_period", nullable = false)
     @Builder.Default

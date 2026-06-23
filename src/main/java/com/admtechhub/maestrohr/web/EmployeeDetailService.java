@@ -4,6 +4,8 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.employee.PayGrade;
+import com.admtechhub.maestrohr.loan.EmployeeLoan;
+import com.admtechhub.maestrohr.loan.LoanService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -32,6 +35,7 @@ public class EmployeeDetailService {
             DateTimeFormatter.ofPattern("dd MMM uuuu", Locale.ENGLISH);
 
     private final EmployeeService employeeService;
+    private final LoanService loanService;
 
     /**
      * Builds the detail view for {@code employeeId}, or {@code null} if no such
@@ -103,7 +107,40 @@ public class EmployeeDetailService {
 
                 // Action permissions
                 canTerminate,
-                canHardDelete);
+                canHardDelete,
+
+                // Loans
+                buildLoanSummaries(e.getId()));
+    }
+
+    /** Read-only loan summaries for the employee, newest first (empty when none). */
+    private List<EmployeeDetailView.LoanSummary> buildLoanSummaries(UUID employeeId) {
+        return loanService.getLoansByEmployee(employeeId).stream()
+                .map(this::toLoanSummary)
+                .toList();
+    }
+
+    private EmployeeDetailView.LoanSummary toLoanSummary(EmployeeLoan loan) {
+        String statusName = loan.getStatus() != null ? loan.getStatus().name() : "ACTIVE";
+        return new EmployeeDetailView.LoanSummary(
+                formatNaira(loan.getLoanAmount()),
+                formatNaira(loan.getMonthlyInstallment()),
+                formatNaira(loan.getRemainingBalance()),
+                (loan.getMonthsPaid() != null ? loan.getMonthsPaid() : 0) + " / " + loan.getRepaymentMonths() + " months",
+                formatDate(loan.getStartDate()),
+                loan.getDescription() != null ? loan.getDescription() : "",
+                humanize(statusName),
+                loanStatusKind(statusName));
+    }
+
+    /** Loan status badge colour bucket. */
+    private String loanStatusKind(String status) {
+        return switch (status) {
+            case "ACTIVE" -> "success";
+            case "PENDING", "PAUSED" -> "warn";
+            case "CANCELLED", "REJECTED" -> "error";
+            default -> "neutral"; // COMPLETED
+        };
     }
 
     /** True when the authenticated viewer holds any of the given ROLE_* authorities. */

@@ -23,6 +23,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,12 +42,19 @@ class FeatureCheckAspectTest {
     @Mock
     private SubscriptionService subscriptionService;
 
+    @Mock
+    private PlatformFlagService platformFlagService;
+
     private static final UUID CONTEXT_TENANT = UUID.randomUUID();
     private static final UUID DECOY_ARG_TENANT = UUID.randomUUID();
 
     @BeforeEach
     void bindTenant() {
         TenantContext.setCurrentTenant(CONTEXT_TENANT.toString());
+        // No global flag blocks these tests — the global kill switch defaults to enabled, so
+        // the tenant/plan resolution path is what is under test here. Lenient: the SUPER_ADMIN
+        // bypass test short-circuits before the flag is ever consulted.
+        lenient().when(platformFlagService.isEnabled(anyString())).thenReturn(true);
     }
 
     @AfterEach
@@ -56,7 +65,7 @@ class FeatureCheckAspectTest {
 
     /** Wrap a target in a proxy with the real aspect + real FeatureFlagService. */
     private <T> T proxy(T target) {
-        FeatureCheckAspect aspect = new FeatureCheckAspect(new FeatureFlagService(subscriptionService));
+        FeatureCheckAspect aspect = new FeatureCheckAspect(new FeatureFlagService(subscriptionService, platformFlagService));
         AspectJProxyFactory factory = new AspectJProxyFactory(target);
         factory.addAspect(aspect);
         return factory.getProxy();
@@ -117,7 +126,7 @@ class FeatureCheckAspectTest {
 
         assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
         // hasFeature is never reached when there is no tenant bound.
-        assertFalse(new FeatureFlagService(subscriptionService).isEnabled(SubscriptionFeature.LEAVE_MANAGEMENT));
+        assertFalse(new FeatureFlagService(subscriptionService, platformFlagService).isEnabled(SubscriptionFeature.LEAVE_MANAGEMENT));
     }
 
     // ── SUPER_ADMIN is exempt: gate is skipped even when the plan lacks the feature ─
