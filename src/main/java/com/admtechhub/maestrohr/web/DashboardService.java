@@ -1,23 +1,38 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.attendance.AttendanceRecord;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
 import com.admtechhub.maestrohr.attendance.AttendanceStatus;
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.auth.UserRole;
+import com.admtechhub.maestrohr.employee.Department;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
+import com.admtechhub.maestrohr.leave.LeaveBalanceRepository;
+import com.admtechhub.maestrohr.leave.LeaveRequest;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
+import com.admtechhub.maestrohr.payment.Invoice;
+import com.admtechhub.maestrohr.payment.InvoiceRepository;
+import com.admtechhub.maestrohr.payment.PaymentStatus;
+import com.admtechhub.maestrohr.payroll.PayrollEntry;
+import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
 import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -32,8 +47,13 @@ import java.util.UUID;
 
 /**
  * Assembles the server-rendered {@link DashboardView} for the redesigned dashboard.
+ * The dashboard is role-aware: {@link #buildOverview()} reads the authenticated user's
+ * role and populates only the section relevant to them, so a single page serves every
+ * role. HR_ADMIN / SUPER_ADMIN get the company-wide overview (the top-level fields);
+ * EMPLOYEE / FINANCE_OFFICER / DEPT_MANAGER each get a dedicated nullable section.
+ *
  * All values are derived from real MaestroHR entities (employees, payroll, leave,
- * attendance) so the page renders fully populated with no client-side fetches.
+ * attendance, billing) so the page renders fully populated with no client-side fetches.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,6 +62,8 @@ public class DashboardService {
 
     private static final DateTimeFormatter SHORT_DATE_FMT =
             DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
+    private static final DateTimeFormatter TIME_FMT =
+            DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH);
     private static final int BIRTHDAY_WINDOW_DAYS = 14;
     private static final int ANNIVERSARY_WINDOW_DAYS = 30;
     private static final int CELEBRATION_LIMIT = 5;
@@ -50,48 +72,278 @@ public class DashboardService {
     private static final Set<AttendanceStatus> PRESENT_STATUSES =
             EnumSet.of(AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.HALF_DAY);
 
+    /**
+     * Payroll runs that are final enough to surface a downloadable payslip / count as
+     * "current payroll cost" — approved and beyond. DRAFT / PENDING_APPROVAL aren't final,
+     * REJECTED never paid out.
+     */
+    private static final Set<PayrollStatus> APPROVED_OR_LATER =
+            EnumSet.of(PayrollStatus.APPROVED, PayrollStatus.DISBURSING, PayrollStatus.COMPLETED);
+
     private final EmployeeRepository employeeRepository;
     private final PayrollRunRepository payrollRunRepository;
+    private final PayrollEntryRepository payrollEntryRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final LeaveBalanceRepository leaveBalanceRepository;
     private final AttendanceRepository attendanceRepository;
+    private final InvoiceRepository invoiceRepository;
 
     @Transactional(readOnly = true)
     public DashboardView buildOverview() {
         UUID tenantId = currentTenantId();
+        UserRole role = currentRole();
         LocalDate today = LocalDate.now();
         YearMonth thisMonth = YearMonth.from(today);
+        String periodLabel = monthLabel(thisMonth);
 
-        List<Employee> employees =
-                employeeRepository.findAllByTenantId(tenantId, Pageable.unpaged()).getContent();
+        // Top-level fields back the HR_ADMIN company overview; they stay at their empty
+        // defaults for the other roles (whose th:if blocks don't read them).
+        long activeHeadcount = 0;
+        long newHiresThisMonth = 0;
+        long onLeaveCount = 0;
+        long pendingLeaveCount = 0;
+        long pendingPayrollApproval = 0;
+        long leaveDaysThisMonth = 0;
+        DashboardView.PayrollSummary payroll = emptyPayrollSummary(thisMonth);
+        DashboardView.AttendanceToday attendanceToday = emptyAttendance();
+        List<DashboardView.CelebrationItem> birthdays = List.of();
+        List<DashboardView.CelebrationItem> anniversaries = List.of();
 
-        long activeHeadcount = employeeRepository.countByStatus(EmployeeStatus.ACTIVE);
-        long onLeaveCount = employeeRepository.countByStatus(EmployeeStatus.ON_LEAVE);
-        long pendingLeaveCount =
-                leaveRequestRepository.countByTenantIdAndStatus(tenantId, LeaveStatus.PENDING);
-        long pendingPayrollApproval =
-                payrollRunRepository.countByTenantIdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
+        DashboardView.EmployeeSection employeeSection = null;
+        DashboardView.FinanceSection financeSection = null;
+        DashboardView.DeptManagerSection deptSection = null;
 
-        long newHiresThisMonth = employees.stream()
-                .map(Employee::getEmploymentStartDate)
-                .filter(d -> d != null && YearMonth.from(d).equals(thisMonth))
-                .count();
-
-        long leaveDaysThisMonth = leaveRequestRepository.sumApprovedLeaveDaysInRange(
-                tenantId, thisMonth.atDay(1), thisMonth.atEndOfMonth());
+        switch (role) {
+            case EMPLOYEE -> employeeSection = buildEmployeeSection(tenantId, today);
+            case FINANCE_OFFICER -> financeSection = buildFinanceSection(tenantId);
+            case DEPT_MANAGER -> deptSection = buildDeptManagerSection(tenantId, today);
+            default -> {
+                // HR_ADMIN, SUPER_ADMIN (and any unrecognized role) → the full company overview.
+                List<Employee> employees =
+                        employeeRepository.findAllByTenantId(tenantId, Pageable.unpaged()).getContent();
+                activeHeadcount = employeeRepository.countByStatus(EmployeeStatus.ACTIVE);
+                onLeaveCount = employeeRepository.countByStatus(EmployeeStatus.ON_LEAVE);
+                pendingLeaveCount =
+                        leaveRequestRepository.countByTenantIdAndStatus(tenantId, LeaveStatus.PENDING);
+                pendingPayrollApproval =
+                        payrollRunRepository.countByTenantIdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
+                newHiresThisMonth = countNewHires(employees, thisMonth);
+                leaveDaysThisMonth = leaveRequestRepository.sumApprovedLeaveDaysInRange(
+                        tenantId, thisMonth.atDay(1), thisMonth.atEndOfMonth());
+                payroll = buildPayrollSummary(tenantId, thisMonth);
+                attendanceToday = buildAttendanceToday(tenantId, today);
+                birthdays = buildBirthdays(employees, today);
+                anniversaries = buildAnniversaries(employees, today);
+            }
+        }
 
         return new DashboardView(
-                thisMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + thisMonth.getYear(),
+                periodLabel,
+                role.name(),
                 activeHeadcount,
                 newHiresThisMonth,
                 onLeaveCount,
                 pendingLeaveCount,
                 pendingPayrollApproval,
-                buildPayrollSummary(tenantId, thisMonth),
-                buildAttendanceToday(tenantId, today),
+                payroll,
+                attendanceToday,
                 leaveDaysThisMonth,
-                buildBirthdays(employees, today),
-                buildAnniversaries(employees, today)
+                birthdays,
+                anniversaries,
+                employeeSection,
+                financeSection,
+                deptSection
         );
+    }
+
+    // ── EMPLOYEE ────────────────────────────────────────────────────────────────
+
+    private DashboardView.EmployeeSection buildEmployeeSection(UUID tenantId, LocalDate today) {
+        // Celebrations are company-wide, shown to employees too.
+        List<Employee> employees =
+                employeeRepository.findAllByTenantId(tenantId, Pageable.unpaged()).getContent();
+        List<DashboardView.CelebrationItem> birthdays = buildBirthdays(employees, today);
+        List<DashboardView.CelebrationItem> anniversaries = buildAnniversaries(employees, today);
+
+        Employee me = employeeRepository.findByEmail(currentEmail()).orElse(null);
+        if (me == null) {
+            // Authenticated account with no Employee record — show celebrations only.
+            return new DashboardView.EmployeeSection(
+                    false, null, List.of(),
+                    today.format(SHORT_DATE_FMT), "No profile", "neutral", "—", "—",
+                    null, 0, List.of(), birthdays, anniversaries);
+        }
+
+        List<DashboardView.LeaveBalanceItem> balances =
+                leaveBalanceRepository.findByEmployeeIdAndYear(me.getId(), today.getYear()).stream()
+                        .map(b -> new DashboardView.LeaveBalanceItem(
+                                b.getLeaveType() != null ? b.getLeaveType().getName() : "—",
+                                nz(b.getTotalDaysEntitled()),
+                                nz(b.getDaysTaken()),
+                                nz(b.getDaysRemaining())))
+                        .sorted(Comparator.comparing(DashboardView.LeaveBalanceItem::typeName,
+                                String.CASE_INSENSITIVE_ORDER))
+                        .toList();
+
+        AttendanceRecord record =
+                attendanceRepository.findByEmployeeIdAndAttendanceDate(me.getId(), today).orElse(null);
+        boolean checkedIn = record != null && record.getClockInTime() != null;
+        boolean checkedOut = record != null && record.getClockOutTime() != null;
+        String attStatusLabel = checkedOut ? "Checked out"
+                : (checkedIn ? "Checked in" : "Not checked in yet");
+        String attStatusKind = checkedIn && !checkedOut ? "success" : "neutral";
+
+        DashboardView.PayslipItem latestPayslip = payrollEntryRepository
+                .findByEmployeeIdOrderByPayrollRunCreatedAtDesc(me.getId()).stream()
+                .filter(e -> e.getPayrollRun() != null
+                        && APPROVED_OR_LATER.contains(e.getPayrollRun().getStatus()))
+                .findFirst()
+                .map(this::toPayslipItem)
+                .orElse(null);
+
+        List<DashboardView.MyLeaveItem> pending =
+                leaveRequestRepository.findByEmployeeIdAndStatus(me.getId(), LeaveStatus.PENDING).stream()
+                        .sorted(Comparator.comparing(LeaveRequest::getStartDate))
+                        .map(this::toMyLeaveItem)
+                        .toList();
+
+        return new DashboardView.EmployeeSection(
+                true,
+                me.getFullName(),
+                balances,
+                today.format(SHORT_DATE_FMT),
+                attStatusLabel,
+                attStatusKind,
+                formatTime(record == null ? null : record.getClockInTime()),
+                formatTime(record == null ? null : record.getClockOutTime()),
+                latestPayslip,
+                pending.size(),
+                pending,
+                birthdays,
+                anniversaries);
+    }
+
+    private DashboardView.PayslipItem toPayslipItem(PayrollEntry entry) {
+        PayrollRun run = entry.getPayrollRun();
+        String statusLabel;
+        String statusKind;
+        switch (run.getStatus()) {
+            case COMPLETED -> { statusLabel = "Paid"; statusKind = "success"; }
+            case DISBURSING -> { statusLabel = "Disbursing"; statusKind = "warn"; }
+            default -> { statusLabel = "Approved"; statusKind = "neutral"; } // APPROVED
+        }
+        return new DashboardView.PayslipItem(
+                run.getId(),
+                monthLabel(YearMonth.of(run.getPayrollYear(), run.getPayrollMonth())),
+                formatNaira(entry.getNetSalary()),
+                statusLabel,
+                statusKind);
+    }
+
+    private DashboardView.MyLeaveItem toMyLeaveItem(LeaveRequest req) {
+        String range = req.getStartDate().format(SHORT_DATE_FMT) + " – " + req.getEndDate().format(SHORT_DATE_FMT);
+        return new DashboardView.MyLeaveItem(
+                req.getLeaveType() != null ? req.getLeaveType().getName() : "—",
+                range,
+                nz(req.getDaysRequested()),
+                "Pending",
+                "warn");
+    }
+
+    // ── FINANCE_OFFICER ───────────────────────────────────────────────────────────
+
+    private DashboardView.FinanceSection buildFinanceSection(UUID tenantId) {
+        long pendingPayrollApproval =
+                payrollRunRepository.countByTenantIdAndStatus(tenantId, PayrollStatus.PENDING_APPROVAL);
+
+        // Current payroll cost = net total of the most recent approved-or-later run.
+        PayrollRun latestApproved = payrollRunRepository
+                .findAllByTenant_IdOrderByCreatedAtDesc(tenantId).stream()
+                .filter(r -> APPROVED_OR_LATER.contains(r.getStatus()))
+                .findFirst()
+                .orElse(null);
+        boolean hasCost = latestApproved != null;
+        String costFormatted = hasCost ? formatNaira(latestApproved.getTotalNet()) : "₦0.00";
+        String costPeriod = hasCost
+                ? monthLabel(YearMonth.of(latestApproved.getPayrollYear(), latestApproved.getPayrollMonth()))
+                : "No approved run yet";
+
+        List<DashboardView.InvoiceItem> recentInvoices =
+                invoiceRepository.findTop5ByOrderByCreatedAtDesc().stream()
+                        .map(this::toInvoiceItem)
+                        .toList();
+
+        return new DashboardView.FinanceSection(
+                pendingPayrollApproval, hasCost, costFormatted, costPeriod, recentInvoices);
+    }
+
+    private DashboardView.InvoiceItem toInvoiceItem(Invoice inv) {
+        PaymentStatus status = inv.getStatus();
+        String statusLabel;
+        String statusKind;
+        if (status == PaymentStatus.SUCCESS) {
+            statusLabel = "Success"; statusKind = "success";
+        } else if (status == PaymentStatus.FAILED) {
+            statusLabel = "Failed"; statusKind = "error";
+        } else {
+            statusLabel = "Pending"; statusKind = "warn";
+        }
+        return new DashboardView.InvoiceItem(
+                inv.getPaystackReference(),
+                formatNaira(inv.getAmountKobo()),
+                inv.getPlan() != null ? humanize(inv.getPlan().name()) : "—",
+                statusLabel,
+                statusKind,
+                inv.getCreatedAt() != null ? inv.getCreatedAt().format(SHORT_DATE_FMT) : "—");
+    }
+
+    // ── DEPT_MANAGER ──────────────────────────────────────────────────────────────
+
+    private DashboardView.DeptManagerSection buildDeptManagerSection(UUID tenantId, LocalDate today) {
+        Employee me = employeeRepository.findByEmail(currentEmail()).orElse(null);
+        Department dept = me != null ? me.getDepartment() : null;
+        if (dept == null) {
+            return new DashboardView.DeptManagerSection(
+                    false, null, 0, 0, 0, 0, emptyAttendance(), "₦0");
+        }
+
+        UUID deptId = dept.getId();
+        List<Employee> members = employeeRepository.findByDepartmentId(deptId);
+        long headcount = members.size();
+        long active = members.stream().filter(e -> e.getStatus() == EmployeeStatus.ACTIVE).count();
+        long onLeave = members.stream().filter(e -> e.getStatus() == EmployeeStatus.ON_LEAVE).count();
+        long pendingLeave =
+                leaveRequestRepository.countByDepartmentIdAndStatus(deptId, LeaveStatus.PENDING);
+        DashboardView.AttendanceToday attendance = attendanceFromRows(
+                attendanceRepository.countByStatusForDateAndDepartment(tenantId, deptId, today));
+
+        // Monthly establishment cost: pay-grade gross salary over ACTIVE members only (kobo),
+        // matching DepartmentDetailService.
+        long payrollKobo = members.stream()
+                .filter(e -> e.getStatus() == EmployeeStatus.ACTIVE)
+                .map(Employee::getPayGrade)
+                .filter(java.util.Objects::nonNull)
+                .mapToLong(pg -> pg.getGrossSalary() != null ? pg.getGrossSalary() : 0L)
+                .sum();
+
+        return new DashboardView.DeptManagerSection(
+                true,
+                dept.getName(),
+                headcount,
+                active,
+                onLeave,
+                pendingLeave,
+                attendance,
+                formatNairaWhole(payrollKobo));
+    }
+
+    // ── HR_ADMIN building blocks (unchanged behaviour) ──────────────────────────────
+
+    private long countNewHires(List<Employee> employees, YearMonth thisMonth) {
+        return employees.stream()
+                .map(Employee::getEmploymentStartDate)
+                .filter(d -> d != null && YearMonth.from(d).equals(thisMonth))
+                .count();
     }
 
     private DashboardView.PayrollSummary buildPayrollSummary(UUID tenantId, YearMonth month) {
@@ -103,19 +355,21 @@ public class DashboardService {
                         .orElse(null));
 
         if (run == null) {
-            return new DashboardView.PayrollSummary(
-                    false,
-                    month.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + month.getYear(),
-                    "₦0.00", "NONE", "No run yet", "neutral");
+            return emptyPayrollSummary(month);
         }
 
         YearMonth runMonth = YearMonth.of(run.getPayrollYear(), run.getPayrollMonth());
-        String monthLabel = runMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + runMonth.getYear();
-        String amount = String.format(Locale.ENGLISH, "₦%,.2f", run.getTotalNet() / 100.0);
+        String monthLabel = monthLabel(runMonth);
+        String amount = formatNaira(run.getTotalNet());
         String status = run.getStatus() != null ? run.getStatus().name() : "DRAFT";
 
         return new DashboardView.PayrollSummary(
                 true, monthLabel, amount, status, humanize(status), payrollStatusKind(status));
+    }
+
+    private DashboardView.PayrollSummary emptyPayrollSummary(YearMonth month) {
+        return new DashboardView.PayrollSummary(
+                false, monthLabel(month), "₦0.00", "NONE", "No run yet", "neutral");
     }
 
     /**
@@ -124,7 +378,11 @@ public class DashboardService {
      * (those staff aren't expected in). Returns an empty snapshot when no records exist.
      */
     private DashboardView.AttendanceToday buildAttendanceToday(UUID tenantId, LocalDate today) {
-        List<Object[]> rows = attendanceRepository.countByStatusForDate(tenantId, today);
+        return attendanceFromRows(attendanceRepository.countByStatusForDate(tenantId, today));
+    }
+
+    /** Roll up [status, count] rows into an {@link DashboardView.AttendanceToday} snapshot. */
+    private DashboardView.AttendanceToday attendanceFromRows(List<Object[]> rows) {
         long present = 0;
         long total = 0;
         for (Object[] row : rows) {
@@ -139,10 +397,14 @@ public class DashboardService {
             }
         }
         if (total == 0) {
-            return new DashboardView.AttendanceToday(false, 0, 0, 0);
+            return emptyAttendance();
         }
         int rate = (int) Math.round(present * 100.0 / total);
         return new DashboardView.AttendanceToday(true, present, total, rate);
+    }
+
+    private DashboardView.AttendanceToday emptyAttendance() {
+        return new DashboardView.AttendanceToday(false, 0, 0, 0);
     }
 
     private List<DashboardView.CelebrationItem> buildBirthdays(List<Employee> employees, LocalDate today) {
@@ -240,6 +502,29 @@ public class DashboardService {
         };
     }
 
+    private String monthLabel(YearMonth month) {
+        return month.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + month.getYear();
+    }
+
+    /** Kobo → "₦42,500,000.00". Used for payroll net and invoice amounts. */
+    private String formatNaira(Long amountInKobo) {
+        double naira = amountInKobo == null ? 0.0 : amountInKobo / 100.0;
+        return String.format(Locale.ENGLISH, "₦%,.2f", naira);
+    }
+
+    /** Kobo → whole-naira "₦42,500,000" (no decimals). Used for establishment cost. */
+    private String formatNairaWhole(long amountInKobo) {
+        return String.format(Locale.ENGLISH, "₦%,d", amountInKobo / 100);
+    }
+
+    private String formatTime(LocalTime time) {
+        return time == null ? "—" : time.format(TIME_FMT);
+    }
+
+    private int nz(Integer value) {
+        return value == null ? 0 : value;
+    }
+
     /** Turn "PENDING_APPROVAL" / "create_employee" into "Pending Approval" / "Create Employee". */
     private String humanize(String raw) {
         if (raw == null || raw.isBlank()) return "—";
@@ -266,5 +551,32 @@ public class DashboardService {
             throw new IllegalStateException("No tenant context available");
         }
         return UUID.fromString(tenantId);
+    }
+
+    /**
+     * The authenticated user's role, parsed from the {@code ROLE_*} granted authority.
+     * Defaults to {@link UserRole#HR_ADMIN} when no role can be resolved, preserving the
+     * prior behaviour where the dashboard always rendered the company overview.
+     */
+    private UserRole currentRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null) {
+            for (GrantedAuthority authority : auth.getAuthorities()) {
+                String name = authority.getAuthority();
+                if (name != null && name.startsWith("ROLE_")) {
+                    try {
+                        return UserRole.valueOf(name.substring("ROLE_".length()));
+                    } catch (IllegalArgumentException ignored) {
+                        // Not a known UserRole — keep scanning.
+                    }
+                }
+            }
+        }
+        return UserRole.HR_ADMIN;
+    }
+
+    private String currentEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : null;
     }
 }

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,6 +14,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     /** Idempotency lookup for webhook de-duplication. */
     Optional<Invoice> findByPaystackReference(String paystackReference);
+
+    /**
+     * The five most recent invoices for the current tenant, newest first. Backs the
+     * FINANCE_OFFICER dashboard "Recent Invoices" panel. Tenant-scoped by the
+     * {@code @SQLRestriction} on {@link Invoice}, so no tenant param is needed.
+     */
+    List<Invoice> findTop5ByOrderByCreatedAtDesc();
 
     boolean existsByPaystackReference(String paystackReference);
 

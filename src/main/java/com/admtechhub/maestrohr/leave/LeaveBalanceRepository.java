@@ -17,6 +17,11 @@ public interface LeaveBalanceRepository extends JpaRepository<LeaveBalance, UUID
 
     java.util.List<LeaveBalance> findByYear(Integer year);
 
+    // Backs the EMPLOYEE dashboard "My Leave Balances" section: every leave-type balance
+    // the employee holds for the given year. Tenant-scoped via the @SQLRestriction on
+    // LeaveBalance; the employee id is always the authenticated user's own.
+    java.util.List<LeaveBalance> findByEmployeeIdAndYear(UUID employeeId, Integer year);
+
     @Modifying
     @Transactional
     @Query("UPDATE LeaveBalance lb SET lb.daysTaken = lb.daysTaken + :days, " +

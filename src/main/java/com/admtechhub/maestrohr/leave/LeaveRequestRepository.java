@@ -58,6 +58,12 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
     @Query("SELECT COUNT(l) FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId AND l.status = :status")
     long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") LeaveStatus status);
 
+    // Backs the DEPT_MANAGER dashboard: pending leave requests within one department.
+    // Tenant-scoped via the @SQLRestriction on LeaveRequest; filtered to the manager's
+    // own department.
+    @Query("SELECT COUNT(l) FROM LeaveRequest l WHERE l.employee.department.id = :departmentId AND l.status = :status")
+    long countByDepartmentIdAndStatus(@Param("departmentId") UUID departmentId, @Param("status") LeaveStatus status);
+
     @Query("SELECT l FROM LeaveRequest l WHERE l.employee.tenant.id = :tenantId AND l.status = :status")
     List<LeaveRequest> findByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") LeaveStatus status);
 

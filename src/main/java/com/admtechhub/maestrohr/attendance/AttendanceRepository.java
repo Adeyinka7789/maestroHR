@@ -89,4 +89,15 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
             "WHERE a.tenant.id = :tenantId AND a.attendanceDate = :date GROUP BY a.status")
     List<Object[]> countByStatusForDate(@Param("tenantId") UUID tenantId,
                                         @Param("date") LocalDate date);
+
+    // Per-status counts for one day within a single department, backing the DEPT_MANAGER
+    // dashboard attendance snapshot. Same shape as countByStatusForDate but additionally
+    // filtered to the manager's department. Returns rows of [AttendanceStatus, Long];
+    // statuses with no records are absent.
+    @Query("SELECT a.status, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.tenant.id = :tenantId AND a.employee.department.id = :departmentId " +
+            "AND a.attendanceDate = :date GROUP BY a.status")
+    List<Object[]> countByStatusForDateAndDepartment(@Param("tenantId") UUID tenantId,
+                                                     @Param("departmentId") UUID departmentId,
+                                                     @Param("date") LocalDate date);
 }

@@ -15,12 +15,18 @@
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
         <div>
-            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Company Overview</h1>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs" th:switch="${view.role}">
+                <span th:case="'EMPLOYEE'">My Dashboard</span>
+                <span th:case="'FINANCE_OFFICER'">Finance Overview</span>
+                <span th:case="'DEPT_MANAGER'">Department Overview</span>
+                <span th:case="*">Company Overview</span>
+            </h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Real-time health pulse for <span th:text="${view.periodLabel}">June 2025</span>.
             </p>
         </div>
-        <div class="flex items-center gap-sm">
+        <!-- Add Employee / Run Payroll are HR/admin-only actions. -->
+        <div th:if="${view.role == 'HR_ADMIN' or view.role == 'SUPER_ADMIN'}" class="flex items-center gap-sm">
             <a href="/htmx/employee-create" hx-get="/htmx/employee-create" hx-target="#page-content"
                hx-push-url="true" hx-swap="innerHTML"
                class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
@@ -35,6 +41,9 @@
             </a>
         </div>
     </div>
+
+    <!-- ============================ HR_ADMIN / SUPER_ADMIN ============================ -->
+    <div th:if="${view.role == 'HR_ADMIN' or view.role == 'SUPER_ADMIN'}">
 
     <!-- Bento metrics -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
@@ -251,6 +260,318 @@
             </div>
         </div>
     </div>
+
+    </div> <!-- /HR_ADMIN -->
+
+    <!-- ================================== EMPLOYEE ================================== -->
+    <div th:if="${view.role == 'EMPLOYEE'}">
+
+        <!-- No employee profile fallback -->
+        <div th:unless="${view.employee.hasProfile}"
+             class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm justify-center">
+            <span class="material-symbols-outlined text-on-surface-variant">badge</span>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Your account doesn't have an associated employee profile yet.
+            </p>
+        </div>
+
+        <div th:if="${view.employee.hasProfile}">
+            <!-- Top row: attendance + latest payslip -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
+
+                <!-- Attendance today -->
+                <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
+                    <div class="flex items-center justify-between mb-md">
+                        <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary">how_to_reg</span>
+                        </div>
+                        <span class="status-pill px-2 py-0.5 rounded text-[10px] font-bold"
+                              th:classappend="${view.employee.attendanceStatusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                              th:text="${view.employee.attendanceStatusLabel}">Checked in</span>
+                    </div>
+                    <div>
+                        <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">My Attendance Today</p>
+                        <p class="text-[12px] text-on-surface-variant mt-xs">
+                            In <span class="font-bold text-on-surface" th:text="${view.employee.clockIn}">09:02</span>
+                            • Out <span class="font-bold text-on-surface" th:text="${view.employee.clockOut}">—</span>
+                        </p>
+                        <a href="/htmx/attendance/me" hx-get="/htmx/attendance/me" hx-target="#page-content"
+                           hx-push-url="true" hx-swap="innerHTML"
+                           class="inline-flex items-center gap-xs text-primary font-label-sm text-label-sm mt-sm hover:underline">
+                            Check in / out <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Latest payslip (spans 2) -->
+                <div class="bg-white border border-outline-variant p-md rounded-xl md:col-span-2 flex flex-col md:flex-row gap-md hover:shadow-lg transition-shadow">
+                    <div class="flex-1 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-sm mb-xs">
+                                <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Latest Payslip</p>
+                                <span th:if="${view.employee.latestPayslip != null}"
+                                      class="status-pill px-2 py-0.5 rounded text-[10px] font-bold"
+                                      th:classappend="${view.employee.latestPayslip.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (view.employee.latestPayslip.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                                      th:text="${view.employee.latestPayslip.statusLabel}">Paid</span>
+                            </div>
+                            <h2 th:if="${view.employee.latestPayslip != null}" class="font-headline-md text-headline-md text-on-surface"
+                                th:text="${view.employee.latestPayslip.amountFormatted}">₦420,000.00</h2>
+                            <p th:if="${view.employee.latestPayslip != null}" class="text-[12px] text-on-surface-variant mt-xs"
+                               th:text="${view.employee.latestPayslip.period}">May 2026</p>
+                            <p th:if="${view.employee.latestPayslip == null}" class="font-body-md text-body-md text-on-surface-variant mt-xs">No payslip available yet.</p>
+                        </div>
+                    </div>
+                    <a href="/htmx/payslips" hx-get="/htmx/payslips" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                       class="md:w-32 flex flex-col justify-center items-center bg-surface-container-low rounded-lg p-2 border border-outline-variant gap-1 hover:bg-surface-container transition-colors">
+                        <span class="material-symbols-outlined text-primary">receipt_long</span>
+                        <p class="font-label-sm text-label-sm text-primary text-center">My Payslips</p>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Leave balances + my pending requests -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-lg mb-lg">
+
+                <!-- Leave balances -->
+                <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-md">
+                    <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                        <span class="material-symbols-outlined text-primary">event_available</span>
+                        <h3 class="font-headline-sm text-headline-sm text-primary">My Leave Balances</h3>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                        <div th:each="lb : ${view.employee.leaveBalances}" class="bg-surface-container-low rounded-lg p-md flex items-center justify-between">
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${lb.typeName}">Annual Leave</p>
+                                <p class="text-[12px] text-on-surface-variant">
+                                    <span th:text="${lb.taken}">4</span> taken of <span th:text="${lb.entitled}">20</span> entitled
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <h4 class="font-headline-md text-headline-md text-primary" th:text="${lb.remaining}">16</h4>
+                                <p class="text-[10px] text-on-surface-variant uppercase tracking-wider">days left</p>
+                            </div>
+                        </div>
+                        <p th:if="${view.employee.leaveBalances.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm sm:col-span-2">No leave balances on record for this year.</p>
+                    </div>
+                </div>
+
+                <!-- My pending leave requests -->
+                <div class="bg-white border border-outline-variant rounded-xl p-md">
+                    <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                        <span class="material-symbols-outlined text-primary">pending_actions</span>
+                        <h3 class="font-headline-sm text-headline-sm text-primary">My Pending Requests</h3>
+                    </div>
+                    <div class="space-y-md">
+                        <div th:each="r : ${view.employee.pendingRequests}" class="flex items-center justify-between">
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${r.typeName}">Annual Leave</p>
+                                <p class="text-[12px] text-on-surface-variant">
+                                    <span th:text="${r.dateRange}">Jun 10 – Jun 14</span> • <span th:text="${r.days}">5</span>d
+                                </p>
+                            </div>
+                            <span class="status-pill px-2 py-0.5 rounded text-[10px] font-bold bg-primary-fixed text-on-primary-fixed-variant"
+                                  th:text="${r.statusLabel}">Pending</span>
+                        </div>
+                        <p th:if="${view.employee.pendingRequests.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm">No pending requests.</p>
+                    </div>
+                    <a href="/htmx/leave" hx-get="/htmx/leave" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                       class="inline-flex items-center gap-xs text-primary font-label-sm text-label-sm mt-md hover:underline">
+                        Go to leave <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Celebrations (company-wide) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-lg">
+                <!-- Birthdays -->
+                <div class="bg-white border border-outline-variant rounded-xl p-md">
+                    <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                        <span class="material-symbols-outlined text-primary">cake</span>
+                        <h4 class="font-headline-sm text-headline-sm text-on-surface">Upcoming Birthdays</h4>
+                    </div>
+                    <div class="space-y-md">
+                        <div th:each="b : ${view.employee.birthdays}" class="flex items-center justify-between">
+                            <div class="flex items-center gap-sm">
+                                <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold" th:text="${b.initials}">TS</div>
+                                <div>
+                                    <p class="font-label-md text-label-md text-on-surface" th:text="${b.name}">Tayo Shonibare</p>
+                                    <p class="text-[12px] text-on-surface-variant" th:text="${b.subtitle}">Marketing Team</p>
+                                </div>
+                            </div>
+                            <p class="font-label-sm text-label-sm"
+                               th:classappend="${(b.whenLabel == 'Today' or b.whenLabel == 'Tomorrow') ? 'text-secondary' : 'text-on-surface-variant'}"
+                               th:text="${b.whenLabel}">Tomorrow</p>
+                        </div>
+                        <p th:if="${view.employee.birthdays.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm">No upcoming birthdays</p>
+                    </div>
+                </div>
+                <!-- Anniversaries -->
+                <div class="bg-white border border-outline-variant rounded-xl p-md">
+                    <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                        <span class="material-symbols-outlined text-primary">military_tech</span>
+                        <h4 class="font-headline-sm text-headline-sm text-on-surface">Work Anniversaries</h4>
+                    </div>
+                    <div class="space-y-md">
+                        <div th:each="a : ${view.employee.anniversaries}" class="flex items-center gap-md">
+                            <div class="relative">
+                                <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold" th:text="${a.initials}">NE</div>
+                                <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-secondary text-white rounded-full flex items-center justify-center text-[10px] font-bold" th:text="${a.badge}">3y</div>
+                            </div>
+                            <div>
+                                <p class="font-label-md text-label-md text-on-surface" th:text="${a.name}">Nkechi Egwu</p>
+                                <p class="text-[12px] text-on-surface-variant" th:text="${a.subtitle}">Creative Lead • June 15</p>
+                            </div>
+                        </div>
+                        <p th:if="${view.employee.anniversaries.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-sm">No upcoming anniversaries</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> <!-- /EMPLOYEE -->
+
+    <!-- ============================== FINANCE_OFFICER =============================== -->
+    <div th:if="${view.role == 'FINANCE_OFFICER'}">
+
+        <!-- Metrics: pending approvals + current payroll cost -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
+
+            <!-- Payroll pending approval -->
+            <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+               class="group bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg hover:border-primary transition-all">
+                <div class="flex items-center justify-between mb-md">
+                    <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary">fact_check</span>
+                    </div>
+                    <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+                </div>
+                <div>
+                    <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Awaiting Approval</p>
+                    <h2 class="font-headline-lg text-display-lg text-primary" th:text="${view.finance.pendingPayrollApproval}">1</h2>
+                    <p class="text-[12px] text-on-surface-variant">Payroll run(s) pending your approval</p>
+                </div>
+            </a>
+
+            <!-- Current payroll cost (spans 2) -->
+            <div class="bg-white border border-outline-variant p-md rounded-xl md:col-span-2 flex flex-col justify-between hover:shadow-lg transition-shadow">
+                <div class="flex items-center gap-sm mb-xs">
+                    <span class="material-symbols-outlined text-primary">payments</span>
+                    <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Current Payroll Cost</p>
+                </div>
+                <div>
+                    <h2 class="font-headline-md text-headline-md text-on-surface" th:text="${view.finance.payrollCostFormatted}">₦42,500,000.00</h2>
+                    <p class="text-[12px] text-on-surface-variant mt-xs">
+                        Net total of the latest approved run — <span th:text="${view.finance.payrollCostPeriod}">May 2026</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent invoices -->
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                <h3 class="font-headline-sm text-headline-sm text-primary">Recent Invoices</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left" th:if="${!view.finance.recentInvoices.isEmpty()}">
+                    <thead>
+                        <tr class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-outline-variant">
+                            <th class="py-2 pr-md">Reference</th>
+                            <th class="py-2 pr-md">Plan</th>
+                            <th class="py-2 pr-md">Amount</th>
+                            <th class="py-2 pr-md">Status</th>
+                            <th class="py-2">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="inv : ${view.finance.recentInvoices}" class="border-b border-outline-variant last:border-0">
+                            <td class="py-2 pr-md font-label-sm text-label-sm text-on-surface" th:text="${inv.reference}">PSK_123</td>
+                            <td class="py-2 pr-md text-[12px] text-on-surface-variant" th:text="${inv.planLabel}">Growth</td>
+                            <td class="py-2 pr-md font-label-md text-label-md text-on-surface" th:text="${inv.amountFormatted}">₦60,000.00</td>
+                            <td class="py-2 pr-md">
+                                <span class="status-pill px-2 py-0.5 rounded text-[10px] font-bold"
+                                      th:classappend="${inv.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (inv.statusKind == 'error' ? 'bg-error-container text-on-error-container' : 'bg-primary-fixed text-on-primary-fixed-variant')}"
+                                      th:text="${inv.statusLabel}">Success</span>
+                            </td>
+                            <td class="py-2 text-[12px] text-on-surface-variant" th:text="${inv.dateLabel}">Jun 16</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p th:if="${view.finance.recentInvoices.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm text-center py-md">No invoices yet.</p>
+            </div>
+        </div>
+    </div> <!-- /FINANCE_OFFICER -->
+
+    <!-- ================================ DEPT_MANAGER ================================ -->
+    <div th:if="${view.role == 'DEPT_MANAGER'}">
+
+        <!-- No department fallback -->
+        <div th:unless="${view.deptManager.hasDepartment}"
+             class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm justify-center">
+            <span class="material-symbols-outlined text-on-surface-variant">domain</span>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Your account isn't assigned to a department yet.
+            </p>
+        </div>
+
+        <div th:if="${view.deptManager.hasDepartment}">
+            <div class="flex items-center gap-sm mb-md">
+                <span class="material-symbols-outlined text-primary">groups</span>
+                <h3 class="font-headline-sm text-headline-sm text-primary" th:text="${view.deptManager.departmentName}">Engineering</h3>
+            </div>
+
+            <!-- Headcount metrics -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-md mb-lg">
+                <div class="bg-white border border-outline-variant p-md rounded-xl">
+                    <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Headcount</p>
+                    <h2 class="font-headline-lg text-display-lg text-primary" th:text="${view.deptManager.headcount}">18</h2>
+                </div>
+                <div class="bg-white border border-outline-variant p-md rounded-xl">
+                    <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Active</p>
+                    <h2 class="font-headline-lg text-display-lg text-secondary" th:text="${view.deptManager.activeCount}">16</h2>
+                </div>
+                <div class="bg-white border border-outline-variant p-md rounded-xl">
+                    <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">On Leave</p>
+                    <h2 class="font-headline-lg text-display-lg text-tertiary" th:text="${view.deptManager.onLeaveCount}">2</h2>
+                </div>
+                <div class="bg-white border border-outline-variant p-md rounded-xl">
+                    <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Pending Leave</p>
+                    <h2 class="font-headline-lg text-display-lg text-primary" th:text="${view.deptManager.pendingLeaveCount}">3</h2>
+                </div>
+            </div>
+
+            <!-- Attendance today + payroll cost -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+
+                <!-- Department attendance today -->
+                <div class="bg-white border border-outline-variant rounded-xl p-md">
+                    <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                        <span class="material-symbols-outlined text-primary">how_to_reg</span>
+                        <h4 class="font-headline-sm text-headline-sm text-on-surface">Attendance Today</h4>
+                    </div>
+                    <div th:if="${view.deptManager.attendanceToday.hasRecords}">
+                        <h2 class="font-headline-lg text-display-lg text-primary" th:text="${view.deptManager.attendanceToday.ratePercent} + '%'">92%</h2>
+                        <p class="text-[12px] text-on-surface-variant"
+                           th:text="${view.deptManager.attendanceToday.present} + ' of ' + ${view.deptManager.attendanceToday.total} + ' present'">15 of 16 present</p>
+                    </div>
+                    <div th:unless="${view.deptManager.attendanceToday.hasRecords}">
+                        <h2 class="font-headline-md text-headline-md text-on-surface-variant">—</h2>
+                        <p class="text-[12px] text-on-surface-variant">No records logged today</p>
+                    </div>
+                </div>
+
+                <!-- Department payroll cost -->
+                <div class="bg-white border border-outline-variant rounded-xl p-md">
+                    <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
+                        <span class="material-symbols-outlined text-primary">payments</span>
+                        <h4 class="font-headline-sm text-headline-sm text-on-surface">Monthly Payroll Cost</h4>
+                    </div>
+                    <h2 class="font-headline-md text-headline-md text-on-surface" th:text="${view.deptManager.payrollCostFormatted}">₦8,400,000</h2>
+                    <p class="text-[12px] text-on-surface-variant mt-xs">Establishment cost for active department members</p>
+                </div>
+            </div>
+        </div>
+    </div> <!-- /DEPT_MANAGER -->
 
 </div>
 </body>
