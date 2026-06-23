@@ -73,6 +73,7 @@ public class PayslipGenerator {
             context.setVariable("netPay", netPay / 100.0);
 
             String html = templateEngine.process("payslip", context);
+            log.debug("Payslip HTML: {}", html);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             ITextRenderer renderer = new ITextRenderer();

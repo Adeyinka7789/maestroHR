@@ -15,6 +15,9 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
 
     Optional<AttendanceRecord> findByEmployeeIdAndAttendanceDate(UUID employeeId, LocalDate date);
 
+    // True when the employee has any attendance record on file. Backs the hard-delete guard.
+    boolean existsByEmployeeId(UUID employeeId);
+
     List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetween(UUID employeeId, LocalDate startDate, LocalDate endDate);
 
     List<AttendanceRecord> findByAttendanceDate(LocalDate date);

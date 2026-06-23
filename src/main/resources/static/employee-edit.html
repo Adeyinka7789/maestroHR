@@ -157,7 +157,11 @@
 
             // Back and cancel links – use HTMX routes
             const backLink = `/htmx/employee-view?id=${emp.id}`;
-            document.getElementById('back-link').href = backLink;
+            document.getElementById('back-link').setAttribute('hx-get', backLink);
+            document.getElementById('back-link').setAttribute('hx-target', '#page-content');
+            document.getElementById('back-link').setAttribute('hx-swap', 'innerHTML');
+            document.getElementById('back-link').setAttribute('hx-push-url', 'true');
+            htmx.process(document.getElementById('back-link'));
             document.getElementById('cancel-link').href = backLink;
 
             // Personal info
@@ -292,7 +296,8 @@
 
                 showToast('Employee updated successfully!', 'success');
                 setTimeout(() => {
-                    window.location.href = `/htmx/employee-view?id=${employeeId}`;
+                    htmx.ajax('GET', `/htmx/employee-view?id=${employeeId}`, {target: '#page-content', swap: 'innerHTML'});
+                    history.pushState({}, '', `/htmx/employee-view?id=${employeeId}`);
                 }, 800);
             } catch (e) {
                 errorBox.textContent = 'Network error. Please try again.';

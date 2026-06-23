@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<!--
+  employee-detail.html — server-rendered HTMX fragment (Option 3), companion to the
+  employees list. Rendered by EmployeesController as "employee-detail :: content"
+  for GET /htmx/employee-view?id=... and swapped into #page-content. Styled with the
+  Stitch design system tokens compiled into /css/dashboard.css.
+
+  The page is assembled once on the server from EmployeeDetailView (see
+  EmployeeDetailService): header + a two-column body (personal / employment / bank
+  cards on the left; a light salary card with the pay-grade breakdown plus a small
+  summary card on the right). The "Download Payslip" link points at the existing
+  /reports/payslip endpoint with no payrollRunId (latest run) — the controller
+  streams the PDF as an attachment, so a plain anchor triggers the download.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment node is emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Back link -->
+    <a href="/htmx/employees" hx-get="/htmx/employees" hx-target="#page-content"
+       hx-push-url="true" hx-swap="innerHTML"
+       class="inline-flex items-center gap-xs mb-md font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">
+        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+        Employees
+    </a>
+
+    <!-- Action error banner (e.g. a blocked hard-delete). Only the list fragment is shown
+         on most failures; this covers any error re-rendered onto the detail itself. -->
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-start justify-between mb-lg gap-md">
+        <div>
+            <div class="flex items-center gap-sm mb-xs">
+                <h1 class="font-headline-lg text-headline-lg text-primary" th:text="${detail.fullName}">Tayo Shonibare</h1>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                      th:classappend="${detail.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (detail.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (detail.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                      th:text="${detail.statusLabel}">Active</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-md font-body-sm text-body-sm text-on-surface-variant">
+                <span class="inline-flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-[18px]">work</span>
+                    <span th:text="${detail.jobTitle}">Marketing Lead</span>
+                </span>
+                <span class="inline-flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-[18px]">badge</span>
+                    <span th:text="${detail.employeeNumber}">EMP-0001</span>
+                </span>
+            </div>
+        </div>
+        <div class="flex items-center gap-sm">
+            <a th:href="@{/htmx/employee-edit(id=${detail.id})}"
+               th:attr="hx-get=@{/htmx/employee-edit(id=${detail.id})}"
+               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-5 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">edit</span>
+                Edit
+            </a>
+
+            <!-- Terminate (soft delete) — HR/super-admin, hidden once already terminated.
+                 Inline <details> confirm with a termination-date input (defaults to today),
+                 mirroring the leave-reject dropdown. Submits DELETE /htmx/employee-view/{id}/terminate
+                 and swaps the whole #page-content with the re-rendered detail (status → Terminated). -->
+            <details th:if="${detail.canTerminate}" class="relative">
+                <summary class="list-none cursor-pointer flex items-center gap-xs bg-white border border-error text-error px-5 py-2.5 rounded-lg font-label-md text-label-md hover:bg-error-container transition-all duration-300">
+                    <span class="material-symbols-outlined text-[20px]">block</span>
+                    Terminate
+                </summary>
+                <form th:attr="hx-delete=@{/htmx/employee-view/{id}/terminate(id=${detail.id})}"
+                      hx-target="#page-content" hx-swap="innerHTML"
+                      class="absolute right-0 z-10 mt-xs w-80 p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                    <p class="font-label-md text-label-md text-on-surface mb-xs">Terminate this employee?</p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">
+                        This stops payroll and disables their login. They stay on record and can be reactivated by editing.
+                    </p>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Termination date</label>
+                    <!-- Prefilled to today by the script below; the endpoint also defaults to
+                         today if left blank, so the action is safe either way. -->
+                    <input type="date" name="terminationDate" data-default-today
+                           class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <div class="flex justify-end gap-xs">
+                        <button type="submit"
+                                class="px-3 py-1.5 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                            Confirm Terminate
+                        </button>
+                    </div>
+                </form>
+            </details>
+        </div>
+    </div>
+
+    <!-- Body: 2fr / 1fr two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-md">
+
+        <!-- Left column (spans 2) -->
+        <div class="lg:col-span-2 flex flex-col gap-md">
+
+            <!-- Personal Information -->
+            <div class="bg-white border border-outline-variant rounded-xl p-lg">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Personal Information</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-md gap-x-lg">
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Email</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.email}">tayo@acme.ng</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Phone</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.phone}">+234 801 234 5678</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Date of Birth</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.dateOfBirthFormatted}">14 Mar 1990</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Gender</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.gender}">Male</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Marital Status</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.maritalStatus}">Single</p>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Address</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.address}">12 Adeola Odeku, Victoria Island, Lagos</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employment Details -->
+            <div class="bg-white border border-outline-variant rounded-xl p-lg">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Employment Details</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-md gap-x-lg">
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Department</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.departmentName}">Marketing</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Employment Type</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.employmentType}">Full Time</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Start Date</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.startDateFormatted}">02 Jun 2025</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Probation End</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.probationEndFormatted}">Completed</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bank Details -->
+            <div class="bg-white border border-outline-variant rounded-xl p-lg">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Bank Details</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-md gap-x-lg">
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Bank</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.bankName}">GTBank</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Account Number</p>
+                        <p class="font-table-data text-table-data text-on-surface" th:text="${detail.bankAccountNumber}">0123456789</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Account Name</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.bankAccountName}">Tayo Shonibare</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Paystack Code</p>
+                        <p class="font-table-data text-table-data text-on-surface-variant" th:text="${detail.paystackRecipientCode}">Not linked</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="flex flex-col gap-md">
+
+            <!-- Salary card (light) -->
+            <div class="bg-white border border-outline-variant rounded-xl p-lg">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Salary</h2>
+                <p class="font-headline-md text-headline-md text-primary mb-md" th:text="${detail.payGradeName}">Level 4</p>
+
+                <!-- Pay-grade breakdown -->
+                <div th:if="${detail.hasPayGrade}" class="flex flex-col gap-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="font-body-sm text-body-sm text-on-surface-variant">Basic</span>
+                        <span class="font-table-data text-table-data text-on-surface" th:text="${detail.basicFormatted}">₦300,000</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-body-sm text-body-sm text-on-surface-variant">Housing</span>
+                        <span class="font-table-data text-table-data text-on-surface" th:text="${detail.housingFormatted}">₦90,000</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-body-sm text-body-sm text-on-surface-variant">Transport</span>
+                        <span class="font-table-data text-table-data text-on-surface" th:text="${detail.transportFormatted}">₦60,000</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-sm mt-xs border-t border-outline-variant">
+                        <span class="font-label-md text-label-md text-on-surface">Gross</span>
+                        <span class="font-label-md text-label-md text-primary" th:text="${detail.grossFormatted}">₦450,000</span>
+                    </div>
+                </div>
+
+                <!-- No grade assigned -->
+                <p th:unless="${detail.hasPayGrade}" class="font-body-sm text-body-sm text-on-surface-variant">
+                    No pay grade assigned yet.
+                </p>
+
+                <!-- Download payslip — plain anchor; /reports/payslip streams the latest PDF as an attachment -->
+                <a th:href="@{/reports/payslip(employeeId=${detail.id})}"
+                   class="mt-lg flex items-center justify-center gap-xs w-full bg-secondary text-white px-4 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
+                    <span class="material-symbols-outlined text-[20px]">download</span>
+                    Download Payslip
+                </a>
+            </div>
+
+            <!-- Summary card -->
+            <div class="bg-white border border-outline-variant rounded-xl p-lg">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Summary</h2>
+                <div class="flex flex-col gap-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="font-body-sm text-body-sm text-on-surface-variant">Joined</span>
+                        <span class="font-table-data text-table-data text-on-surface" th:text="${detail.joinedFormatted}">02 Jun 2025</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-body-sm text-body-sm text-on-surface-variant">Created</span>
+                        <span class="font-table-data text-table-data text-on-surface" th:text="${detail.createdFormatted}">02 Jun 2025</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <a href="/htmx/leave" hx-get="/htmx/leave"
+               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center justify-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">event_note</span>
+                View Leave History
+            </a>
+
+            <!-- Danger zone: permanent delete. SUPER_ADMIN only, and only rendered when the
+                 employee has no dependent records (canHardDelete). Type-to-confirm: the Delete
+                 button stays disabled until the typed name matches the employee's full name
+                 exactly, then submits DELETE /htmx/employee-view/{id}. On success the server
+                 sends HX-Redirect to the employees list (the record no longer exists). -->
+            <div th:if="${detail.canHardDelete}" class="mt-md border border-error rounded-xl p-lg">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-error mb-xs">Danger Zone</h2>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+                    Permanently delete this employee. This cannot be undone. Available only because
+                    the employee has no payroll, leave, or attendance history.
+                </p>
+                <form th:attr="hx-delete=@{/htmx/employee-view/{id}(id=${detail.id})},
+                               data-employee-name=${detail.fullName}"
+                      hx-target="#page-content" hx-swap="innerHTML"
+                      data-hard-delete-form>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface">
+                        Type <span class="font-bold" th:text="${detail.fullName}">Full Name</span> to confirm
+                    </label>
+                    <input type="text" autocomplete="off" data-confirm-name
+                           class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-error">
+                    <button type="submit" disabled data-delete-button
+                            class="w-full flex items-center justify-center gap-xs bg-error text-white px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span class="material-symbols-outlined text-[20px]">delete_forever</span>
+                        Delete Permanently
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inline behaviour for this fragment. HTMX runs scripts in swapped content, so this
+         wires up on every detail render: (1) default the termination-date input to today;
+         (2) enable the hard-delete button only on an exact full-name match. -->
+    <script>
+        (function () {
+            document.querySelectorAll('input[data-default-today]').forEach(function (input) {
+                if (!input.value) {
+                    input.value = new Date().toISOString().slice(0, 10);
+                }
+            });
+
+            document.querySelectorAll('form[data-hard-delete-form]').forEach(function (form) {
+                var expected = (form.getAttribute('data-employee-name') || '').trim();
+                var input = form.querySelector('[data-confirm-name]');
+                var button = form.querySelector('[data-delete-button]');
+                if (!input || !button) {
+                    return;
+                }
+                input.addEventListener('input', function () {
+                    button.disabled = input.value.trim() !== expected;
+                });
+            });
+        })();
+    </script>
+</div>
+
+<!-- Empty placeholder returned by the hard-delete endpoint: HTMX discards the body once it
+     sees the HX-Redirect header, but Thymeleaf still needs a fragment that touches no model. -->
+<div th:fragment="empty"></div>
+
+</body>
+</html>

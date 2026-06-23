@@ -2,7 +2,8 @@
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8" />
-    <title>Payslip — MaestroHR</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>Payslip - MaestroHR</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -46,14 +47,6 @@
         .employee-info td {
             padding: 5px;
         }
-        .earnings, .deductions {
-            width: 48%;
-            float: left;
-            margin-bottom: 20px;
-        }
-        .deductions {
-            float: right;
-        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -73,9 +66,6 @@
         .total-row {
             font-weight: bold;
             background-color: #ecf0f1;
-        }
-        .clearfix {
-            clear: both;
         }
         .footer {
             margin-top: 30px;
@@ -107,38 +97,39 @@
         </table>
     </div>
 
-    <div class="earnings">
-        <h3>Earnings</h3>
-        <table>
-            <thead><tr><th>Description</th><th class="amount">Amount (NGN)</th></tr></thead>
-            <tbody>
-            <tr><td>Basic Salary</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(basicSalary, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr><td>Housing Allowance</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(housingAllowance, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr><td>Transport Allowance</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(transportAllowance, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr><td>Other Allowances</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(otherAllowances, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr class="total-row"><td>Gross Salary</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(grossEarnings, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="deductions">
-        <h3>Deductions</h3>
-        <table>
-            <thead><tr><th>Description</th><th class="amount">Amount (NGN)</th></tr></thead>
-            <tbody>
-            <tr><td>PAYE Tax</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(payeTax, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr><td>Pension (Employee - 8%)</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(pensionEmployee, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr><td>NHF (2.5% of Basic)</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(nhfDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr th:if="${unpaidLeaveDeduction != 0}"><td>Unpaid Leave Deduction</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(unpaidLeaveDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr th:if="${attendanceDeduction != 0}"><td>Attendance/Absence Deduction</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(attendanceDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr th:if="${otherDeductions != 0}"><td>Other Deductions</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(otherDeductions, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr class="subtotal-row"><td>Total Deductions</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(totalDeductions, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            <tr class="total-row"><td>Net Salary</td><td class="amount" th:text="'₦' + ${#numbers.formatDecimal(netPay, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="clearfix"></div>
+    <table style="width:100%; border:none; border-collapse:collapse; margin-bottom:20px;">
+      <tr style="vertical-align:top;">
+        <td style="width:48%; padding-right:10px; border:none;">
+          <h3>Earnings</h3>
+          <table>
+              <thead><tr><th>Description</th><th class="amount">Amount (NGN)</th></tr></thead>
+              <tbody>
+              <tr><td>Basic Salary</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(basicSalary, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr><td>Housing Allowance</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(housingAllowance, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr><td>Transport Allowance</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(transportAllowance, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr><td>Other Allowances</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(otherAllowances, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr class="total-row"><td>Gross Salary</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(grossEarnings, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              </tbody>
+          </table>
+        </td>
+        <td style="width:48%; padding-left:10px; border:none;">
+          <h3>Deductions</h3>
+          <table>
+              <thead><tr><th>Description</th><th class="amount">Amount (NGN)</th></tr></thead>
+              <tbody>
+              <tr><td>PAYE Tax</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(payeTax, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr><td>Pension (Employee - 8%)</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(pensionEmployee, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr><td>NHF (2.5% of Basic)</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(nhfDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${unpaidLeaveDeduction != 0}"><td>Unpaid Leave Deduction</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(unpaidLeaveDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${attendanceDeduction != 0}"><td>Attendance/Absence Deduction</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(attendanceDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${otherDeductions != 0}"><td>Other Deductions</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(otherDeductions, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr class="subtotal-row"><td>Total Deductions</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(totalDeductions, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr class="total-row"><td>Net Salary</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(netPay, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              </tbody>
+          </table>
+        </td>
+      </tr>
+    </table>
 
     <div class="footer">
         <p th:if="${lateDaysInPeriod != 0}" th:text="'Late records in period: ' + ${lateDaysInPeriod} + ' (informational, not deducted)'">Late records</p>

@@ -4,7 +4,10 @@ import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
+import com.admtechhub.maestrohr.attendance.AttendanceRepository;
+import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
+import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
 import com.admtechhub.maestrohr.paystack.PaystackClient;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
@@ -46,6 +49,9 @@ public class EmployeeService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final PayrollEntryRepository payrollEntryRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final AttendanceRepository attendanceRepository;
 
     private static final String EMPLOYEE_NUMBER_PREFIX = "EMP";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -267,6 +273,60 @@ public class EmployeeService {
 
         employeeRepository.save(employee);
         log.info("Terminated employee: {} on {}", id, terminationDate);
+    }
+
+    /**
+     * Whether {@code id} can be permanently removed: true only when the employee has no
+     * payroll history, no leave requests, no attendance records, and does not currently
+     * head a department. Drives the SUPER_ADMIN-only "Delete permanently" button so it is
+     * never offered for an employee whose deletion would orphan records — for those, the
+     * non-destructive {@link #terminateEmployee} path is the only option. Read-only; the
+     * authoritative re-check lives in {@link #hardDeleteEmployee}.
+     */
+    @Transactional(readOnly = true)
+    public boolean canHardDelete(UUID id) {
+        return !payrollEntryRepository.existsByEmployeeId(id)
+                && !leaveRequestRepository.existsByEmployeeId(id)
+                && !attendanceRepository.existsByEmployeeId(id)
+                && !departmentRepository.existsByHeadEmployeeId(id.toString());
+    }
+
+    /**
+     * Permanently delete an employee and its linked login. Allowed only when the employee
+     * has no dependent records (see {@link #canHardDelete}); otherwise blocks with an
+     * {@link IllegalStateException} so the caller can surface why and steer the user to
+     * Terminate instead. The check is re-run here (not just in the UI) so the invariant
+     * holds even against a stale button or a direct request. The employee owns the FK to
+     * its {@link User}, so we delete the employee first, then the now-unreferenced login.
+     */
+    @Transactional
+    public void hardDeleteEmployee(UUID id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+
+        if (payrollEntryRepository.existsByEmployeeId(id)) {
+            throw new IllegalStateException(
+                    "This employee has payroll history and cannot be permanently deleted. Terminate them instead.");
+        }
+        if (leaveRequestRepository.existsByEmployeeId(id)) {
+            throw new IllegalStateException(
+                    "This employee has leave records and cannot be permanently deleted. Terminate them instead.");
+        }
+        if (attendanceRepository.existsByEmployeeId(id)) {
+            throw new IllegalStateException(
+                    "This employee has attendance records and cannot be permanently deleted. Terminate them instead.");
+        }
+        if (departmentRepository.existsByHeadEmployeeId(id.toString())) {
+            throw new IllegalStateException(
+                    "This employee currently heads a department. Reassign the department head before deleting.");
+        }
+
+        User linkedUser = employee.getUser();
+        employeeRepository.delete(employee);
+        if (linkedUser != null) {
+            userRepository.delete(linkedUser);
+        }
+        log.info("Permanently deleted employee: {}", id);
     }
 
     @Transactional(readOnly = true)

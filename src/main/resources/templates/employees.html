@@ -19,6 +19,13 @@
 <!-- ============================ CONTENT ============================ -->
 <div th:fragment="content" class="font-body-md text-on-surface">
 
+    <!-- Error banner (e.g. a not-found fallback from the employee detail route) -->
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Error</span>
+    </div>
+
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
         <div>
@@ -159,7 +166,11 @@
                             <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
                                  th:text="${row.initials}">TS</div>
                             <div>
-                                <p class="font-label-md text-label-md text-on-surface" th:text="${row.fullName}">Tayo Shonibare</p>
+                                <a th:href="@{/htmx/employee-view(id=${row.id})}"
+                                   th:attr="hx-get=@{/htmx/employee-view(id=${row.id})}"
+                                   hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                                   class="font-label-md text-label-md text-on-surface hover:text-primary transition-colors"
+                                   th:text="${row.fullName}">Tayo Shonibare</a>
                                 <p class="text-[12px] text-on-surface-variant" th:text="${row.email}">tayo@acme.ng</p>
                             </div>
                         </div>

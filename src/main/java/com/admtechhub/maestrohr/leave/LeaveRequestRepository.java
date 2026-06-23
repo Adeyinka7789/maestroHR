@@ -16,6 +16,9 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
 
     List<LeaveRequest> findByEmployeeId(UUID employeeId);
 
+    // True when the employee has any leave request on file. Backs the hard-delete guard.
+    boolean existsByEmployeeId(UUID employeeId);
+
     List<LeaveRequest> findByEmployeeIdAndStatus(UUID employeeId, LeaveStatus status);
 
     List<LeaveRequest> findByStatus(LeaveStatus status);

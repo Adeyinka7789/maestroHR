@@ -86,10 +86,8 @@ public class PageController {
         return htmxRequest != null ? "forward:/employee-edit.html" : "forward:/layout.html";
     }
 
-    @GetMapping("/htmx/employee-view")
-    public String employeeView(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/employee-view.html" : "forward:/layout.html";
-    }
+    // /htmx/employee-view is now owned by EmployeesController (server-rendered
+    // employee-detail fragment), replacing the legacy forward to employee-view.html.
 
     @GetMapping("/htmx/employee-dashboard")
     public String employeeDashboard(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {

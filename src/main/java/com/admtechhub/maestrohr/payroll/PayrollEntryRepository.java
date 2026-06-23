@@ -21,6 +21,11 @@ public interface PayrollEntryRepository extends JpaRepository<PayrollEntry, UUID
     // Find entries by employee ID (for employee dashboard)
     List<PayrollEntry> findByEmployeeId(UUID employeeId);
 
+    // True when the employee has any payroll history. Backs the hard-delete guard:
+    // an employee that has ever been on a payroll run must never be permanently
+    // removed (only terminated), so its payslips/ledger stay intact.
+    boolean existsByEmployeeId(UUID employeeId);
+
     // Find top N entries by employee ID ordered by payroll run creation date desc
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.employee.id = :employeeId ORDER BY pe.payrollRun.createdAt DESC")
     List<PayrollEntry> findTop3ByEmployeeIdOrderByPayrollRunCreatedAtDesc(@Param("employeeId") UUID employeeId, Pageable pageable);
