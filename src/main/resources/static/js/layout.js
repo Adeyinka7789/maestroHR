@@ -106,7 +106,7 @@
 
     // EMPLOYEE sees only their own pages; hide all HR/admin nav items
     if (userRole === 'EMPLOYEE') {
-        const allowed = new Set(['dashboard', 'leave', 'attendance-me', 'payslips']);
+        const allowed = new Set(['dashboard', 'leave', 'attendance-me', 'payslips', 'loans-me']);
         const hrSections = document.getElementById('hr-sections');
         if (hrSections) {
             hrSections.querySelectorAll('.nav-item').forEach(el => {
@@ -209,8 +209,16 @@
         if (path.startsWith('htmx/')) {
             path = path.substring(5); // remove 'htmx/'
         }
-        // attendance/me has its own route key so EMPLOYEE nav filtering can target it
-        const currentRoute = path === 'attendance/me' ? 'attendance-me' : (path.split('/')[0] || 'dashboard');
+        // attendance/me and loans/me have their own route keys so EMPLOYEE nav filtering /
+        // active-highlighting can target them (otherwise they'd collapse to 'attendance'/'loans')
+        let currentRoute;
+        if (path === 'attendance/me') {
+            currentRoute = 'attendance-me';
+        } else if (path === 'loans/me') {
+            currentRoute = 'loans-me';
+        } else {
+            currentRoute = path.split('/')[0] || 'dashboard';
+        }
 
         document.querySelectorAll('.nav-item').forEach(el => {
             el.classList.toggle('active', el.dataset.route === currentRoute);
@@ -390,6 +398,37 @@
     }
 
     if (token) fetchBroadcasts();
+
+    // ── Platform feature flags — hide nav items for disabled features ──────────
+    async function applyFeatureFlags() {
+        try {
+            const res = await MaestroHR.apiCall('/api/features/active');
+            const data = await res.json();
+            const active = new Set(data.data || []);
+            const hrSections = document.getElementById('hr-sections');
+            if (!hrSections) return;
+            hrSections.querySelectorAll('.nav-item[data-feature]').forEach(el => {
+                if (!active.has(el.dataset.feature)) el.style.display = 'none';
+            });
+            // Hide section labels whose nav items are all hidden after this pass
+            hrSections.querySelectorAll('.nav-section').forEach(section => {
+                let sib = section.nextElementSibling;
+                let hasVisible = false;
+                while (sib && !sib.classList.contains('nav-section')) {
+                    if (sib.classList.contains('nav-item') && sib.style.display !== 'none') {
+                        hasVisible = true;
+                        break;
+                    }
+                    sib = sib.nextElementSibling;
+                }
+                if (!hasVisible) section.style.display = 'none';
+            });
+        } catch (err) {
+            console.error('Feature flags error:', err);
+        }
+    }
+
+    if (token) applyFeatureFlags();
 
     // ── Auto‑load content for the current route ─────────────────
     (function autoLoadInitialContent() {

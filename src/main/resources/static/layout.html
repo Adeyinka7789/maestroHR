@@ -102,34 +102,34 @@
                 </a>
 
                 <div class="nav-section"><span class="nav-section-label">Payroll</span></div>
-                <a href="/htmx/payroll" class="nav-item" data-route="payroll" data-label="Payroll Runs"
+                <a href="/htmx/payroll" class="nav-item" data-route="payroll" data-feature="BASIC_PAYROLL" data-label="Payroll Runs"
                    hx-get="/htmx/payroll" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                     <span class="nav-label">Payroll Runs</span>
                 </a>
-                <a href="/htmx/reports" class="nav-item" data-route="reports" data-label="Reports"
+                <a href="/htmx/reports" class="nav-item" data-route="reports" data-feature="CUSTOM_REPORTING" data-label="Reports"
                    hx-get="/htmx/reports" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     <span class="nav-label">Reports</span>
                 </a>
-                <a href="/htmx/loans" class="nav-item" data-route="loans" data-label="Loan Approvals"
+                <a href="/htmx/loans" class="nav-item" data-route="loans" data-feature="LOAN_MANAGEMENT" data-label="Loan Approvals"
                    hx-get="/htmx/loans" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.9-2.5 2s1.1 2 2.5 2 2.5.9 2.5 2-1.1 2-2.5 2a2.5 2.5 0 0 1-2.5-1.5"/><line x1="12" y1="6" x2="12" y2="7.5"/><line x1="12" y1="16.5" x2="12" y2="18"/></svg>
                     <span class="nav-label">Loan Approvals</span>
                 </a>
 
                 <div class="nav-section"><span class="nav-section-label">HR</span></div>
-                <a href="/htmx/leave" class="nav-item" data-route="leave" data-label="Leave Management"
+                <a href="/htmx/leave" class="nav-item" data-route="leave" data-feature="LEAVE_MANAGEMENT" data-label="Leave Management"
                    hx-get="/htmx/leave" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     <span class="nav-label">Leave Management</span>
                 </a>
-                <a href="/htmx/attendance" class="nav-item" data-route="attendance" data-label="Attendance"
+                <a href="/htmx/attendance" class="nav-item" data-route="attendance" data-feature="ATTENDANCE_TRACKING" data-label="Attendance"
                    hx-get="/htmx/attendance" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                     <span class="nav-label">Attendance</span>
                 </a>
-                <a href="/htmx/attendance/me" class="nav-item" data-route="attendance-me" data-label="My Attendance"
+                <a href="/htmx/attendance/me" class="nav-item" data-route="attendance-me" data-feature="ATTENDANCE_TRACKING" data-label="My Attendance"
                    hx-get="/htmx/attendance/me" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
                     <span class="nav-label">My Attendance</span>
@@ -139,7 +139,7 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
                     <span class="nav-label">My Payslips</span>
                 </a>
-                <a href="/htmx/loans/me" class="nav-item" data-route="loans-me" data-label="My Loans"
+                <a href="/htmx/loans/me" class="nav-item" data-route="loans-me" data-feature="LOAN_MANAGEMENT" data-label="My Loans"
                    hx-get="/htmx/loans/me" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2.5 0 0 0-2.5-1.5c-1.4 0-2.5.9-2.5 2s1.1 2 2.5 2 2.5.9 2.5 2-1.1 2-2.5 2a2.5 2.5 0 0 1-2.5-1.5"/><line x1="12" y1="6" x2="12" y2="7.5"/><line x1="12" y1="16.5" x2="12" y2="18"/></svg>
                     <span class="nav-label">My Loans</span>
