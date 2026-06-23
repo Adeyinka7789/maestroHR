@@ -29,6 +29,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -299,34 +300,64 @@ public class EmployeeService {
     }
 
     /**
-     * Permanently delete an employee and its linked login. Allowed only when the employee
-     * has no dependent records (see {@link #canHardDelete}); otherwise blocks with an
-     * {@link IllegalStateException} so the caller can surface why and steer the user to
-     * Terminate instead. The check is re-run here (not just in the UI) so the invariant
-     * holds even against a stale button or a direct request. The employee owns the FK to
-     * its {@link User}, so we delete the employee first, then the now-unreferenced login.
+     * Throw if the employee has any record a deletion would orphan: payroll history, leave
+     * requests, attendance, or currently heading a department. Shared by {@link #softDeleteEmployee}
+     * (trash) and {@link #hardDeleteEmployee} (permanent purge) so both enforce the same invariant
+     * even against a stale button or a direct request; the read-only {@link #canHardDelete} mirrors
+     * it for the UI gate.
      */
-    @Transactional
-    public void hardDeleteEmployee(UUID id) {
-        Employee employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
-
+    private void assertNoDependents(UUID id) {
         if (payrollEntryRepository.existsByEmployeeId(id)) {
             throw new IllegalStateException(
-                    "This employee has payroll history and cannot be permanently deleted. Terminate them instead.");
+                    "This employee has payroll history and cannot be deleted. Terminate them instead.");
         }
         if (leaveRequestRepository.existsByEmployeeId(id)) {
             throw new IllegalStateException(
-                    "This employee has leave records and cannot be permanently deleted. Terminate them instead.");
+                    "This employee has leave records and cannot be deleted. Terminate them instead.");
         }
         if (attendanceRepository.existsByEmployeeId(id)) {
             throw new IllegalStateException(
-                    "This employee has attendance records and cannot be permanently deleted. Terminate them instead.");
+                    "This employee has attendance records and cannot be deleted. Terminate them instead.");
         }
         if (departmentRepository.existsByHeadEmployeeId(id.toString())) {
             throw new IllegalStateException(
                     "This employee currently heads a department. Reassign the department head before deleting.");
         }
+    }
+
+    /**
+     * Soft-delete an employee: move it to the 90-day trash by stamping {@code deleted_at}, after
+     * which the {@code @SQLRestriction} hides it from every scoped read. Allowed only when the
+     * employee has no dependent records ({@link #assertNoDependents}); otherwise blocks so the
+     * caller can steer the user to Terminate. The linked login is deactivated so a trashed employee
+     * cannot sign in; a super-admin restore from the trash page reactivates it.
+     */
+    @Transactional
+    public void softDeleteEmployee(UUID id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+        assertNoDependents(id);
+
+        employee.setDeletedAt(OffsetDateTime.now());
+        if (employee.getUser() != null) {
+            employee.getUser().setActive(false);
+            userRepository.save(employee.getUser());
+        }
+        employeeRepository.save(employee);
+        log.info("Soft-deleted employee: {}", id);
+    }
+
+    /**
+     * Permanently delete an employee and its linked login. Allowed only when the employee has no
+     * dependent records ({@link #assertNoDependents}). The employee owns the FK to its {@link User},
+     * so we delete the employee first, then the now-unreferenced login. This is the immediate purge;
+     * the routine path is {@link #softDeleteEmployee} (trash) followed by the scheduled cleanup.
+     */
+    @Transactional
+    public void hardDeleteEmployee(UUID id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+        assertNoDependents(id);
 
         User linkedUser = employee.getUser();
         employeeRepository.delete(employee);

@@ -352,6 +352,14 @@
                             class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
                         <span class="material-symbols-outlined text-[18px]">edit</span>
                     </button>
+                    <!-- Soft-delete — blocked server-side while employees are still on this grade. -->
+                    <button type="button"
+                            th:attr="hx-post='/htmx/pay-grades/' + ${row.id} + '/delete'"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            hx-confirm="Move this pay grade to trash? Employees on it must be reassigned first. It can be restored within 90 days."
+                            class="p-1.5 rounded-lg text-on-surface-variant hover:bg-error hover:text-white transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
                 </div>
             </div>
         </div>

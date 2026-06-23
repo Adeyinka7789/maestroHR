@@ -111,16 +111,17 @@ public class EmployeesController {
     }
 
     /**
-     * Permanently delete the employee (SUPER_ADMIN only), allowed by the service only when no
-     * records depend on it — otherwise {@link IllegalStateException} bubbles to the handler
-     * below, which re-renders the list with the reason. On success the row is gone, so we send
-     * an {@code HX-Redirect} to bounce the browser to the employees list; the returned empty
-     * fragment is discarded by HTMX once it sees that header.
+     * Soft-delete the employee — move it to the 90-day trash (SUPER_ADMIN only), allowed by the
+     * service only when no records depend on it; otherwise {@link IllegalStateException} bubbles to
+     * the handler below, which re-renders the list with the reason. On success the employee is
+     * hidden from all scoped views (and can be restored from the super-admin trash page), so we send
+     * an {@code HX-Redirect} to bounce the browser to the employees list; the returned empty fragment
+     * is discarded by HTMX once it sees that header.
      */
     @DeleteMapping("/htmx/employee-view/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public String hardDelete(@PathVariable UUID id, HttpServletResponse response) {
-        employeeService.hardDeleteEmployee(id);
+    public String softDelete(@PathVariable UUID id, HttpServletResponse response) {
+        employeeService.softDeleteEmployee(id);
         response.setHeader("HX-Redirect", "/htmx/employees");
         return "employee-detail :: empty";
     }

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -17,7 +18,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid AND deleted_at IS NULL")
 public class Department extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -30,6 +31,11 @@ public class Department extends BaseEntity {
 
     @Column(name = "head_employee_id")
     private String headEmployeeId;
+
+    // Soft-delete marker: when set, the row is trashed and hidden from scoped reads
+    // (see @SQLRestriction) until the cleanup job purges it after the 90-day window.
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     // Helper method
     public String getDisplayName() {

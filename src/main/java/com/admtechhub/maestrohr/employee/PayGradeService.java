@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ public class PayGradeService {
 
     private final PayGradeRepository payGradeRepository;
     private final TenantRepository tenantRepository;
+    private final EmployeeRepository employeeRepository;  // soft-delete guard: live employees still on this grade
 
     @Transactional
     public PayGrade create(String name, Long basicSalary, Long housingAllowance,
@@ -112,5 +114,24 @@ public class PayGradeService {
         PayGrade grade = findById(id);
         grade.setIsActive(false);
         payGradeRepository.save(grade);
+    }
+
+    /**
+     * Soft-delete a pay grade: stamp {@code deleted_at} so the {@code @SQLRestriction} hides it
+     * from every scoped read, after which it sits in the 90-day trash until the cleanup job purges
+     * it (or a super-admin restores it). Distinct from {@link #deactivate}, which keeps the grade in
+     * the table but flagged inactive. Blocked when any live employee is still on this grade, so a
+     * grade can never vanish out from under an employee that references it.
+     */
+    @Transactional
+    public void delete(UUID id) {
+        PayGrade grade = findById(id);
+        if (employeeRepository.existsByPayGradeId(id)) {
+            throw new IllegalStateException(
+                    "This pay grade is assigned to employees and cannot be deleted. Reassign them to another grade first.");
+        }
+        grade.setDeletedAt(OffsetDateTime.now());
+        payGradeRepository.save(grade);
+        log.info("Soft-deleted pay grade: {}", id);
     }
 }

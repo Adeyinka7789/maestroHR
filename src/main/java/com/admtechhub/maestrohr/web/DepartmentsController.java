@@ -134,6 +134,26 @@ public class DepartmentsController {
     }
 
     /**
+     * Soft-delete (move to trash) a department, then re-render the departments list. The service
+     * blocks the delete when live employees are still assigned; that {@link IllegalStateException}
+     * (and a not-found {@link IllegalArgumentException}) is surfaced as an error banner on the list
+     * rather than leaving the user on a broken detail page. The button lives on the detail page and
+     * targets {@code #page-content}, so a successful delete bounces back to the list.
+     */
+    @PostMapping("/htmx/departments/{id}/delete")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public String delete(@PathVariable("id") UUID id, Model model) {
+        try {
+            departmentService.delete(id);
+            model.addAttribute("success", "Department moved to trash.");
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            model.addAttribute("error", ex.getMessage());
+        }
+        model.addAttribute("view", departmentListService.buildList(null));
+        return "departments :: content";
+    }
+
+    /**
      * Re-renders the list with the modal reopened (server-side) and an in-modal banner.
      * On an <em>edit</em> error the department's roster is loaded so the HOD dropdown
      * renders with the in-progress selection preserved — the client-side data-employees

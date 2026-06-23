@@ -245,16 +245,18 @@
                 View Leave History
             </a>
 
-            <!-- Danger zone: permanent delete. SUPER_ADMIN only, and only rendered when the
-                 employee has no dependent records (canHardDelete). Type-to-confirm: the Delete
-                 button stays disabled until the typed name matches the employee's full name
-                 exactly, then submits DELETE /htmx/employee-view/{id}. On success the server
-                 sends HX-Redirect to the employees list (the record no longer exists). -->
+            <!-- Danger zone: move to trash (soft delete). SUPER_ADMIN only, and only rendered when
+                 the employee has no dependent records (canHardDelete). Type-to-confirm: the button
+                 stays disabled until the typed name matches the employee's full name exactly, then
+                 submits DELETE /htmx/employee-view/{id}, which soft-deletes (90-day retention). On
+                 success the server sends HX-Redirect to the employees list (the record is hidden). -->
             <div th:if="${detail.canHardDelete}" class="mt-md border border-error rounded-xl p-lg">
                 <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-error mb-xs">Danger Zone</h2>
                 <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
-                    Permanently delete this employee. This cannot be undone. Available only because
-                    the employee has no payroll, leave, or attendance history.
+                    Move this employee to trash. They are hidden immediately and their login is disabled,
+                    but the record is kept for 90 days — a super-admin can restore it from Deleted Records,
+                    after which it is permanently removed. Available only because the employee has no
+                    payroll, leave, or attendance history.
                 </p>
                 <form th:attr="hx-delete=@{/htmx/employee-view/{id}(id=${detail.id})},
                                data-employee-name=${detail.fullName}"
@@ -267,8 +269,8 @@
                            class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-error">
                     <button type="submit" disabled data-delete-button
                             class="w-full flex items-center justify-center gap-xs bg-error text-white px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
-                        <span class="material-symbols-outlined text-[20px]">delete_forever</span>
-                        Delete Permanently
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                        Move to Trash
                     </button>
                 </form>
             </div>

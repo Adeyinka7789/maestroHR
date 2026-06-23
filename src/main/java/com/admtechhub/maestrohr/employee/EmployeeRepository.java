@@ -25,6 +25,13 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     List<Employee> findByPayGradeId(UUID payGradeId);
 
+    // Soft-delete guards: true when any LIVE employee (deleted_at IS NULL, enforced by the
+    // entity @SQLRestriction) is still assigned to the department / pay grade. Used to block
+    // soft-deleting a department or grade out from under employees that still reference it.
+    boolean existsByDepartmentId(UUID departmentId);
+
+    boolean existsByPayGradeId(UUID payGradeId);
+
     Page<Employee> findByStatus(EmployeeStatus status, Pageable pageable);
 
     // Search by name (case in-sensitive)

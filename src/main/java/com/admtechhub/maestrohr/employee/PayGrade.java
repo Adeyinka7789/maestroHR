@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.OffsetDateTime;
+
 @Entity
 @Table(name = "pay_grades")
 @Data
@@ -15,7 +17,7 @@ import org.hibernate.annotations.SQLRestriction;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid AND deleted_at IS NULL")
 public class PayGrade extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,6 +46,11 @@ public class PayGrade extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    // Soft-delete marker: when set, the grade is trashed and hidden from scoped reads
+    // (see @SQLRestriction) until the cleanup job purges it after the 90-day window.
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     public Long getGrossSalary() {
         return basicSalary + housingAllowance + transportAllowance + otherAllowances;

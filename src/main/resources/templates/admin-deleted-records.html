@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!--
+  admin-deleted-records.html — super-admin trash page fragment.
+  Rendered by SuperAdminDeletedRecordsController as "admin-deleted-records :: content"
+  and swapped into #page-content. Lists every tenant's soft-deleted departments,
+  employees and pay grades with the days left before the cleanup job purges them, and
+  offers Restore / Delete-permanently actions. Stitch design-system tokens, matching
+  admin-tenant-detail.html / admin-dashboard.html conventions.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Action result banners -->
+    <div th:if="${successMessage != null}"
+         class="flex items-center gap-sm mb-md px-md py-3 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${successMessage}">Record restored.</span>
+    </div>
+    <div th:if="${errorMessage != null}"
+         class="flex items-center gap-sm mb-md px-md py-3 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${errorMessage}">Something went wrong.</span>
+    </div>
+
+    <!-- Header -->
+    <div class="flex items-center gap-md mb-lg">
+        <span class="material-symbols-outlined text-primary text-[28px]">delete_history</span>
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary">Deleted Records</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                Soft-deleted departments, employees and pay grades across all tenants. Records are
+                permanently removed 90 days after deletion.
+            </p>
+        </div>
+        <span class="ml-auto px-2 py-0.5 rounded bg-primary-fixed text-primary text-[11px] font-bold"
+              th:text="${records.size()} + ' in trash'">0 in trash</span>
+    </div>
+
+    <!-- Empty state -->
+    <div th:if="${records.isEmpty()}"
+         class="flex flex-col items-center justify-center py-24 gap-md bg-white border border-outline-variant rounded-xl">
+        <span class="material-symbols-outlined text-[64px] text-on-surface-variant">delete_outline</span>
+        <p class="font-headline-sm text-headline-sm text-on-surface-variant">Trash is empty</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">No soft-deleted records awaiting cleanup.</p>
+    </div>
+
+    <!-- Records table -->
+    <div th:if="${!records.isEmpty()}" class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-wider">
+                <tr>
+                    <th class="px-md py-3 font-semibold">Type</th>
+                    <th class="px-md py-3 font-semibold">Record</th>
+                    <th class="px-md py-3 font-semibold">Tenant</th>
+                    <th class="px-md py-3 font-semibold">Deleted</th>
+                    <th class="px-md py-3 font-semibold">Days Left</th>
+                    <th class="px-md py-3 font-semibold text-right">Actions</th>
+                </tr>
+                </thead>
+                <tbody class="font-table-data text-table-data">
+                <tr th:each="r : ${records}"
+                    class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                    <!-- Type badge -->
+                    <td class="px-md py-3">
+                        <span class="px-2 py-0.5 rounded text-[11px] font-bold"
+                              th:classappend="${r.type == 'EMPLOYEE'
+                                  ? 'bg-primary-fixed text-primary'
+                                  : (r.type == 'DEPARTMENT'
+                                      ? 'bg-tertiary-fixed text-tertiary'
+                                      : 'bg-surface-container text-on-surface-variant')}"
+                              th:text="${#strings.replace(r.type, '_', ' ')}">EMPLOYEE</span>
+                    </td>
+                    <!-- Label -->
+                    <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${r.label}">Jane Doe</td>
+                    <!-- Tenant -->
+                    <td class="px-md py-3 text-on-surface-variant" th:text="${r.tenantName}">Acme Ltd</td>
+                    <!-- Deleted at -->
+                    <td class="px-md py-3 text-on-surface-variant"
+                        th:text="${#temporals.format(r.deletedAt, 'dd MMM yyyy, HH:mm')}">01 Jan 2025, 09:00</td>
+                    <!-- Days remaining (red when <= 7) -->
+                    <td class="px-md py-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                              th:classappend="${r.daysRemaining <= 7
+                                  ? 'bg-error-container text-on-error-container'
+                                  : 'bg-secondary-container text-on-secondary-container'}"
+                              th:text="${r.daysRemaining} + ' days'">90 days</span>
+                    </td>
+                    <!-- Actions -->
+                    <td class="px-md py-3">
+                        <div class="flex items-center justify-end gap-sm">
+                            <button th:attr="hx-post=@{/htmx/admin/deleted-records/{type}/{id}/restore(type=${r.type}, id=${r.id})}"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Restore this record? It will reappear in its tenant's normal views."
+                                    class="inline-flex items-center gap-xs bg-secondary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all duration-200">
+                                <span class="material-symbols-outlined text-[16px]">restore_from_trash</span>
+                                Restore
+                            </button>
+                            <button th:attr="hx-post=@{/htmx/admin/deleted-records/{type}/{id}/purge(type=${r.type}, id=${r.id})}"
+                                    hx-target="#page-content" hx-swap="innerHTML"
+                                    hx-confirm="Permanently delete this record now? This cannot be undone."
+                                    class="inline-flex items-center gap-xs bg-white border border-error text-error px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-error hover:text-white transition-all duration-200">
+                                <span class="material-symbols-outlined text-[16px]">delete_forever</span>
+                                Delete now
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

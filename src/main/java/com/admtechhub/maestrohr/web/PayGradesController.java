@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -119,6 +120,25 @@ public class PayGradesController {
             return modalError(model, form, ex.getMessage());
         }
 
+        model.addAttribute("view", payGradeListService.buildList(null));
+        return "pay-grades :: content";
+    }
+
+    /**
+     * Soft-delete (move to trash) a pay grade, then re-render the list. The service blocks the
+     * delete when live employees are still on the grade; that {@link IllegalStateException} (and a
+     * not-found {@link IllegalArgumentException}) is surfaced as an error banner rather than a
+     * broken page.
+     */
+    @PostMapping("/htmx/pay-grades/{id}/delete")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public String delete(@PathVariable("id") UUID id, Model model) {
+        try {
+            payGradeService.delete(id);
+            model.addAttribute("success", "Pay grade moved to trash.");
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            model.addAttribute("error", ex.getMessage());
+        }
         model.addAttribute("view", payGradeListService.buildList(null));
         return "pay-grades :: content";
     }

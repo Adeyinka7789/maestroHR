@@ -9,6 +9,7 @@ import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -19,7 +20,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid")
+@SQLRestriction("tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid AND deleted_at IS NULL")
 public class Employee extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -105,6 +106,12 @@ public class Employee extends BaseEntity {
 
     @Column(name = "termination_date")
     private LocalDate terminationDate;
+
+    // Soft-delete marker: when set, the employee is trashed and hidden from scoped
+    // reads (see @SQLRestriction) until the cleanup job purges it after the 90-day
+    // window. Distinct from status=TERMINATED, which keeps the employee visible.
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     // Helper method to get full name
     public String getFullName() {

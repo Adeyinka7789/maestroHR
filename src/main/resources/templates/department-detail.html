@@ -43,6 +43,17 @@
                 </span>
             </div>
         </div>
+        <!-- Delete (soft) — HR_ADMIN / SUPER_ADMIN only reach this page; blocked server-side
+             while employees are still assigned. -->
+        <div class="shrink-0">
+            <button th:attr="hx-post=@{/htmx/departments/{id}/delete(id=${detail.id})}"
+                    hx-target="#page-content" hx-swap="innerHTML"
+                    hx-confirm="Move this department to trash? Employees must be reassigned first. It can be restored within 90 days."
+                    class="inline-flex items-center gap-xs bg-white border border-error text-error px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-error hover:text-white transition-all duration-200">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+                Delete
+            </button>
+        </div>
     </div>
 
     <!-- Stat cards -->

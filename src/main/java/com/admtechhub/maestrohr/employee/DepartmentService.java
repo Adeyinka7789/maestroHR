@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ public class DepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final TenantRepository tenantRepository;  // Add this dependency
+    private final EmployeeRepository employeeRepository;  // soft-delete guard: live employees still assigned
 
     @Transactional
     public Department create(String name, String headEmployeeId) {
@@ -96,10 +98,22 @@ public class DepartmentService {
         return (headEmployeeId == null || headEmployeeId.isBlank()) ? null : headEmployeeId.trim();
     }
 
+    /**
+     * Soft-delete a department: stamp {@code deleted_at} so the {@code @SQLRestriction} hides it
+     * from every scoped read, after which it sits in the 90-day trash until the cleanup job purges
+     * it (or a super-admin restores it). Blocked when any live employee is still assigned to it, so
+     * a department can never vanish out from under an employee that references it.
+     */
     @Transactional
     public void delete(UUID id) {
         Department department = findById(id);
-        departmentRepository.delete(department);
+        if (employeeRepository.existsByDepartmentId(id)) {
+            throw new IllegalStateException(
+                    "This department still has employees assigned. Reassign them to another department before deleting it.");
+        }
+        department.setDeletedAt(OffsetDateTime.now());
+        departmentRepository.save(department);
+        log.info("Soft-deleted department: {}", id);
     }
 
     @Transactional(readOnly = true)
