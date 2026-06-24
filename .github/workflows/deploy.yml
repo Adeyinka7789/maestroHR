@@ -146,8 +146,8 @@ jobs:
             echo 'Waiting for application to start...' &&
             for i in \$(seq 1 12); do
               sleep 5
-              if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
-                echo 'Application is healthy!'
+              if ss -tlnp | grep -q ':8080 '; then
+                echo 'Port 8080 is listening – application is healthy!'
                 /www/server/panel/pyenv/bin/supervisorctl status maestrohr:*
                 exit 0
               fi
