@@ -75,7 +75,7 @@ public class DepartmentListService {
      */
     @Transactional(readOnly = true)
     public List<DepartmentListView.EmployeeOption> employeesForDepartment(UUID departmentId) {
-        return employeeRepository.findByDepartmentId(departmentId).stream()
+        return employeeRepository.findByDepartmentId(departmentId, PageRequest.of(0, 20)).stream()
                 .sorted(BY_NAME)
                 .map(this::toOption)
                 .toList();

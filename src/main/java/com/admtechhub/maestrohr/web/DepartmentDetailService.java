@@ -6,6 +6,7 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +49,7 @@ public class DepartmentDetailService {
             return null;
         }
 
-        List<Employee> employees = employeeRepository.findByDepartmentId(departmentId);
+        List<Employee> employees = employeeRepository.findByDepartmentId(departmentId, PageRequest.of(0, 20));
 
         long total = employees.size();
         long active = employees.stream()

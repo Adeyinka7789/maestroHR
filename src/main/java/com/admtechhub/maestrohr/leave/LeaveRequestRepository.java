@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.leave;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -8,13 +9,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID> {
 
-    List<LeaveRequest> findByEmployeeId(UUID employeeId);
+    List<LeaveRequest> findByEmployeeId(UUID employeeId, PageRequest pageRequest);
 
     // True when the employee has any leave request on file. Backs the hard-delete guard.
     boolean existsByEmployeeId(UUID employeeId);
@@ -119,4 +122,11 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
     long sumApprovedLeaveDaysInRange(@Param("tenantId") UUID tenantId,
                                      @Param("periodStart") LocalDate periodStart,
                                      @Param("periodEnd") LocalDate periodEnd);
+
+    // Find leave requests for a specific employee (already exists)
+    List<LeaveRequest> findByEmployeeId(UUID employeeId, Pageable pageable);
+
+    // Find leave requests for a list of employee IDs
+    @Query("SELECT lr FROM LeaveRequest lr WHERE lr.employee.id IN :ids")
+    List<LeaveRequest> findByEmployeeIdIn(@Param("ids") Set<UUID> ids, Pageable pageable);
 }

@@ -23,6 +23,7 @@ import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
 import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -32,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.Month;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -308,7 +308,7 @@ public class DashboardService {
         }
 
         UUID deptId = dept.getId();
-        List<Employee> members = employeeRepository.findByDepartmentId(deptId);
+        List<Employee> members = employeeRepository.findByDepartmentId(deptId, PageRequest.of(0, 20));
         long headcount = members.size();
         long active = members.stream().filter(e -> e.getStatus() == EmployeeStatus.ACTIVE).count();
         long onLeave = members.stream().filter(e -> e.getStatus() == EmployeeStatus.ON_LEAVE).count();

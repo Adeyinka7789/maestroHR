@@ -9,9 +9,9 @@ import com.admtechhub.maestrohr.employee.DepartmentRepository;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
-import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -94,7 +94,7 @@ public class DashboardApiController {
             Map<String, Long> headcounts = new LinkedHashMap<>();
 
             departmentRepository.findAll().forEach(department -> {
-                long count = employeeRepository.findByDepartmentId(department.getId()).size();
+                long count = employeeRepository.findByDepartmentId(department.getId(), PageRequest.of(0, 20)).size();
                 if (count > 0) {
                     headcounts.put(department.getName(), count);
                 }
