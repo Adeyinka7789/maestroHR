@@ -1,0 +1,106 @@
+name: Build, Test & Deploy to Truehost
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:    # allows manual trigger from GitHub UI
+
+env:
+  JAVA_VERSION: '17'
+  APP_NAME: maestrohr
+  # Paths on the server
+  DEPLOY_PATH: /opt/maestrohr          # where the JAR will live
+  SERVICE_NAME: maestrohr               # systemd service name
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.package.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests
+        run: mvn test -B
+        env:
+          SPRING_PROFILES_ACTIVE: test   # use test profile for datasource
+
+      - name: Package JAR (skip tests, already passed)
+        id: package
+        run: |
+          mvn package -DskipTests -B
+          echo "artifact=$(ls target/*.jar | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: ${{ steps.package.outputs.artifact }}
+          retention-days: 1
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.build.result == 'success' }}
+    steps:
+      - name: Check deployment secrets
+        id: check-secrets
+        run: |
+          missing=""
+          for secret in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
+            if [ -z "${!secret}" ]; then
+              missing="$missing $secret"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::warning::Deployment skipped: missing secrets:$missing"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Download JAR artifact
+        if: steps.check-secrets.outputs.skip == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: .
+
+      - name: Setup SSH
+        if: steps.check-secrets.outputs.skip == 'false'
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: unnecessary
+          config: |
+            Host deploy
+              HostName ${{ secrets.SSH_HOST }}
+              User ${{ secrets.SSH_USER }}
+              IdentityFile ~/.ssh/id_rsa
+              StrictHostKeyChecking no
+
+      - name: Copy JAR to server
+        if: steps.check-secrets.outputs.skip == 'false'
+        run: |
+          scp -i ~/.ssh/id_rsa *.jar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_PATH }}/app.jar
+
+      - name: Restart application service
+        if: steps.check-secrets.outputs.skip == 'false'
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            sudo systemctl restart ${{ env.SERVICE_NAME }} &&
+            sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
+          "
