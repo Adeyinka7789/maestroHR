@@ -15,15 +15,13 @@ jobs:
   build:
     name: Build & Test
     runs-on: ubuntu-latest
-    outputs:
-      artifact-name: ${{ steps.package.outputs.artifact }}
 
     services:
       postgres:
         image: postgres:16
         env:
           POSTGRES_DB: maestrohr_test
-          POSTGRES_USER: testuser
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: testpass
         ports:
           - 5432:5432
@@ -43,52 +41,64 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Create maestro_app role for CI
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U postgres -d maestrohr_test -c "
+            DO \$\$
+            BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'maestro_app') THEN
+                CREATE ROLE maestro_app LOGIN PASSWORD 'testpass' NOSUPERUSER NOBYPASSRLS;
+              END IF;
+            END
+            \$\$;
+            GRANT ALL PRIVILEGES ON DATABASE maestrohr_test TO maestro_app;
+          "
+
       - name: Run tests
         run: mvn test -B
         env:
           SPRING_PROFILES_ACTIVE: test
-          # Primary (maestro_app) datasource
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/maestrohr_test
-          SPRING_DATASOURCE_USERNAME: testuser
+          SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: testpass
-          # Privileged datasource (used by cross-tenant queries)
-          # Adjust the property names if your config uses different ones.
-          PRIVILEGED_DB_URL: jdbc:postgresql://localhost:5432/maestrohr_test
-          PRIVILEGED_DB_USERNAME: testuser
-          PRIVILEGED_DB_PASSWORD: testpass
-          # Flyway placeholder required by V24 migration
+          APP_DB_USERNAME: maestro_app
           APP_DB_PASSWORD: testpass
+          PRIVILEGED_DB_URL: jdbc:postgresql://localhost:5432/maestrohr_test
+          PRIVILEGED_DB_USERNAME: postgres
+          PRIVILEGED_DB_PASSWORD: testpass
+          DB_URL: jdbc:postgresql://localhost:5432/maestrohr_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: testpass
+          JWT_SECRET: ci-test-secret-key-at-least-32-characters-long
+          PAYSTACK_SECRET_KEY: test_dummy_key
+          TERMII_API_KEY: test_dummy_key
 
-      - name: Package JAR (skip tests, already passed)
-        id: package
-        run: |
-          mvn package -DskipTests -B
-          echo "artifact=$(ls target/*.jar | head -1)" >> $GITHUB_OUTPUT
+      - name: Package JAR
+        run: mvn package -DskipTests -B
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
-          path: ${{ steps.package.outputs.artifact }}
+          path: target/*.jar
           retention-days: 1
 
   deploy:
     name: Deploy to VPS
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.build.result == 'success' }}
+    if: needs.build.result == 'success'
+
     steps:
       - name: Check deployment secrets
         id: check-secrets
         run: |
           missing=""
-          for secret in SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
-            if [ -z "${!secret}" ]; then
-              missing="$missing $secret"
-            fi
-          done
+          [ -z "$SSH_HOST" ] && missing="$missing SSH_HOST"
+          [ -z "$SSH_USER" ] && missing="$missing SSH_USER"
+          [ -z "$SSH_PRIVATE_KEY" ] && missing="$missing SSH_PRIVATE_KEY"
           if [ -n "$missing" ]; then
-            echo "::warning::Deployment skipped: missing secrets:$missing"
+            echo "::warning::Deployment skipped — missing secrets:$missing"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
@@ -112,7 +122,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           known_hosts: unnecessary
           config: |
-            Host deploy
+            Host vps
               HostName ${{ secrets.SSH_HOST }}
               User ${{ secrets.SSH_USER }}
               IdentityFile ~/.ssh/id_rsa
@@ -121,12 +131,32 @@ jobs:
       - name: Copy JAR to server
         if: steps.check-secrets.outputs.skip == 'false'
         run: |
-          scp -i ~/.ssh/id_rsa *.jar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_PATH }}/app.jar
+          scp *.jar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_PATH }}/app-new.jar
 
-      - name: Restart application service
+      - name: Deploy and health check
         if: steps.check-secrets.outputs.skip == 'false'
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            # Swap JAR atomically
+            mv ${{ env.DEPLOY_PATH }}/app-new.jar ${{ env.DEPLOY_PATH }}/app.jar &&
+          
+            # Restart service
             sudo systemctl restart ${{ env.SERVICE_NAME }} &&
-            sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
+          
+            # Wait up to 60s for app to start
+            echo 'Waiting for application to start...' &&
+            for i in \$(seq 1 12); do
+              sleep 5
+              if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo 'Application is healthy!'
+                sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
+                exit 0
+              fi
+              echo \"Attempt \$i/12 - still starting...\"
+            done
+          
+            # If we get here, app didn't start
+            echo 'ERROR: Application failed to start within 60 seconds'
+            sudo journalctl -u ${{ env.SERVICE_NAME }} --no-pager -n 50
+            exit 1
           "
