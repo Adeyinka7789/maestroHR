@@ -139,24 +139,23 @@ jobs:
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             # Swap JAR atomically
             mv ${{ env.DEPLOY_PATH }}/app-new.jar ${{ env.DEPLOY_PATH }}/app.jar &&
-          
-            # Restart service
-            sudo systemctl restart ${{ env.SERVICE_NAME }} &&
-          
+
+            # Restart via aaPanel Supervisor (use wildcard for auto‑named processes)
+            /www/server/panel/pyenv/bin/supervisorctl restart maestrohr:* &&
+
             # Wait up to 60s for app to start
             echo 'Waiting for application to start...' &&
             for i in \$(seq 1 12); do
               sleep 5
               if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
                 echo 'Application is healthy!'
-                sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
+                /www/server/panel/pyenv/bin/supervisorctl status maestrohr:*
                 exit 0
               fi
               echo \"Attempt \$i/12 - still starting...\"
             done
-          
+
             # If we get here, app didn't start
             echo 'ERROR: Application failed to start within 60 seconds'
-            sudo journalctl -u ${{ env.SERVICE_NAME }} --no-pager -n 50
             exit 1
           "
