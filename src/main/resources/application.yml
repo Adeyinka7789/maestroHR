@@ -137,7 +137,7 @@ termii:
 
 sentry:
   enabled: false
-  dsn: ${SENTRY_DSN}
+  dsn: ${SENTRY_DSN:}
   traces-sample-rate: 1.0
   exception-resolver-order: -2147483648
 
