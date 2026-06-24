@@ -72,6 +72,7 @@ jobs:
           JWT_SECRET: ci-test-secret-key-at-least-32-characters-long
           PAYSTACK_SECRET_KEY: test_dummy_key
           TERMII_API_KEY: test_dummy_key
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Package JAR
         run: mvn package -DskipTests -B
@@ -131,16 +132,16 @@ jobs:
       - name: Copy JAR to server
         if: steps.check-secrets.outputs.skip == 'false'
         run: |
-          scp *.jar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_PATH }}/app-new.jar
+          scp *.jar vps:${{ env.DEPLOY_PATH }}/app-new.jar
 
       - name: Deploy and health check
         if: steps.check-secrets.outputs.skip == 'false'
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+          ssh vps "
             # Swap JAR atomically
             mv ${{ env.DEPLOY_PATH }}/app-new.jar ${{ env.DEPLOY_PATH }}/app.jar &&
 
-            # Restart via aaPanel Supervisor (use wildcard for auto‑named processes)
+            # Restart via aaPanel Supervisor
             /www/server/panel/pyenv/bin/supervisorctl restart maestrohr:* &&
 
             # Wait up to 60s for app to start
@@ -155,7 +156,6 @@ jobs:
               echo \"Attempt \$i/12 - still starting...\"
             done
 
-            # If we get here, app didn't start
             echo 'ERROR: Application failed to start within 60 seconds'
             exit 1
           "
