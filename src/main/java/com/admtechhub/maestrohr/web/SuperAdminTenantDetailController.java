@@ -86,14 +86,14 @@ public class SuperAdminTenantDetailController {
             HttpServletRequest request,
             Model model) {
 
-        if (adminBillingWrites.changePlan(id, plan, period)) {
+        if (adminBillingWrites.upsertSubscription(id, plan, period)) {
             auditTrailWrites.insert(id, actorEmail(), "TENANT_PLAN_CHANGED", "tenant", id.toString(),
                     request.getRequestURI(), "POST", request.getRemoteAddr(), 200,
                     plan.name() + " / " + period.name());
             model.addAttribute("successMessage",
                     "Plan changed to " + plan.name() + " (" + period.name() + ").");
         } else {
-            model.addAttribute("errorMessage", "Could not change plan — tenant has no subscription.");
+            model.addAttribute("errorMessage", "Could not change plan.");
         }
         return renderDetail(id, model);
     }

@@ -49,11 +49,22 @@
                 position: fixed !important;
                 top: 0;
                 left: -280px;
-                width: 280px;
+                width: 280px !important; /* Force full width on mobile instead of 56px */
                 height: 100vh;
                 z-index: 50;
                 transition: left 0.3s ease;
                 box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+                display: flex !important;
+            }
+
+            /* Force layout text labels to show on mobile, bypassing layout.css rules */
+            aside .nav-label,
+            aside .sidebar-brand,
+            aside .sidebar-footer-meta,
+            aside .nav-section-label {
+                opacity: 1 !important;
+                width: auto !important;
+                overflow: visible !important;
             }
 
             /* Open state */
@@ -73,12 +84,22 @@
                 display: block;
             }
 
-            /* Hide sidebar icons, keep labels */
+            /* Hide sidebar icons, keep labels left-aligned and visible */
             .nav-item svg {
                 display: none !important;
             }
+
             .nav-item {
+                color: #111827 !important;          /* Dark text for white sidebar */
+                background: transparent !important;
                 padding-left: 16px !important;
+                justify-content: flex-start !important; /* Left-align instead of desktop centering */
+                width: 100%;
+            }
+
+            .nav-item:hover {
+                background: #f3f4f6 !important;
+                color: #000000 !important;
             }
 
             /* Topbar – make items fit instead of hiding them */
@@ -105,7 +126,7 @@
                 font-size: 14px;
             }
 
-            /* Hide the sidebar's own toggle button when on mobile (the topbar hamburger handles it) */
+            /* Hide the sidebar's own toggle button when on mobile */
             #sidebar-toggle {
                 display: none;
             }

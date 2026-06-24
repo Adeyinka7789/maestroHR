@@ -169,4 +169,55 @@ public class AdminBillingWrites {
     private interface TxWork {
         boolean run() throws SQLException;
     }
+
+    /**
+     * Insert a new subscription row for a tenant that has none, or update the existing one.
+     * This is a safe "upsert" that can be used both for fresh subscriptions and upgrades.
+     */
+    public boolean upsertSubscription(UUID tenantId, SubscriptionPlan plan, PaymentPeriod period) {
+        long priceKobo = pricingService.getPrice(plan.name(), period.name());
+        OffsetDateTime start = OffsetDateTime.now();
+        OffsetDateTime end = start.plusMonths(period.getMonths());
+
+        Boolean result = jdbc.execute((Connection con) -> inTransaction(con, () -> {
+            // Try update first
+            int updated;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "UPDATE tenant_subscriptions SET plan = ?, period = ?, status = 'ACTIVE', "
+                            + "price_kobo = ?, current_period_start = ?, current_period_end = ? "
+                            + "WHERE tenant_id = ?")) {
+                ps.setString(1, plan.name());
+                ps.setString(2, period.name());
+                ps.setLong(3, priceKobo);
+                ps.setObject(4, start);
+                ps.setObject(5, end);
+                ps.setObject(6, tenantId);
+                updated = ps.executeUpdate();
+            }
+            if (updated == 0) {
+                // Insert new row
+                try (PreparedStatement ps = con.prepareStatement(
+                        "INSERT INTO tenant_subscriptions (tenant_id, plan, period, status, price_kobo, current_period_start, current_period_end) "
+                                + "VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?)")) {
+                    ps.setObject(1, tenantId);
+                    ps.setString(2, plan.name());
+                    ps.setString(3, period.name());
+                    ps.setLong(4, priceKobo);
+                    ps.setObject(5, start);
+                    ps.setObject(6, end);
+                    ps.executeUpdate();
+                }
+            }
+            // Sync denormalised columns
+            try (PreparedStatement ps = con.prepareStatement(
+                    "UPDATE tenants SET subscription_plan = ?, subscription_expires_at = ? WHERE id = ?")) {
+                ps.setString(1, plan.name());
+                ps.setObject(2, end);
+                ps.setObject(3, tenantId);
+                ps.executeUpdate();
+            }
+            return true;
+        }));
+        return Boolean.TRUE.equals(result);
+    }
 }

@@ -146,14 +146,14 @@
                     </div>
                 </div>
 
-                <!-- Billing actions -->
-                <div th:if="${detail.subscription != null}" class="mt-md pt-md border-t border-outline-variant flex flex-wrap items-start gap-sm">
+                <!-- Billing actions – always show, even without a subscription -->
+                <div class="mt-md pt-md border-t border-outline-variant flex flex-wrap items-start gap-sm">
 
                     <!-- Change Plan -->
                     <details class="group">
                         <summary class="list-none cursor-pointer inline-flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-200">
                             <span class="material-symbols-outlined text-[18px]">swap_horiz</span>
-                            Change Plan
+                            <span th:text="${detail.subscription != null ? 'Change Plan' : 'Add Plan'}">Change Plan</span>
                         </summary>
                         <form th:attr="hx-post=@{/htmx/admin/tenants/{id}/change-plan(id=${detail.tenant.id})}"
                               hx-target="#page-content" hx-swap="innerHTML"
@@ -178,13 +178,13 @@
                             <button type="submit"
                                     class="inline-flex items-center justify-center gap-xs bg-primary text-white px-4 py-2 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-200">
                                 <span class="material-symbols-outlined text-[18px]">save</span>
-                                Apply Change
+                                Apply
                             </button>
                         </form>
                     </details>
 
-                    <!-- Extend Trial — only when TRIALING -->
-                    <details th:if="${detail.subscription.status == 'TRIALING'}" class="group">
+                    <!-- Extend Trial – only when TRIALING (now with null check) -->
+                    <details th:if="${detail.subscription != null and detail.subscription.status == 'TRIALING'}" class="group">
                         <summary class="list-none cursor-pointer inline-flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-200">
                             <span class="material-symbols-outlined text-[18px]">more_time</span>
                             Extend Trial
