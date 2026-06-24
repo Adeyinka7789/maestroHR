@@ -80,4 +80,6 @@ public class UpdateEmployeeRequest {
     @NotBlank(message = "Bank account name is required")
     @Size(max = 200)
     private String bankAccountName;
+
+    private String role;
 }

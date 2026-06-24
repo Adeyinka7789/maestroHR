@@ -20,6 +20,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -106,9 +107,33 @@ public class EmployeeService {
         // tenant (e.g. an HR_ADMIN being given an Employee profile); only provision a new
         // EMPLOYEE login when none exists. Scoped to the tenant so a same-email user in
         // another tenant is never linked across the boundary — that tenant gets its own User.
+        // Determine role – default to EMPLOYEE, enforce assignment rules
+        final UserRole assignedRole;
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            try {
+                assignedRole = UserRole.valueOf(request.getRole().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid role: " + request.getRole());
+            }
+        } else {
+            assignedRole = UserRole.EMPLOYEE;
+        }
+
+// Only SUPER_ADMIN can assign HR_ADMIN or SUPER_ADMIN
+        if ((assignedRole == UserRole.HR_ADMIN || assignedRole == UserRole.SUPER_ADMIN)
+                && !currentUserIsSuperAdmin()) {
+            throw new IllegalArgumentException("Only a super-admin can assign HR_ADMIN or SUPER_ADMIN roles.");
+        }
+
+// Reuse an existing login when this work email already has a User account...
         User savedUser = userRepository.findByEmailAndTenantId(request.getEmail(), tenantId)
                 .map(existing -> {
                     log.info("Linking employee to existing user account: {}", existing.getEmail());
+                    // Update the existing user's role if different
+                    if (existing.getRole() != assignedRole) {
+                        existing.setRole(assignedRole);
+                        userRepository.save(existing);
+                    }
                     return existing;
                 })
                 .orElseGet(() -> {
@@ -116,7 +141,7 @@ public class EmployeeService {
                             .tenantId(tenantId)
                             .email(request.getEmail())
                             .passwordHash(passwordEncoder.encode(request.getPassword()))
-                            .role(UserRole.EMPLOYEE)
+                            .role(assignedRole)   // <-- use the assigned role
                             .isActive(true)
                             .failedLoginAttempts(0)
                             .build();
@@ -234,6 +259,26 @@ public class EmployeeService {
             User user = employee.getUser();
             user.setEmail(request.getEmail());
             userRepository.save(user);
+        }
+
+        // Update role if provided and allowed
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            UserRole newRole;
+            try {
+                newRole = UserRole.valueOf(request.getRole().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid role: " + request.getRole());
+            }
+            // Only SUPER_ADMIN can assign HR_ADMIN or SUPER_ADMIN
+            if ((newRole == UserRole.HR_ADMIN || newRole == UserRole.SUPER_ADMIN)
+                    && !currentUserIsSuperAdmin()) {
+                throw new IllegalArgumentException("Only a super-admin can assign HR_ADMIN or SUPER_ADMIN roles.");
+            }
+            // Update the user's role
+            if (employee.getUser() != null) {
+                employee.getUser().setRole(newRole);
+                userRepository.save(employee.getUser());
+            }
         }
 
         employee.setFirstName(request.getFirstName());
@@ -600,5 +645,12 @@ public class EmployeeService {
 
     private EmployeeSummaryDTO toSummaryDto(Employee employee) {
         return new EmployeeSummaryDTO(employee);
+    }
+
+    private boolean currentUserIsSuperAdmin() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(granted -> granted.getAuthority().equals("ROLE_SUPER_ADMIN"));
     }
 }

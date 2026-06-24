@@ -69,6 +69,15 @@
                     </select>
                 </div>
                 <div>
+                    <label class="form-label">System Role *</label>
+                    <select class="form-input" id="role" required>
+                        <option value="">Select role</option>
+                        <option value="EMPLOYEE">Employee</option>
+                        <option value="FINANCE_OFFICER">Finance Officer</option>
+                        <option value="DEPT_MANAGER">Department Manager</option>
+                    </select>
+                </div>
+                <div>
                     <label class="form-label">Department *</label>
                     <select class="form-input" id="departmentId" required>
                         <option value="">Loading departments...</option>
@@ -173,7 +182,7 @@
             errorBox.style.display = 'none';
 
             const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'gender', 'maritalStatus',
-                                    'address', 'jobTitle', 'employmentType', 'departmentId', 'payGradeId',
+                                    'address', 'jobTitle', 'employmentType', 'role', 'departmentId', 'payGradeId',
                                     'employmentStartDate', 'bankName', 'bankAccountNumber', 'bankAccountName', 'password'];
 
             let valid = true;
@@ -205,6 +214,7 @@
                 address: document.getElementById('address').value.trim(),
                 jobTitle: document.getElementById('jobTitle').value.trim(),
                 employmentType: document.getElementById('employmentType').value,
+                role: document.getElementById('role').value,
                 departmentId: document.getElementById('departmentId').value,
                 payGradeId: document.getElementById('payGradeId').value,
                 employmentStartDate: document.getElementById('employmentStartDate').value,
