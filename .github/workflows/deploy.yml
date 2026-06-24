@@ -72,10 +72,13 @@ jobs:
           JWT_SECRET: ci-test-secret-key-at-least-32-characters-long
           PAYSTACK_SECRET_KEY: test_dummy_key
           TERMII_API_KEY: test_dummy_key
+          SENTRY_DSN: ''
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Package JAR
         run: mvn package -DskipTests -B
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
@@ -138,13 +141,8 @@ jobs:
         if: steps.check-secrets.outputs.skip == 'false'
         run: |
           ssh vps "
-            # Swap JAR atomically
             mv ${{ env.DEPLOY_PATH }}/app-new.jar ${{ env.DEPLOY_PATH }}/app.jar &&
-
-            # Restart via aaPanel Supervisor
             /www/server/panel/pyenv/bin/supervisorctl restart maestrohr:* &&
-
-            # Wait up to 60s for app to start
             echo 'Waiting for application to start...' &&
             for i in \$(seq 1 12); do
               sleep 5
@@ -155,7 +153,6 @@ jobs:
               fi
               echo \"Attempt \$i/12 - still starting...\"
             done
-
             echo 'ERROR: Application failed to start within 60 seconds'
             exit 1
           "
