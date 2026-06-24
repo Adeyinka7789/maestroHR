@@ -82,4 +82,6 @@ public class UpdateEmployeeRequest {
     private String bankAccountName;
 
     private String role;
+
+    private String deviceEnrollmentId;
 }

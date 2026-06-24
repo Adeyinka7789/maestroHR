@@ -55,7 +55,8 @@ public class ProfileService {
                     employee.getAddress(),
                     employee.getDateOfBirth(),
                     employee.getGender() != null ? employee.getGender().name() : null,
-                    employee.getMaritalStatus() != null ? employee.getMaritalStatus().name() : null);
+                    employee.getMaritalStatus() != null ? employee.getMaritalStatus().name() : null,
+                    employee.getDeviceEnrollmentId());
 
             work = new ProfileView.Work(
                     employee.getEmployeeNumber(),
@@ -94,7 +95,7 @@ public class ProfileService {
      */
     @Transactional
     public void updatePersonalInfo(String firstName, String lastName, String phone, String address,
-                                   String dateOfBirth, String gender, String maritalStatus) {
+                                   String dateOfBirth, String gender, String maritalStatus, String deviceEnrollmentId) {
         Employee employee = currentEmployeeOrNull();
         if (employee == null) {
             throw new IllegalArgumentException("Your account has no employee profile to edit.");
@@ -107,6 +108,9 @@ public class ProfileService {
         employee.setDateOfBirth(parseDateOfBirth(dateOfBirth));
         employee.setGender(parseGender(gender));
         employee.setMaritalStatus(parseMaritalStatus(maritalStatus));
+        if (deviceEnrollmentId != null) {
+            employee.setDeviceEnrollmentId(deviceEnrollmentId.trim());
+        }
 
         employeeRepository.save(employee);
     }

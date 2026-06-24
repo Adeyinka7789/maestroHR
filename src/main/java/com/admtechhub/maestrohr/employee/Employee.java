@@ -113,6 +113,9 @@ public class Employee extends BaseEntity {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @Column(name = "device_enrollment_id", length = 120)
+    private String deviceEnrollmentId;
+
     // Helper method to get full name
     public String getFullName() {
         return firstName + " " + lastName;

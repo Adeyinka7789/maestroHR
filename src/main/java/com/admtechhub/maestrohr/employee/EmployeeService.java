@@ -261,6 +261,10 @@ public class EmployeeService {
             userRepository.save(user);
         }
 
+        if (request.getDeviceEnrollmentId() != null) {
+            employee.setDeviceEnrollmentId(request.getDeviceEnrollmentId().trim());
+        }
+
         // Update role if provided and allowed
         if (request.getRole() != null && !request.getRole().isBlank()) {
             UserRole newRole;

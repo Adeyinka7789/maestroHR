@@ -1,0 +1,1 @@
+ALTER TABLE employees ADD COLUMN device_enrollment_id VARCHAR(120);

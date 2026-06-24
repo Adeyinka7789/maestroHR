@@ -31,6 +31,7 @@ public class ProfileController {
     private final ProfileService profileService;
     private final AuthService authService;
 
+
     /** Full page: app shell on a cold visit, the populated profile under HTMX. */
     @GetMapping("/htmx/profile")
     public String profile(
@@ -54,11 +55,12 @@ public class ProfileController {
             @RequestParam(required = false) String dateOfBirth,
             @RequestParam(required = false) String gender,
             @RequestParam(required = false) String maritalStatus,
+            @RequestParam(required = false) String deviceEnrollmentId,
             Model model) {
 
         try {
             profileService.updatePersonalInfo(firstName, lastName, phone, address,
-                    dateOfBirth, gender, maritalStatus);
+                    dateOfBirth, gender, maritalStatus,deviceEnrollmentId);
             model.addAttribute("success", "Your profile has been updated.");
         } catch (IllegalArgumentException ex) {
             model.addAttribute("error", ex.getMessage());

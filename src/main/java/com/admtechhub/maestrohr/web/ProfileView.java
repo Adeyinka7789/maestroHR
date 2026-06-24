@@ -42,7 +42,8 @@ public record ProfileView(
             String address,
             LocalDate dateOfBirth,
             String gender,
-            String maritalStatus
+            String maritalStatus,
+            String deviceEnrollmentId
     ) {}
 
     /** Read-only employment details — managed by HR, shown here for reference only. */
