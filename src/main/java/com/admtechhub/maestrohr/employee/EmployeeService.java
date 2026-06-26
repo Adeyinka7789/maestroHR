@@ -541,26 +541,32 @@ public class EmployeeService {
                 if (isFirstLine) { isFirstLine = false; continue; }
 
                 String[] data = line.split(",");
-                if (data.length < 10) {
+// Account for all 11 columns now present in the row
+                if (data.length < 11) {
                     errorCount++;
-                    errors.add("Invalid row: " + line);
+                    errors.add("Invalid row (insufficient columns): " + line);
                     continue;
                 }
 
                 try {
                     EmployeeRequest request = new EmployeeRequest();
-                    request.setFirstName(data[0].trim());
-                    request.setLastName(data[1].trim());
-                    request.setEmail(data[2].trim());
-                    request.setPhone(data[3].trim());
-                    request.setJobTitle(data[4].trim());
-                    request.setEmploymentType(EmploymentType.valueOf(data[5].trim().toUpperCase()));
-                    request.setBankName(data[6].trim());
-                    request.setBankAccountNumber(data[7].trim());
-                    request.setBankAccountName(data[8].trim());
+                    // Index 0 is the Employee Number (Skipped or map if your request object needs it)
+                    request.setFirstName(data[1].trim());
+                    request.setLastName(data[2].trim());
+                    request.setEmail(data[3].trim());
+                    request.setPhone(data[4].trim());
+                    request.setJobTitle(data[5].trim());
+
+                    // Index 6 is now safely your Employment Type
+                    request.setEmploymentType(EmploymentType.valueOf(data[6].trim().toUpperCase()));
+
+                    request.setBankName(data[7].trim());
+                    request.setBankAccountNumber(data[8].trim());
+                    request.setBankAccountName(data[9].trim());
                     request.setPassword("Welcome123!");
 
-                    String deptName = data.length > 9 ? data[9].trim() : "General";
+                    // Index 10 is your Department
+                    String deptName = data.length > 10 ? data[10].trim() : "General";
                     Department dept = departmentRepository.findAllByTenantId(tenantId)
                             .stream().filter(d -> d.getName().equalsIgnoreCase(deptName))
                             .findFirst()
@@ -636,26 +642,28 @@ public class EmployeeService {
 
                 try {
                     EmployeeRequest request = new EmployeeRequest();
-                    request.setFirstName(getCellValueAsString(row.getCell(0)));
-                    request.setLastName(getCellValueAsString(row.getCell(1)));
-                    request.setEmail(getCellValueAsString(row.getCell(2)));
-                    request.setPhone(getCellValueAsString(row.getCell(3)));
-                    request.setJobTitle(getCellValueAsString(row.getCell(4)));
+                    // Index 0 is the Employee Number cell
+                    request.setFirstName(getCellValueAsString(row.getCell(1)));
+                    request.setLastName(getCellValueAsString(row.getCell(2)));
+                    request.setEmail(getCellValueAsString(row.getCell(3)));
+                    request.setPhone(getCellValueAsString(row.getCell(4)));
+                    request.setJobTitle(getCellValueAsString(row.getCell(5)));
 
-                    String empTypeStr = getCellValueAsString(row.getCell(5));
-                    // 1. Wrap the Enum matching in a try-catch block to supply a clear hint to your frontend errorLog array
+                    // Index 6 is now targeting the Employment Type column
+                    String empTypeStr = getCellValueAsString(row.getCell(6));
                     try {
                         request.setEmploymentType(EmploymentType.valueOf(empTypeStr.toUpperCase().trim()));
                     } catch (IllegalArgumentException e) {
                         throw new IllegalArgumentException("'" + empTypeStr + "' is not a valid Employment Type. Expected options are: FULL_TIME, PART_TIME, CONTRACT");
                     }
 
-                    request.setBankName(getCellValueAsString(row.getCell(6)));
-                    request.setBankAccountNumber(getCellValueAsString(row.getCell(7)));
-                    request.setBankAccountName(getCellValueAsString(row.getCell(8)));
+                    request.setBankName(getCellValueAsString(row.getCell(7)));
+                    request.setBankAccountNumber(getCellValueAsString(row.getCell(8)));
+                    request.setBankAccountName(getCellValueAsString(row.getCell(9)));
                     request.setPassword("Welcome123!");
 
-                    String deptName = getCellValueAsString(row.getCell(9));
+                    // Index 10 tracks the Department column
+                    String deptName = getCellValueAsString(row.getCell(10));
                     if (deptName.isBlank()) deptName = "General";
 
                     final String targetDeptName = deptName;

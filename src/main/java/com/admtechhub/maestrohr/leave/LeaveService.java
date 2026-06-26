@@ -95,7 +95,8 @@ public class LeaveService {
                 createLeaveType(tenant, "Maternity Leave", "MATERNITY", 60, true, true, false, 0),
                 createLeaveType(tenant, "Paternity Leave", "PATERNITY", 14, true, true, false, 0),
                 createLeaveType(tenant, "Casual Leave", "CASUAL", 5, true, true, false, 0),
-                createLeaveType(tenant, "Unpaid Leave", "UNPAID", 30, false, true, false, 0)
+                createLeaveType(tenant, "Unpaid Leave", "UNPAID", 30, false, true, false, 0),
+                createLeaveType(tenant,"Study Leave", "STUDY", 360, false, true, true, 360)
         };
 
         for (LeaveType type : defaultTypes) {
