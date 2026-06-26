@@ -579,8 +579,17 @@ public class EmployeeService {
                             });
                     request.setDepartmentId(dept.getId());
 
+                    // Dynamically resolve or initialize a baseline pay grade
                     PayGrade defaultPayGrade = payGradeRepository.findAllByTenantId(tenantId).stream().findFirst()
-                            .orElseThrow(() -> new RuntimeException("No pay grade found"));
+                            .orElseGet(() -> {
+                                log.info("No pay grade found for tenant {}. Creating a default fallback tier.", tenantId);
+                                PayGrade fallback = PayGrade.builder()
+                                        .tenant(tenant)
+                                        .name("General Grade")
+                                        .basicSalary(0L)
+                                        .build();
+                                return payGradeRepository.save(fallback);
+                            });
                     request.setPayGradeId(defaultPayGrade.getId());
 
                     request.setEmploymentStartDate(LocalDate.now());
@@ -679,8 +688,17 @@ public class EmployeeService {
                             });
                     request.setDepartmentId(dept.getId());
 
+                    // Dynamically resolve or initialize a baseline pay grade
                     PayGrade defaultPayGrade = payGradeRepository.findAllByTenantId(tenantId).stream().findFirst()
-                            .orElseThrow(() -> new RuntimeException("No pay grade configured for this tenant."));
+                            .orElseGet(() -> {
+                                log.info("No pay grade found for tenant {}. Creating a default fallback tier.", tenantId);
+                                PayGrade fallback = PayGrade.builder()
+                                        .tenant(tenant)
+                                        .name("General Grade")
+                                        .basicSalary(0L)
+                                        .build();
+                                return payGradeRepository.save(fallback);
+                            });
                     request.setPayGradeId(defaultPayGrade.getId());
 
                     request.setEmploymentStartDate(LocalDate.now());
