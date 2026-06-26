@@ -26,9 +26,9 @@ public class SearchService {
     private final PayGradeRepository payGradeRepository;
     private final PayrollRunRepository payrollRunRepository;
     private final LeaveRequestRepository leaveRequestRepository;
-    private final EmployeeService employeeService;   // to get current user's employee profile
 
-    public SearchResponse search(String query) {
+    // Employee is now passed in – no internal fetching
+    public SearchResponse search(String query, Employee currentEmployee) {
         String normalized = query == null ? "" : query.trim();
         if (normalized.length() < 2) {
             return new SearchResponse(List.of());
@@ -43,23 +43,12 @@ public class SearchService {
                 .map(g -> g.getAuthority().replace("ROLE_", ""))
                 .collect(Collectors.toSet());
 
-        // Identify current employee (if any)
-        Employee currentEmployee = null;
-        try {
-            EmployeeDetailsDTO dto = employeeService.findByEmail(auth.getName());
-            currentEmployee = employeeRepository.findById(dto.getId()).orElse(null);
-        } catch (Exception ignored) {
-            // user may not be an employee (e.g. pure HR_ADMIN without profile)
-        }
-
         // ── EMPLOYEE role ────────────────────────────────────────
-        if (roles.contains("EMPLOYEE") && roles.size() == 1) {   // pure employee
+        if (roles.contains("EMPLOYEE") && roles.size() == 1) {
             if (currentEmployee != null) {
-                // Only own employee record if name/email matches term
                 if (matchesEmployee(currentEmployee, term)) {
                     results.add(toSearchResult(currentEmployee));
                 }
-                // Own leave requests
                 leaveRequestRepository.findByEmployeeId(currentEmployee.getId(),
                                 PageRequest.of(0, 5)).stream()
                         .filter(lr -> matchesLeave(lr, term))
@@ -73,14 +62,12 @@ public class SearchService {
             if (currentEmployee != null && currentEmployee.getDepartment() != null) {
                 UUID deptId = currentEmployee.getDepartment().getId();
 
-                // Employees in same department (or match term)
                 List<Employee> deptEmployees = employeeRepository.findByDepartmentId(deptId,
                                 PageRequest.of(0, 20)).stream()
                         .filter(e -> matchesEmployee(e, term))
                         .collect(Collectors.toList());
                 deptEmployees.forEach(e -> results.add(toSearchResult(e)));
 
-                // Leave requests for those employees
                 Set<UUID> empIds = deptEmployees.stream().map(Employee::getId).collect(Collectors.toSet());
                 if (!empIds.isEmpty()) {
                     leaveRequestRepository.findByEmployeeIdIn(empIds, PageRequest.of(0, 10)).stream()
@@ -89,7 +76,6 @@ public class SearchService {
                 }
             }
 
-            // Departments, pay grades, payroll – tenant‑scoped (already fine)
             departmentRepository.searchDepartments(tenantId, term, PageRequest.of(0, 4))
                     .forEach(dept -> results.add(toDeptResult(dept)));
             payGradeRepository.searchPayGrades(tenantId, term, PageRequest.of(0, 4))
@@ -101,7 +87,6 @@ public class SearchService {
         }
 
         // ── HR_ADMIN / FINANCE_OFFICER / SUPER_ADMIN ────────────
-        // Full search (unchanged original logic)
         employeeRepository.searchEmployees(term, PageRequest.of(0, 6))
                 .forEach(emp -> results.add(toSearchResult(emp)));
 
