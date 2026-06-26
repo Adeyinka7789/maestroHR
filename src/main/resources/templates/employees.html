@@ -1,32 +1,57 @@
 <!DOCTYPE html>
-<!--
-  employees.html — server-rendered HTMX fragment (Option 3), companion to the
-  dashboard pilot. Rendered by EmployeesController as "employees :: content" and
-  swapped into #page-content in layout.html. Styled with the Stitch design system
-  tokens compiled into /css/dashboard.css (see tailwind.config.js `content`).
-
-  Two fragments:
-   - content : header + filter bar (#employee-filters) + table container (#employees-table)
-   - table   : table rows + pagination — the lightweight swap target for search,
-               department/status filters, and paging (GET /htmx/employees/table).
-
-  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
-  document; only the th:fragment nodes are emitted.
--->
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
 
-<!-- ============================ CONTENT ============================ -->
-<div th:fragment="content" class="font-body-md text-on-surface">
+<div th:fragment="content" class="font-body-md text-on-surface" x-data="{ showImportErrors: false, errorLog: [], summaryMessage: '' }">
 
-    <!-- Error banner (e.g. a not-found fallback from the employee detail route) -->
+    <div x-show="showImportErrors"
+         x-transition
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+         style="display: none;"
+         x-cloak>
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-outline-variant transform transition-all"
+             @click.away="showImportErrors = false">
+            <div class="flex items-start gap-md">
+                <div class="p-2 rounded-full flex items-center justify-center"
+                     :class="errorLog.length === 0 ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary-fixed text-on-primary-fixed-variant'">
+                    <span class="material-symbols-outlined text-[24px]" x-text="errorLog.length === 0 ? 'check_circle' : 'published_with_changes'">warning</span>
+                </div>
+
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs"
+                        x-text="errorLog.length === 0 ? 'Import Successful' : 'Import Processed with Skips'">
+                    </h3>
+
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mb-md" x-text="summaryMessage"></p>
+
+                    <template x-if="errorLog.length > 0">
+                        <div class="max-h-48 overflow-y-auto bg-surface-container-low border border-outline-variant rounded-lg p-3 font-mono text-[12px] text-on-surface space-y-1.5">
+                            <div class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Skipped Row Details:</div>
+                            <template x-for="(err, idx) in errorLog" :key="idx">
+                                <div class="flex gap-xs items-start text-on-surface-variant">
+                                    <span>ℹ️</span>
+                                    <span x-text="err"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="mt-lg flex justify-end">
+                <button @click="showImportErrors = false"
+                        class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div th:if="${error}" role="alert"
          class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
         <span class="material-symbols-outlined text-[20px]">error</span>
         <span th:text="${error}">Error</span>
     </div>
 
-    <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
         <div>
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Employees</h1>
@@ -38,7 +63,7 @@
             <button id="import-csv-btn" type="button"
                     class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
                 <span class="material-symbols-outlined text-[20px]">upload_file</span>
-                Import CSV
+                Import CSV/EXCEL
             </button>
             <a href="/api/employees/export/excel"
                class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
@@ -54,14 +79,13 @@
         </div>
     </div>
 
-    <!-- Hidden file input for CSV import -->
-    <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+    <input type="file" id="csvFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden">
 
-    <!--
-      Filter bar — lives in `content` (NOT re-rendered on table swaps) so the user's
-      typed search and selected filters persist across swaps and are picked up by
-      hx-include="#employee-filters" on every search / filter / pagination request.
-    -->
+    <div class="mb-md p-3 rounded-lg border border-primary/20 bg-primary-fixed-dim/10 text-on-surface-variant text-[12px]">
+        <span class="font-bold text-primary">💡 Format Sequence Required:</span>
+        <code class="bg-surface-container-high px-1.5 py-0.5 rounded text-primary font-mono ml-1">First Name | Last Name | Email | Phone | Job Title | Employment Type | Bank Name | Account Num | Account Name | Department</code>
+    </div>
+
     <div id="employee-filters" class="flex flex-col md:flex-row gap-sm mb-md">
         <div class="relative flex-1">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
@@ -92,14 +116,8 @@
         </select>
     </div>
 
-    <!-- Table container — only this is swapped on search / filter / paging -->
     <div id="employees-table" th:insert="~{employees :: table}"></div>
 
-    <!--
-      CSV import is inherently interactive (file picker + multipart POST), so it
-      keeps a small JS island that reuses the global MaestroHR helpers and refreshes
-      the table via htmx.ajax on success. HTMX runs scripts in swapped content.
-    -->
     <script>
         (function () {
             var importBtn = document.getElementById('import-csv-btn');
@@ -117,24 +135,43 @@
                 MaestroHR.showToast('Importing employees…', 'info');
 
                 try {
-                    var response = await fetch('/api/employees/import/csv', {
+                    var response = await fetch('/api/employees/import', {
                         method: 'POST',
                         headers: { 'Authorization': 'Bearer ' + MaestroHR.token },
                         body: formData
                     });
+
                     var result = await response.json();
-                    if (result.success) {
-                        var data = result.data;
-                        MaestroHR.showToast('✅ Imported ' + data.successCount + ' employees, ' + data.errorCount + ' errors', 'success');
-                        htmx.ajax('GET', '/htmx/employees/table', {
-                            target: '#employees-table', swap: 'innerHTML', values: { q: '', dept: '', status: '', page: 0 }
-                        });
+                    console.log('Import Response:', result);
+
+                    var targetData = result.data ? result.data : result;
+                    var successCount = typeof targetData.successCount !== 'undefined' ? targetData.successCount : 0;
+                    var errorCount = typeof targetData.errorCount !== 'undefined' ? targetData.errorCount : 0;
+                    var errorsList = targetData.errors || [];
+
+                    var alpineRoot = Alpine.$data(document.querySelector('[th:fragment="content"]'));
+
+                    // Set strings cleanly
+                    alpineRoot.summaryMessage = `Import complete. ${successCount} record(s) added successfully, and ${errorCount} row(s) skipped because their accounts already exist.`;
+                    alpineRoot.errorLog = errorsList;
+
+                    // Always open the summary modal if there are skips or additions so the user explicitly knows what happened
+                    alpineRoot.showImportErrors = true;
+
+                    if (errorCount > 0) {
+                        MaestroHR.showToast('ℹ️ Import processed with skipped rows.', 'warning');
                     } else {
-                        MaestroHR.showToast(result.message || 'Import failed', 'error');
+                        MaestroHR.showToast('✅ All employees imported successfully.', 'success');
                     }
+
+                    // Refresh table layout via HTMX components
+                    htmx.ajax('GET', '/htmx/employees/table', {
+                        target: '#employees-table', swap: 'innerHTML', values: { q: '', dept: '', status: '', page: 0 }
+                    });
+
                 } catch (err) {
-                    console.error('Import failed:', err);
-                    MaestroHR.showToast('Import failed. Check console.', 'error');
+                    console.error('Import connection failure:', err);
+                    MaestroHR.showToast('Import connection failed.', 'error');
                 }
                 e.target.value = '';
             });
@@ -142,7 +179,6 @@
     </script>
 </div>
 
-<!-- ============================= TABLE ============================= -->
 <div th:fragment="table">
 
     <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
@@ -198,7 +234,6 @@
                     </td>
                 </tr>
 
-                <!-- Empty state -->
                 <tr th:if="${view.rows.isEmpty()}">
                     <td colspan="7" class="px-md py-xl text-center">
                         <p class="font-label-md text-label-md text-on-surface mb-xs">No employees found</p>
@@ -210,7 +245,6 @@
         </div>
     </div>
 
-    <!-- Pagination -->
     <div th:if="${view.totalPages > 1}" class="flex items-center justify-between py-md">
         <p class="font-body-sm text-body-sm text-on-surface-variant">
             Showing <span th:text="${view.fromIndex}">1</span>–<span th:text="${view.toIndex}">20</span>

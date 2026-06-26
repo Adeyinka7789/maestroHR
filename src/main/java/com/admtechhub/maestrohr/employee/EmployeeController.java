@@ -113,11 +113,36 @@ public class EmployeeController {
         return ResponseEntity.ok().headers(headers).body(excelData);
     }
 
-    @PostMapping("/import/csv")
+    /**
+     * Unified Import API: Routing to appropriate parser method automatically
+     * handles standard .csv text buffers and binary Excel .xlsx workbooks.
+     */
+    @PostMapping("/import")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> importEmployees(
             @RequestParam("file") MultipartFile file) {
-        Map<String, Object> result = employeeService.importEmployeesFromCSV(file);
-        return ResponseEntity.ok(ApiResponse.success("Import completed", result));
+
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Uploaded file is empty."));
+        }
+
+        String fileName = file.getOriginalFilename();
+        if (fileName == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid file structure name."));
+        }
+
+        Map<String, Object> result;
+
+        // Dynamic string routing filter
+        if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+            result = employeeService.importEmployeesFromExcel(file);
+        } else if (fileName.endsWith(".csv")) {
+            result = employeeService.importEmployeesFromCSV(file);
+        } else {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Unsupported layout format. Please drop a verified CSV or Excel spreadsheet."));
+        }
+
+        return ResponseEntity.ok(ApiResponse.success("Import processed successfully", result));
     }
 }

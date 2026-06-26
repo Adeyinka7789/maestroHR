@@ -13,13 +13,14 @@ import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,12 +29,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -103,11 +106,6 @@ public class EmployeeService {
 
         String employeeNumber = generateEmployeeNumber(tenantId);
 
-        // Reuse an existing login when this work email already has a User account in THIS
-        // tenant (e.g. an HR_ADMIN being given an Employee profile); only provision a new
-        // EMPLOYEE login when none exists. Scoped to the tenant so a same-email user in
-        // another tenant is never linked across the boundary — that tenant gets its own User.
-        // Determine role – default to EMPLOYEE, enforce assignment rules
         final UserRole assignedRole;
         if (request.getRole() != null && !request.getRole().isBlank()) {
             try {
@@ -119,17 +117,14 @@ public class EmployeeService {
             assignedRole = UserRole.EMPLOYEE;
         }
 
-// Only SUPER_ADMIN can assign HR_ADMIN or SUPER_ADMIN
         if ((assignedRole == UserRole.HR_ADMIN || assignedRole == UserRole.SUPER_ADMIN)
                 && !currentUserIsSuperAdmin()) {
             throw new IllegalArgumentException("Only a super-admin can assign HR_ADMIN or SUPER_ADMIN roles.");
         }
 
-// Reuse an existing login when this work email already has a User account...
         User savedUser = userRepository.findByEmailAndTenantId(request.getEmail(), tenantId)
                 .map(existing -> {
                     log.info("Linking employee to existing user account: {}", existing.getEmail());
-                    // Update the existing user's role if different
                     if (existing.getRole() != assignedRole) {
                         existing.setRole(assignedRole);
                         userRepository.save(existing);
@@ -141,7 +136,7 @@ public class EmployeeService {
                             .tenantId(tenantId)
                             .email(request.getEmail())
                             .passwordHash(passwordEncoder.encode(request.getPassword()))
-                            .role(assignedRole)   // <-- use the assigned role
+                            .role(assignedRole)
                             .isActive(true)
                             .failedLoginAttempts(0)
                             .build();
@@ -265,7 +260,6 @@ public class EmployeeService {
             employee.setDeviceEnrollmentId(request.getDeviceEnrollmentId().trim());
         }
 
-        // Update role if provided and allowed
         if (request.getRole() != null && !request.getRole().isBlank()) {
             UserRole newRole;
             try {
@@ -273,12 +267,10 @@ public class EmployeeService {
             } catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Invalid role: " + request.getRole());
             }
-            // Only SUPER_ADMIN can assign HR_ADMIN or SUPER_ADMIN
             if ((newRole == UserRole.HR_ADMIN || newRole == UserRole.SUPER_ADMIN)
                     && !currentUserIsSuperAdmin()) {
                 throw new IllegalArgumentException("Only a super-admin can assign HR_ADMIN or SUPER_ADMIN roles.");
             }
-            // Update the user's role
             if (employee.getUser() != null) {
                 employee.getUser().setRole(newRole);
                 userRepository.save(employee.getUser());
@@ -332,14 +324,6 @@ public class EmployeeService {
         log.info("Terminated employee: {} on {}", id, terminationDate);
     }
 
-    /**
-     * Whether {@code id} can be permanently removed: true only when the employee has no
-     * payroll history, no leave requests, no attendance records, and does not currently
-     * head a department. Drives the SUPER_ADMIN-only "Delete permanently" button so it is
-     * never offered for an employee whose deletion would orphan records — for those, the
-     * non-destructive {@link #terminateEmployee} path is the only option. Read-only; the
-     * authoritative re-check lives in {@link #hardDeleteEmployee}.
-     */
     @Transactional(readOnly = true)
     public boolean canHardDelete(UUID id) {
         return !payrollEntryRepository.existsByEmployeeId(id)
@@ -348,39 +332,21 @@ public class EmployeeService {
                 && !departmentRepository.existsByHeadEmployeeId(id.toString());
     }
 
-    /**
-     * Throw if the employee has any record a deletion would orphan: payroll history, leave
-     * requests, attendance, or currently heading a department. Shared by {@link #softDeleteEmployee}
-     * (trash) and {@link #hardDeleteEmployee} (permanent purge) so both enforce the same invariant
-     * even against a stale button or a direct request; the read-only {@link #canHardDelete} mirrors
-     * it for the UI gate.
-     */
     private void assertNoDependents(UUID id) {
         if (payrollEntryRepository.existsByEmployeeId(id)) {
-            throw new IllegalStateException(
-                    "This employee has payroll history and cannot be deleted. Terminate them instead.");
+            throw new IllegalStateException("This employee has payroll history and cannot be deleted. Terminate them instead.");
         }
         if (leaveRequestRepository.existsByEmployeeId(id)) {
-            throw new IllegalStateException(
-                    "This employee has leave records and cannot be deleted. Terminate them instead.");
+            throw new IllegalStateException("This employee has leave records and cannot be deleted. Terminate them instead.");
         }
         if (attendanceRepository.existsByEmployeeId(id)) {
-            throw new IllegalStateException(
-                    "This employee has attendance records and cannot be deleted. Terminate them instead.");
+            throw new IllegalStateException("This employee has attendance records and cannot be deleted. Terminate them instead.");
         }
         if (departmentRepository.existsByHeadEmployeeId(id.toString())) {
-            throw new IllegalStateException(
-                    "This employee currently heads a department. Reassign the department head before deleting.");
+            throw new IllegalStateException("This employee currently heads a department. Reassign the department head before deleting.");
         }
     }
 
-    /**
-     * Soft-delete an employee: move it to the 90-day trash by stamping {@code deleted_at}, after
-     * which the {@code @SQLRestriction} hides it from every scoped read. Allowed only when the
-     * employee has no dependent records ({@link #assertNoDependents}); otherwise blocks so the
-     * caller can steer the user to Terminate. The linked login is deactivated so a trashed employee
-     * cannot sign in; a super-admin restore from the trash page reactivates it.
-     */
     @Transactional
     public void softDeleteEmployee(UUID id) {
         Employee employee = employeeRepository.findById(id)
@@ -396,12 +362,6 @@ public class EmployeeService {
         log.info("Soft-deleted employee: {}", id);
     }
 
-    /**
-     * Permanently delete an employee and its linked login. Allowed only when the employee has no
-     * dependent records ({@link #assertNoDependents}). The employee owns the FK to its {@link User},
-     * so we delete the employee first, then the now-unreferenced login. This is the immediate purge;
-     * the routine path is {@link #softDeleteEmployee} (trash) followed by the scheduled cleanup.
-     */
     @Transactional
     public void hardDeleteEmployee(UUID id) {
         Employee employee = employeeRepository.findById(id)
@@ -429,29 +389,17 @@ public class EmployeeService {
 
     private String getBankCode(String bankName) {
         Map<String, String> bankCodes = Map.ofEntries(
-                Map.entry("GTBank", "058"),
-                Map.entry("GTB", "058"),
-                Map.entry("Guaranty Trust Bank", "058"),
-                Map.entry("First Bank", "011"),
-                Map.entry("FirstBank", "011"),
-                Map.entry("UBA", "033"),
-                Map.entry("United Bank For Africa", "033"),
-                Map.entry("Access Bank", "044"),
-                Map.entry("Access", "044"),
-                Map.entry("Zenith Bank", "057"),
-                Map.entry("Zenith", "057"),
-                Map.entry("Union Bank", "032"),
-                Map.entry("Union", "032"),
-                Map.entry("FCMB", "214"),
-                Map.entry("First City Monument Bank", "214"),
-                Map.entry("Stanbic IBTC", "221"),
-                Map.entry("Stanbic", "221"),
-                Map.entry("Sterling Bank", "232"),
-                Map.entry("Sterling", "232"),
-                Map.entry("Polaris Bank", "076"),
-                Map.entry("Polaris", "076"),
-                Map.entry("Ecobank", "050"),
-                Map.entry("Eco", "050")
+                Map.entry("GTBank", "058"), Map.entry("GTB", "058"), Map.entry("Guaranty Trust Bank", "058"),
+                Map.entry("First Bank", "011"), Map.entry("FirstBank", "011"),
+                Map.entry("UBA", "033"), Map.entry("United Bank For Africa", "033"),
+                Map.entry("Access Bank", "044"), Map.entry("Access", "044"),
+                Map.entry("Zenith Bank", "057"), Map.entry("Zenith", "057"),
+                Map.entry("Union Bank", "032"), Map.entry("Union", "032"),
+                Map.entry("FCMB", "214"), Map.entry("First City Monument Bank", "214"),
+                Map.entry("Stanbic IBTC", "221"), Map.entry("Stanbic", "221"),
+                Map.entry("Sterling Bank", "232"), Map.entry("Sterling", "232"),
+                Map.entry("Polaris Bank", "076"), Map.entry("Polaris", "076"),
+                Map.entry("Ecobank", "050"), Map.entry("Eco", "050")
         );
 
         String code = bankCodes.get(bankName);
@@ -462,7 +410,6 @@ public class EmployeeService {
                 return entry.getValue();
             }
         }
-
         throw new IllegalArgumentException("Bank not supported: " + bankName);
     }
 
@@ -482,7 +429,6 @@ public class EmployeeService {
         if (employee.getTenant() != null) {
             employee.getTenant().getCompanyName();
         }
-
         return employee;
     }
 
@@ -506,13 +452,12 @@ public class EmployeeService {
             page++;
         } while (pageResult.hasNext());
 
-        // Initialize lazy-loaded proxies before accessing their properties
         allEmployees.forEach(emp -> {
             if (emp.getDepartment() != null) {
-                emp.getDepartment().getName(); // force initialization
+                emp.getDepartment().getName();
             }
             if (emp.getPayGrade() != null) {
-                emp.getPayGrade().getName(); // force initialization
+                emp.getPayGrade().getName();
             }
         });
 
@@ -527,9 +472,21 @@ public class EmployeeService {
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
             Row header = sheet.createRow(0);
-            String[] columns = {"Employee Number", "First Name", "Last Name", "Email", "Phone",
-                    "Department", "Job Title", "Employment Type", "Status", "Bank",
-                    "Account Number", "Account Name"};
+
+            // 1. Updated columns array to perfectly reflect the import expectations (0-9)
+            String[] columns = {
+                    "First Name",       // 0
+                    "Last Name",        // 1
+                    "Email",            // 2
+                    "Phone",            // 3
+                    "Job Title",        // 4
+                    "Employment Type",  // 5
+                    "Bank Name",        // 6
+                    "Account Number",   // 7
+                    "Account Name",     // 8
+                    "Department"        // 9
+            };
+
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(columns[i]);
@@ -539,18 +496,18 @@ public class EmployeeService {
             int rowNum = 1;
             for (Employee emp : allEmployees) {
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(emp.getEmployeeNumber());
-                row.createCell(1).setCellValue(emp.getFirstName());
-                row.createCell(2).setCellValue(emp.getLastName());
-                row.createCell(3).setCellValue(emp.getEmail());
-                row.createCell(4).setCellValue(emp.getPhone());
-                row.createCell(5).setCellValue(emp.getDepartment() != null ? emp.getDepartment().getName() : "");
-                row.createCell(6).setCellValue(emp.getJobTitle());
-                row.createCell(7).setCellValue(emp.getEmploymentType() != null ? emp.getEmploymentType().name() : "");
-                row.createCell(8).setCellValue(emp.getStatus().name());
-                row.createCell(9).setCellValue(emp.getBankName());
-                row.createCell(10).setCellValue(emp.getBankAccountNumber());
-                row.createCell(11).setCellValue(emp.getBankAccountName());
+
+                // 2. Output row values using the exact structural indices your parser uses
+                row.createCell(0).setCellValue(emp.getFirstName());
+                row.createCell(1).setCellValue(emp.getLastName());
+                row.createCell(2).setCellValue(emp.getEmail());
+                row.createCell(3).setCellValue(emp.getPhone());
+                row.createCell(4).setCellValue(emp.getJobTitle());
+                row.createCell(5).setCellValue(emp.getEmploymentType() != null ? emp.getEmploymentType().name() : "");
+                row.createCell(6).setCellValue(emp.getBankName());
+                row.createCell(7).setCellValue(emp.getBankAccountNumber());
+                row.createCell(8).setCellValue(emp.getBankAccountName());
+                row.createCell(9).setCellValue(emp.getDepartment() != null ? emp.getDepartment().getName() : "");
             }
 
             for (int i = 0; i < columns.length; i++) {
@@ -597,7 +554,7 @@ public class EmployeeService {
                     request.setEmail(data[2].trim());
                     request.setPhone(data[3].trim());
                     request.setJobTitle(data[4].trim());
-                    request.setEmploymentType(EmploymentType.valueOf(data[5].trim()));
+                    request.setEmploymentType(EmploymentType.valueOf(data[5].trim().toUpperCase()));
                     request.setBankName(data[6].trim());
                     request.setBankAccountNumber(data[7].trim());
                     request.setBankAccountName(data[8].trim());
@@ -641,6 +598,148 @@ public class EmployeeService {
         result.put("errorCount", errorCount);
         result.put("errors", errors);
         return result;
+    }
+
+    /**
+     * Parse binary layout structures from native Excel spreadsheets (.xlsx/.xls)
+     * maps content properties identically into internal validation pipelines.
+     */
+    /**
+     * Parse binary layout structures from native Excel spreadsheets (.xlsx/.xls)
+     * maps content properties identically into internal validation pipelines.
+     */
+    @Transactional
+    public Map<String, Object> importEmployeesFromExcel(MultipartFile file) {
+        Map<String, Object> result = new HashMap<>();
+        int successCount = 0;
+        int errorCount = 0;
+        List<String> errors = new ArrayList<>();
+        UUID tenantId = getCurrentTenantId();
+
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new TenantNotFoundException("Tenant not found"));
+
+        try (InputStream is = file.getInputStream(); Workbook workbook = WorkbookFactory.create(is)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Iterator<Row> rows = sheet.iterator();
+
+            // Skip header row
+            if (rows.hasNext()) {
+                rows.next();
+            }
+
+            while (rows.hasNext()) {
+                Row row = rows.next();
+
+                // Skip completely blank rows safely
+                if (isRowEmpty(row)) continue;
+
+                try {
+                    EmployeeRequest request = new EmployeeRequest();
+                    request.setFirstName(getCellValueAsString(row.getCell(0)));
+                    request.setLastName(getCellValueAsString(row.getCell(1)));
+                    request.setEmail(getCellValueAsString(row.getCell(2)));
+                    request.setPhone(getCellValueAsString(row.getCell(3)));
+                    request.setJobTitle(getCellValueAsString(row.getCell(4)));
+
+                    String empTypeStr = getCellValueAsString(row.getCell(5));
+                    // 1. Wrap the Enum matching in a try-catch block to supply a clear hint to your frontend errorLog array
+                    try {
+                        request.setEmploymentType(EmploymentType.valueOf(empTypeStr.toUpperCase().trim()));
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("'" + empTypeStr + "' is not a valid Employment Type. Expected options are: FULL_TIME, PART_TIME, CONTRACT");
+                    }
+
+                    request.setBankName(getCellValueAsString(row.getCell(6)));
+                    request.setBankAccountNumber(getCellValueAsString(row.getCell(7)));
+                    request.setBankAccountName(getCellValueAsString(row.getCell(8)));
+                    request.setPassword("Welcome123!");
+
+                    String deptName = getCellValueAsString(row.getCell(9));
+                    if (deptName.isBlank()) deptName = "General";
+
+                    final String targetDeptName = deptName;
+                    Department dept = departmentRepository.findAllByTenantId(tenantId)
+                            .stream().filter(d -> d.getName().equalsIgnoreCase(targetDeptName))
+                            .findFirst()
+                            .orElseGet(() -> {
+                                Department newDept = Department.builder()
+                                        .tenant(tenant)
+                                        .name(targetDeptName)
+                                        .build();
+                                return departmentRepository.save(newDept);
+                            });
+                    request.setDepartmentId(dept.getId());
+
+                    PayGrade defaultPayGrade = payGradeRepository.findAllByTenantId(tenantId).stream().findFirst()
+                            .orElseThrow(() -> new RuntimeException("No pay grade configured for this tenant."));
+                    request.setPayGradeId(defaultPayGrade.getId());
+
+                    request.setEmploymentStartDate(LocalDate.now());
+                    request.setDateOfBirth(LocalDate.of(1990, 1, 1));
+                    request.setGender(Gender.MALE);
+                    request.setMaritalStatus(MaritalStatus.SINGLE);
+                    request.setAddress("Imported address via Excel");
+
+                    createEmployee(request);
+                    successCount++;
+                } catch (Exception e) {
+                    errorCount++;
+                    log.error("Failed to parse Excel row details at row index {}: {}", row.getRowNum(), e.getMessage());
+                    // 2. Format a user-friendly error string for your script's 'result.data.errors' layout reference
+                    errors.add("Row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Excel import streaming error: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to read and parse Excel file workbook structure", e);
+        }
+
+        // 3. Make sure 'success: true' is passed down so the front-end fetch handles it cleanly inside result.success blocks
+        result.put("success", true);
+        result.put("successCount", successCount);
+        result.put("errorCount", errorCount);
+        result.put("errors", errors);
+        return result;
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                }
+                // Double check formatting types
+                double numericValue = cell.getNumericCellValue();
+                if (numericValue == (long) numericValue) {
+                    return String.valueOf((long) numericValue);
+                }
+                return String.valueOf(numericValue);
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                try {
+                    return cell.getStringCellValue().trim();
+                } catch (Exception e) {
+                    return String.valueOf(cell.getNumericCellValue());
+                }
+            default:
+                return "";
+        }
+    }
+
+    private boolean isRowEmpty(Row row) {
+        if (row == null) return true;
+        for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {
+            Cell cell = row.getCell(c);
+            if (cell != null && cell.getCellType() != CellType.BLANK && !getCellValueAsString(cell).isBlank()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private EmployeeDetailsDTO toDetailsDto(Employee employee) {
