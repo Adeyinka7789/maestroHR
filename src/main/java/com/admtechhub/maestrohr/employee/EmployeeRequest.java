@@ -87,4 +87,11 @@ public class EmployeeRequest {
     private String password;
 
     private String role;
+
+    /**
+     * Optional initial status. When omitted, the employee starts {@code ACTIVE} (the historical
+     * default). When set to {@code ONBOARDING}, the default onboarding checklist is seeded for
+     * the new hire (see {@link com.admtechhub.maestrohr.document.OnboardingService}).
+     */
+    private EmployeeStatus status;
 }

@@ -1,7 +1,12 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.document.DocumentResponseDTO;
+import com.admtechhub.maestrohr.document.DocumentService;
+import com.admtechhub.maestrohr.document.DocumentType;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
+import com.admtechhub.maestrohr.subscription.FeatureFlagService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -12,10 +17,13 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -40,6 +48,8 @@ public class EmployeesController {
     private final EmployeeListService employeeListService;
     private final EmployeeDetailService employeeDetailService;
     private final EmployeeService employeeService;
+    private final DocumentService documentService;
+    private final FeatureFlagService featureFlagService;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/employees")
@@ -137,6 +147,75 @@ public class EmployeesController {
         model.addAttribute("error", ex.getMessage());
         addView(model, null, null, null, 0);
         return "employees :: content";
+    }
+
+    /**
+     * HR-facing Documents card for an employee, lazy-loaded into the detail page. Shows the
+     * employee's documents and an upload control. Renders an "unavailable" notice instead of
+     * the vault when the tenant's plan/flag does not include DOCUMENT_VAULT, so the detail page
+     * never breaks for plans without the feature.
+     */
+    @GetMapping("/htmx/employee-view/{id}/documents")
+    public String employeeDocuments(@PathVariable UUID id, Model model) {
+        return renderDocumentsFragment(id, model);
+    }
+
+    /** Upload a document for the employee (HR view), then re-render the Documents card. */
+    @PostMapping("/htmx/employee-view/{id}/documents/upload")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public String uploadEmployeeDocument(
+            @PathVariable UUID id,
+            @RequestParam("documentType") String documentType,
+            @RequestParam(value = "expiryDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
+            @RequestParam("file") MultipartFile file,
+            Model model) {
+
+        if (!featureFlagService.isEnabled(SubscriptionFeature.DOCUMENT_VAULT)) {
+            return renderDocumentsFragment(id, model);
+        }
+        try {
+            DocumentType type = DocumentType.valueOf(documentType.trim().toUpperCase());
+            documentService.uploadDocument(id, file, type, expiryDate, currentUserEmail());
+            model.addAttribute("docSuccess", "Document uploaded.");
+        } catch (IllegalArgumentException ex) {
+            model.addAttribute("docError", ex.getMessage());
+        }
+        return renderDocumentsFragment(id, model);
+    }
+
+    /** Delete one of the employee's documents (HR view), then re-render the Documents card. */
+    @PostMapping("/htmx/employee-view/{id}/documents/delete")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public String deleteEmployeeDocument(
+            @PathVariable UUID id,
+            @RequestParam("documentId") UUID documentId,
+            Model model) {
+
+        if (featureFlagService.isEnabled(SubscriptionFeature.DOCUMENT_VAULT)
+                && id.equals(documentService.ownerEmployeeId(documentId))) {
+            documentService.deleteDocument(documentId);
+            model.addAttribute("docSuccess", "Document deleted.");
+        }
+        return renderDocumentsFragment(id, model);
+    }
+
+    private String renderDocumentsFragment(UUID employeeId, Model model) {
+        model.addAttribute("employeeId", employeeId);
+        boolean enabled = featureFlagService.isEnabled(SubscriptionFeature.DOCUMENT_VAULT);
+        model.addAttribute("vaultEnabled", enabled);
+        if (enabled) {
+            List<DocumentResponseDTO> documents = documentService.listByEmployee(employeeId).stream()
+                    .map(DocumentResponseDTO::from)
+                    .toList();
+            model.addAttribute("documents", documents);
+        }
+        return "employee-documents :: content";
+    }
+
+    private String currentUserEmail() {
+        return org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getName();
     }
 
     /** Table body + pagination only — the swap target for search / filter / paging. */

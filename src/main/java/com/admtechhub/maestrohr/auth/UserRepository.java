@@ -18,6 +18,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmailAndTenantId(String email, UUID tenantId);
     List<User> findByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 
+    /**
+     * Active users holding a given role within a tenant — used to fan notifications out to
+     * HR (e.g. document-expiry alerts). Tenant-scoped so one tenant's HR never hears about
+     * another's. Returns emails only (the in-app notification recipient key).
+     */
+    @Query("SELECT u.email FROM User u WHERE u.tenantId = :tenantId AND u.role = :role AND u.isActive = true")
+    List<String> findActiveEmailsByTenantIdAndRole(UUID tenantId, UserRole role);
+
     @Query("SELECT COUNT(u) FROM User u WHERE u.lockedUntil IS NOT NULL")
     long countByLockedUntilIsNotNull();
 

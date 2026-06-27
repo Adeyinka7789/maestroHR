@@ -256,6 +256,16 @@
                 </div>
             </div>
 
+            <!-- Documents card — lazy-loaded HR view of the employee's document vault -->
+            <div id="employee-documents-card" class="bg-white border border-outline-variant rounded-xl p-lg"
+                 th:attr="hx-get=@{/htmx/employee-view/{id}/documents(id=${detail.id})}"
+                 hx-trigger="load" hx-swap="innerHTML">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Documents</h2>
+                    <span class="material-symbols-outlined text-[18px] text-on-surface-variant animate-pulse">hourglass_empty</span>
+                </div>
+            </div>
+
             <!-- Summary card -->
             <div class="bg-white border border-outline-variant rounded-xl p-lg">
                 <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Summary</h2>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<!--
+  documents-self.html — employee self-service "My Documents" vault fragment (Option 3). Rendered
+  by DocumentSelfController as "documents-self :: content" and swapped into #page-content. The
+  employee uploads / views / removes their own documents; HR manage them from the employee detail
+  Documents tab. Downloads are served by /api/documents/{id}/download. Stitch design-system tokens.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- No employee profile (admin/owner accounts) -->
+    <div th:if="${noProfile != null}"
+         class="flex flex-col items-center justify-center py-24 gap-md bg-white border border-outline-variant rounded-xl">
+        <span class="material-symbols-outlined text-[64px] text-on-surface-variant">folder_off</span>
+        <p class="font-headline-sm text-headline-sm text-on-surface-variant">No employee profile</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant" th:text="${noProfile}">This page is for employees.</p>
+    </div>
+
+    <div th:if="${noProfile == null}">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+            <div>
+                <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">My Documents</h1>
+                <p class="font-body-md text-body-md text-on-surface-variant">
+                    Upload and manage your certificates, contracts and ID documents
+                </p>
+            </div>
+
+            <!-- Upload — inline <details> dropdown. Multipart POST to /htmx/documents/upload. -->
+            <details class="relative" data-popover>
+                <summary class="list-none cursor-pointer inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                    <span class="material-symbols-outlined text-[20px]">upload_file</span>
+                    Upload Document
+                </summary>
+                <form hx-post="/htmx/documents/upload" hx-target="#page-content" hx-swap="innerHTML"
+                      hx-encoding="multipart/form-data" enctype="multipart/form-data"
+                      class="absolute right-0 z-20 mt-xs w-[360px] p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                    <p class="font-label-md text-label-md text-on-surface mb-sm">Upload a document</p>
+
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Document Type</label>
+                    <select name="documentType" required
+                            class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="PASSPORT">Passport</option>
+                        <option value="NIN">NIN</option>
+                        <option value="BVN">BVN</option>
+                        <option value="CERTIFICATE">Certificate</option>
+                        <option value="CONTRACT">Contract</option>
+                        <option value="WORK_PERMIT">Work Permit</option>
+                        <option value="OTHER" selected>Other</option>
+                    </select>
+
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Expiry Date (optional)</label>
+                    <input type="date" name="expiryDate"
+                           class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">File</label>
+                    <input type="file" name="file" required
+                           class="w-full mb-md font-body-sm text-body-sm text-on-surface">
+
+                    <div class="flex justify-end">
+                        <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                            Upload
+                        </button>
+                    </div>
+                </form>
+            </details>
+        </div>
+
+        <!-- Result banners -->
+        <div th:if="${success}" role="status"
+             class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+            <span class="material-symbols-outlined text-[20px]">task_alt</span>
+            <span th:text="${success}">Done.</span>
+        </div>
+        <div th:if="${formError}" role="alert"
+             class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+            <span class="material-symbols-outlined text-[20px]">error</span>
+            <span th:text="${formError}">Something went wrong.</span>
+        </div>
+
+        <!-- Documents table -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                    <tr class="bg-surface-container-low">
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">File</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Type</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Size</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Expiry</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Uploaded</th>
+                        <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-outline-variant">
+                    <tr th:each="doc : ${documents}" class="hover:bg-surface-container-lowest transition-colors">
+                        <td class="px-md py-md font-table-data text-table-data text-on-surface" th:text="${doc.fileName}">passport.pdf</td>
+                        <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${doc.documentType}">PASSPORT</td>
+                        <td class="px-md py-md font-table-data text-table-data text-on-surface-variant"
+                            th:text="${#numbers.formatDecimal(doc.fileSizeBytes / 1024.0, 1, 1)} + ' KB'">12.0 KB</td>
+                        <td class="px-md py-md font-table-data text-table-data text-on-surface-variant">
+                            <span th:if="${doc.expiryDate != null}" th:text="${#temporals.format(doc.expiryDate, 'dd MMM yyyy')}">01 Jan 2026</span>
+                            <span th:if="${doc.expiryDate == null}" class="text-on-surface-variant">—</span>
+                        </td>
+                        <td class="px-md py-md font-table-data text-table-data text-on-surface-variant"
+                            th:text="${#temporals.format(doc.createdAt, 'dd MMM yyyy')}">01 Jun 2025</td>
+                        <td class="px-md py-md text-right whitespace-nowrap">
+                            <a th:href="@{'/api/documents/' + ${doc.id} + '/download'}"
+                               class="inline-flex items-center gap-xs px-2 py-1 rounded text-label-sm font-label-sm text-primary hover:underline">
+                                <span class="material-symbols-outlined text-[18px]">download</span>Download
+                            </a>
+                            <button hx-post="/htmx/documents/delete" hx-target="#page-content" hx-swap="innerHTML"
+                                    th:hx-vals="'{&quot;id&quot;: &quot;' + ${doc.id} + '&quot;}'"
+                                    hx-confirm="Delete this document?"
+                                    class="inline-flex items-center gap-xs px-2 py-1 rounded text-label-sm font-label-sm text-error hover:underline">
+                                <span class="material-symbols-outlined text-[18px]">delete</span>Delete
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Empty state -->
+                    <tr th:if="${documents == null or documents.isEmpty()}">
+                        <td colspan="6" class="px-md py-xl text-center">
+                            <p class="font-label-md text-label-md text-on-surface mb-xs">No documents yet</p>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant">Upload a document above to get started.</p>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

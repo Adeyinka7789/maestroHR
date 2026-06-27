@@ -5,6 +5,7 @@ import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
+import com.admtechhub.maestrohr.document.OnboardingService;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
@@ -57,6 +58,7 @@ public class EmployeeService {
     private final PayrollEntryRepository payrollEntryRepository;
     private final LeaveRequestRepository leaveRequestRepository;
     private final AttendanceRepository attendanceRepository;
+    private final OnboardingService onboardingService;
 
     private static final String EMPLOYEE_NUMBER_PREFIX = "EMP";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -168,11 +170,16 @@ public class EmployeeService {
                 .bankName(request.getBankName())
                 .bankAccountNumber(request.getBankAccountNumber())
                 .bankAccountName(request.getBankAccountName())
-                .status(EmployeeStatus.ACTIVE)
+                .status(request.getStatus() != null ? request.getStatus() : EmployeeStatus.ACTIVE)
                 .build();
 
         Employee savedEmployee = employeeRepository.save(employee);
         log.info("Created employee with ID: {}, Number: {}", savedEmployee.getId(), savedEmployee.getEmployeeNumber());
+
+        // New hires created in the ONBOARDING state get the default onboarding checklist seeded.
+        if (savedEmployee.getStatus() == EmployeeStatus.ONBOARDING) {
+            onboardingService.createDefaultTasksForEmployee(savedEmployee.getId());
+        }
 
         try {
             String bankCode = getBankCode(request.getBankName());

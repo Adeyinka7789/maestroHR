@@ -2,6 +2,13 @@ spring:
   application:
     name: maestrohr
 
+  # Document vault (V34) stores files in-row as BYTEA; DocumentService caps a single file at
+  # 10 MB, so raise the multipart limits to match (the Spring default is 1 MB/file).
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+
   # Phase E4c-i: the PRIMARY runtime datasource now connects as the least-privilege,
   # NOBYPASSRLS `maestro_app` role (created in V24), so PostgreSQL Row Level Security
   # actually applies to every JPA/repository read and write. The `set_config` wrapper in

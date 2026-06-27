@@ -95,7 +95,7 @@ public class EmployeeListService {
     private String statusKind(String status) {
         return switch (status) {
             case "ACTIVE" -> "success";
-            case "ON_LEAVE" -> "warn";
+            case "ONBOARDING", "ON_LEAVE" -> "warn";
             case "SUSPENDED" -> "error";
             default -> "neutral"; // TERMINATED
         };

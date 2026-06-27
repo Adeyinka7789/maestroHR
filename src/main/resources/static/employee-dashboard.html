@@ -217,6 +217,15 @@
                     </div>
                 </div>
 
+                <!-- Onboarding checklist (only shown while status=ONBOARDING with tasks outstanding) -->
+                <div id="onboarding-card" class="card" style="padding:20px;margin-bottom:24px;display:none;">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-gray-800">Onboarding Checklist</h3>
+                        <span id="onboarding-progress" class="text-sm text-gray-500">0 / 0 complete</span>
+                    </div>
+                    <div id="onboarding-tasks-list"></div>
+                </div>
+
                 <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="stat-card">
@@ -349,10 +358,68 @@
 
                 // Load recent payslips
                 loadRecentPayslips(currentEmployee.id);
+
+                // Onboarding checklist — only relevant while the new hire is onboarding
+                if (currentEmployee.status === 'ONBOARDING') {
+                    loadOnboarding();
+                }
             }
         } catch (error) {
             console.error('Failed to load employee data:', error);
             document.getElementById('employee-first-name').textContent = 'Employee';
+        }
+    }
+
+    // ==================== ONBOARDING CHECKLIST ====================
+    async function loadOnboarding() {
+        try {
+            const res = await fetch('/api/onboarding/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (!result.success || !Array.isArray(result.data)) return;
+            renderOnboarding(result.data);
+        } catch (error) {
+            console.error('Failed to load onboarding tasks:', error);
+        }
+    }
+
+    function renderOnboarding(tasks) {
+        const card = document.getElementById('onboarding-card');
+        const list = document.getElementById('onboarding-tasks-list');
+        const progress = document.getElementById('onboarding-progress');
+
+        const outstanding = tasks.filter(t => !t.completed).length;
+        // Disappears when all tasks complete (or there are none) — matches status-change behaviour.
+        if (tasks.length === 0 || outstanding === 0) {
+            card.style.display = 'none';
+            return;
+        }
+        card.style.display = 'block';
+        progress.textContent = `${tasks.length - outstanding} / ${tasks.length} complete`;
+
+        list.innerHTML = tasks.map(t => `
+            <label style="display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #f1f5f9;cursor:${t.completed ? 'default' : 'pointer'};">
+                <input type="checkbox" ${t.completed ? 'checked disabled' : ''}
+                       onchange="completeOnboardingTask('${t.id}')"
+                       style="width:18px;height:18px;accent-color:#2563eb;">
+                <span style="font-size:14px;color:${t.completed ? '#9ca3af' : '#111827'};text-decoration:${t.completed ? 'line-through' : 'none'};">${escapeHtml(t.taskName)}</span>
+            </label>
+        `).join('');
+    }
+
+    async function completeOnboardingTask(taskId) {
+        try {
+            const res = await fetch(`/api/onboarding/tasks/${taskId}/complete`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success) {
+                loadOnboarding();
+            }
+        } catch (error) {
+            console.error('Failed to complete onboarding task:', error);
         }
     }
 

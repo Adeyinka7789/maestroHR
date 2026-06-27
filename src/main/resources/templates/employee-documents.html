@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--
+  employee-documents.html — HR-facing Documents card, lazy-loaded into the employee detail page
+  (employee-detail.html) from /htmx/employee-view/{id}/documents and rendered as
+  "employee-documents :: content". Lists the employee's documents with an upload control; HR
+  uploads / removes them. Downloads are served by /api/documents/{id}/download. When the tenant's
+  plan/flag lacks DOCUMENT_VAULT, a short "unavailable" notice replaces the vault.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content">
+
+    <div class="flex items-center justify-between mb-md">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Documents</h2>
+
+        <details th:if="${vaultEnabled}" class="relative" data-popover>
+            <summary class="list-none cursor-pointer font-label-sm text-label-sm text-primary hover:underline">Upload</summary>
+            <form th:hx-post="@{/htmx/employee-view/{id}/documents/upload(id=${employeeId})}"
+                  hx-target="#employee-documents-card" hx-swap="innerHTML"
+                  hx-encoding="multipart/form-data" enctype="multipart/form-data"
+                  class="absolute right-0 z-20 mt-xs w-[320px] p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                <p class="font-label-md text-label-md text-on-surface mb-sm">Upload a document</p>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Type</label>
+                <select name="documentType" required
+                        class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <option value="PASSPORT">Passport</option>
+                    <option value="NIN">NIN</option>
+                    <option value="BVN">BVN</option>
+                    <option value="CERTIFICATE">Certificate</option>
+                    <option value="CONTRACT">Contract</option>
+                    <option value="WORK_PERMIT">Work Permit</option>
+                    <option value="OTHER" selected>Other</option>
+                </select>
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Expiry Date (optional)</label>
+                <input type="date" name="expiryDate"
+                       class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">File</label>
+                <input type="file" name="file" required class="w-full mb-md font-body-sm text-body-sm text-on-surface">
+
+                <div class="flex justify-end">
+                    <button type="submit"
+                            class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">Upload</button>
+                </div>
+            </form>
+        </details>
+    </div>
+
+    <!-- Feature unavailable -->
+    <div th:unless="${vaultEnabled}" class="font-body-sm text-body-sm text-on-surface-variant">
+        Document vault is not included in this plan.
+    </div>
+
+    <div th:if="${vaultEnabled}">
+        <!-- Banners -->
+        <div th:if="${docSuccess}" role="status"
+             class="flex items-center gap-sm mb-sm px-3 py-2 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+            <span class="material-symbols-outlined text-[18px]">task_alt</span><span th:text="${docSuccess}">Done.</span>
+        </div>
+        <div th:if="${docError}" role="alert"
+             class="flex items-center gap-sm mb-sm px-3 py-2 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+            <span class="material-symbols-outlined text-[18px]">error</span><span th:text="${docError}">Error.</span>
+        </div>
+
+        <div th:if="${documents == null or documents.isEmpty()}" class="font-body-sm text-body-sm text-on-surface-variant">
+            No documents on record.
+        </div>
+
+        <div th:unless="${documents == null or documents.isEmpty()}" class="flex flex-col gap-sm">
+            <div th:each="doc : ${documents}"
+                 class="flex items-center justify-between pb-sm border-b border-outline-variant last:border-0 last:pb-0">
+                <div class="min-w-0">
+                    <p class="font-label-md text-label-md text-on-surface truncate" th:text="${doc.fileName}">passport.pdf</p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant">
+                        <span th:text="${doc.documentType}">PASSPORT</span>
+                        <span th:if="${doc.expiryDate != null}"> · expires <span th:text="${#temporals.format(doc.expiryDate, 'dd MMM yyyy')}">01 Jan 2026</span></span>
+                    </p>
+                </div>
+                <div class="flex items-center gap-xs whitespace-nowrap">
+                    <a th:href="@{'/api/documents/' + ${doc.id} + '/download'}"
+                       class="inline-flex items-center px-2 py-1 rounded text-label-sm font-label-sm text-primary hover:underline">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                    </a>
+                    <button th:hx-post="@{/htmx/employee-view/{id}/documents/delete(id=${employeeId})}"
+                            th:hx-vals="'{&quot;documentId&quot;: &quot;' + ${doc.id} + '&quot;}'"
+                            hx-target="#employee-documents-card" hx-swap="innerHTML"
+                            hx-confirm="Delete this document?"
+                            class="inline-flex items-center px-2 py-1 rounded text-label-sm font-label-sm text-error hover:underline">
+                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

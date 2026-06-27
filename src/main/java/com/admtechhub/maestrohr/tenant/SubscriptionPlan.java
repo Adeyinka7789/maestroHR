@@ -26,7 +26,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.BASIC_PAYROLL,
             SubscriptionFeature.EMAIL_SUPPORT,
             SubscriptionFeature.SMS_NOTIFICATIONS,
-            SubscriptionFeature.ATTENDANCE_TRACKING
+            SubscriptionFeature.ATTENDANCE_TRACKING,
+            SubscriptionFeature.DOCUMENT_VAULT
     ),
     PROFESSIONAL(
             "Professional",
@@ -41,7 +42,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.SMS_NOTIFICATIONS,
             SubscriptionFeature.LEAVE_MANAGEMENT,
             SubscriptionFeature.ATTENDANCE_TRACKING,
-            SubscriptionFeature.LOAN_MANAGEMENT
+            SubscriptionFeature.LOAN_MANAGEMENT,
+            SubscriptionFeature.DOCUMENT_VAULT
     ),
     ENTERPRISE(
             "Enterprise",
@@ -56,7 +58,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.SMS_NOTIFICATIONS,
             SubscriptionFeature.LEAVE_MANAGEMENT,
             SubscriptionFeature.ATTENDANCE_TRACKING,
-            SubscriptionFeature.LOAN_MANAGEMENT
+            SubscriptionFeature.LOAN_MANAGEMENT,
+            SubscriptionFeature.DOCUMENT_VAULT
 
     );
 

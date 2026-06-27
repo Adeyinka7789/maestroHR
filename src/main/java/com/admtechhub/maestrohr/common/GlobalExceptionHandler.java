@@ -2,7 +2,6 @@ package com.admtechhub.maestrohr.common;
 
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
-import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,6 +21,11 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * Handles bean validation errors (e.g. @Valid on request bodies).
+     * Returns a 400 with a map of field names → error messages so the client
+     * can display exactly what needs to be corrected.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(
             MethodArgumentNotValidException ex) {
@@ -31,9 +35,14 @@ public class GlobalExceptionHandler {
             String message = error.getDefaultMessage();
             errors.put(field, message);
         });
+        // Wrap the errors map in an ApiResponse so the frontend can read them.
         return ResponseEntity
                 .badRequest()
-                .body(ApiResponse.error("Validation failed"));
+                .body(ApiResponse.<Map<String, String>>builder()
+                        .success(false)
+                        .message("Validation failed")
+                        .data(errors)
+                        .build());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -95,5 +104,4 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body("The requested static asset does not exist.");
     }
-
 }

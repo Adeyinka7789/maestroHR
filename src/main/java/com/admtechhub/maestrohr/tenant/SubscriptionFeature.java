@@ -20,6 +20,7 @@ public enum SubscriptionFeature {
     LEAVE_MANAGEMENT,
     ATTENDANCE_TRACKING,
     LOAN_MANAGEMENT,
+    DOCUMENT_VAULT,
 
     // Reporting
     CUSTOM_REPORTING,
