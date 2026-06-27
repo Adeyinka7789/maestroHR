@@ -25,6 +25,7 @@ import java.util.UUID;
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    private final EmployeeImportService employeeImportService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
@@ -114,35 +115,66 @@ public class EmployeeController {
     }
 
     /**
-     * Unified Import API: Routing to appropriate parser method automatically
-     * handles standard .csv text buffers and binary Excel .xlsx workbooks.
+     * STEP 1 — Parse + validate the uploaded file and return a preview. Performs no database
+     * writes. The frontend renders the per-row outcome (valid / warning / error) for the user to
+     * review before confirming.
      */
-    @PostMapping("/import")
+    @PostMapping("/import/preview")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> importEmployees(
+    public ResponseEntity<ApiResponse<ImportPreviewResult>> previewImport(
             @RequestParam("file") MultipartFile file) {
-
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Uploaded file is empty."));
         }
+        ImportPreviewResult preview = employeeImportService.preview(file);
+        return ResponseEntity.ok(ApiResponse.success("Preview generated", preview));
+    }
 
-        String fileName = file.getOriginalFilename();
-        if (fileName == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid file structure name."));
+    /**
+     * STEP 2 — Actually import the file. Re-parses and re-validates against the live database,
+     * then writes every non-error row, each in its own transaction. Returns a summary reflecting
+     * what was truly committed.
+     */
+    @PostMapping("/import/confirm")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<ImportSummaryResult>> confirmImport(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "createMissingDepartments", defaultValue = "true") boolean createMissingDepartments) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Uploaded file is empty."));
         }
+        ImportSummaryResult summary = employeeImportService.confirmImport(file, createMissingDepartments);
+        return ResponseEntity.ok(ApiResponse.success("Import processed", summary));
+    }
 
-        Map<String, Object> result;
-
-        // Dynamic string routing filter
-        if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-            result = employeeService.importEmployeesFromExcel(file);
-        } else if (fileName.endsWith(".csv")) {
-            result = employeeService.importEmployeesFromCSV(file);
-        } else {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Unsupported layout format. Please drop a verified CSV or Excel spreadsheet."));
+    /**
+     * Legacy one-shot import (kept for backward compatibility): parse + validate + import in a
+     * single call, skipping the preview step. Backed by the same robust pipeline.
+     */
+    @PostMapping("/import")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<ImportSummaryResult>> importEmployees(
+            @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Uploaded file is empty."));
         }
+        ImportSummaryResult summary = employeeImportService.importInOneShot(file);
+        return ResponseEntity.ok(ApiResponse.success("Import processed successfully", summary));
+    }
 
-        return ResponseEntity.ok(ApiResponse.success("Import processed successfully", result));
+    /**
+     * Download a clean CSV template with the exact headers the importer recognises, plus one
+     * example row to illustrate the expected format.
+     */
+    @GetMapping("/import/template")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> downloadImportTemplate() {
+        byte[] csv = employeeImportService.buildCsvTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("employee-import-template.csv")
+                .build());
+        return ResponseEntity.ok().headers(headers).body(csv);
     }
 }

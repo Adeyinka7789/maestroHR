@@ -480,7 +480,8 @@ public class EmployeeService {
 
             Row header = sheet.createRow(0);
 
-            // 1. Updated columns array to perfectly reflect the import expectations (0-9)
+            // Headers mirror EmployeeImportService.TEMPLATE_HEADERS so an exported file can be
+            // re-imported as-is (the importer maps by header name, not position).
             String[] columns = {
                     "First Name",       // 0
                     "Last Name",        // 1
@@ -491,7 +492,13 @@ public class EmployeeService {
                     "Bank Name",        // 6
                     "Account Number",   // 7
                     "Account Name",     // 8
-                    "Department"        // 9
+                    "Department",       // 9
+                    "Pay Grade",        // 10
+                    "Date of Birth",    // 11
+                    "Gender",           // 12
+                    "Marital Status",   // 13
+                    "Address",          // 14
+                    "Start Date"        // 15
             };
 
             for (int i = 0; i < columns.length; i++) {
@@ -504,7 +511,7 @@ public class EmployeeService {
             for (Employee emp : allEmployees) {
                 Row row = sheet.createRow(rowNum++);
 
-                // 2. Output row values using the exact structural indices your parser uses
+                // Values written at the same indices as the header names above.
                 row.createCell(0).setCellValue(emp.getFirstName());
                 row.createCell(1).setCellValue(emp.getLastName());
                 row.createCell(2).setCellValue(emp.getEmail());
@@ -515,6 +522,12 @@ public class EmployeeService {
                 row.createCell(7).setCellValue(emp.getBankAccountNumber());
                 row.createCell(8).setCellValue(emp.getBankAccountName());
                 row.createCell(9).setCellValue(emp.getDepartment() != null ? emp.getDepartment().getName() : "");
+                row.createCell(10).setCellValue(emp.getPayGrade() != null ? emp.getPayGrade().getName() : "");
+                row.createCell(11).setCellValue(emp.getDateOfBirth() != null ? emp.getDateOfBirth().toString() : "");
+                row.createCell(12).setCellValue(emp.getGender() != null ? emp.getGender().name() : "");
+                row.createCell(13).setCellValue(emp.getMaritalStatus() != null ? emp.getMaritalStatus().name() : "");
+                row.createCell(14).setCellValue(emp.getAddress() != null ? emp.getAddress() : "");
+                row.createCell(15).setCellValue(emp.getEmploymentStartDate() != null ? emp.getEmploymentStartDate().toString() : "");
             }
 
             for (int i = 0; i < columns.length; i++) {
@@ -528,251 +541,6 @@ public class EmployeeService {
             log.error("Excel export failed: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to generate Excel export", e);
         }
-    }
-
-    @Transactional
-    public Map<String, Object> importEmployeesFromCSV(MultipartFile file) {
-        Map<String, Object> result = new HashMap<>();
-        int successCount = 0;
-        int errorCount = 0;
-        List<String> errors = new ArrayList<>();
-        UUID tenantId = getCurrentTenantId();
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new TenantNotFoundException("Tenant not found"));
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-            String line;
-            boolean isFirstLine = true;
-
-            while ((line = reader.readLine()) != null) {
-                if (isFirstLine) { isFirstLine = false; continue; }
-
-                String[] data = line.split(",");
-// Account for all 11 columns now present in the row
-                if (data.length < 11) {
-                    errorCount++;
-                    errors.add("Invalid row (insufficient columns): " + line);
-                    continue;
-                }
-
-                try {
-                    EmployeeRequest request = new EmployeeRequest();
-                    // Index 0 is the Employee Number (Skipped or map if your request object needs it)
-                    request.setFirstName(data[1].trim());
-                    request.setLastName(data[2].trim());
-                    request.setEmail(data[3].trim());
-                    request.setPhone(data[4].trim());
-                    request.setJobTitle(data[5].trim());
-
-                    // Index 6 is now safely your Employment Type
-                    request.setEmploymentType(EmploymentType.valueOf(data[6].trim().toUpperCase()));
-
-                    request.setBankName(data[7].trim());
-                    request.setBankAccountNumber(data[8].trim());
-                    request.setBankAccountName(data[9].trim());
-                    request.setPassword("Welcome123!");
-
-                    // Index 10 is your Department
-                    String deptName = data.length > 10 ? data[10].trim() : "General";
-                    Department dept = departmentRepository.findAllByTenantId(tenantId)
-                            .stream().filter(d -> d.getName().equalsIgnoreCase(deptName))
-                            .findFirst()
-                            .orElseGet(() -> {
-                                Department newDept = Department.builder()
-                                        .tenant(tenant)
-                                        .name(deptName)
-                                        .build();
-                                return departmentRepository.save(newDept);
-                            });
-                    request.setDepartmentId(dept.getId());
-
-                    // Dynamically resolve or initialize a baseline pay grade
-                    PayGrade defaultPayGrade = payGradeRepository.findAllByTenantId(tenantId).stream().findFirst()
-                            .orElseGet(() -> {
-                                log.info("No pay grade found for tenant {}. Creating a default fallback tier.", tenantId);
-                                PayGrade fallback = PayGrade.builder()
-                                        .tenant(tenant)
-                                        .name("General Grade")
-                                        .basicSalary(0L)
-                                        .build();
-                                return payGradeRepository.save(fallback);
-                            });
-                    request.setPayGradeId(defaultPayGrade.getId());
-
-                    request.setEmploymentStartDate(LocalDate.now());
-                    request.setDateOfBirth(LocalDate.of(1990, 1, 1));
-                    request.setGender(Gender.MALE);
-                    request.setMaritalStatus(MaritalStatus.SINGLE);
-                    request.setAddress("Imported address");
-
-                    createEmployee(request);
-                    successCount++;
-                } catch (Exception e) {
-                    errorCount++;
-                    errors.add("Row error: " + line + " - " + e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse CSV file", e);
-        }
-
-        result.put("successCount", successCount);
-        result.put("errorCount", errorCount);
-        result.put("errors", errors);
-        return result;
-    }
-
-    /**
-     * Parse binary layout structures from native Excel spreadsheets (.xlsx/.xls)
-     * maps content properties identically into internal validation pipelines.
-     */
-    /**
-     * Parse binary layout structures from native Excel spreadsheets (.xlsx/.xls)
-     * maps content properties identically into internal validation pipelines.
-     */
-    @Transactional
-    public Map<String, Object> importEmployeesFromExcel(MultipartFile file) {
-        Map<String, Object> result = new HashMap<>();
-        int successCount = 0;
-        int errorCount = 0;
-        List<String> errors = new ArrayList<>();
-        UUID tenantId = getCurrentTenantId();
-
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new TenantNotFoundException("Tenant not found"));
-
-        try (InputStream is = file.getInputStream(); Workbook workbook = WorkbookFactory.create(is)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Iterator<Row> rows = sheet.iterator();
-
-            // Skip header row
-            if (rows.hasNext()) {
-                rows.next();
-            }
-
-            while (rows.hasNext()) {
-                Row row = rows.next();
-
-                // Skip completely blank rows safely
-                if (isRowEmpty(row)) continue;
-
-                try {
-                    EmployeeRequest request = new EmployeeRequest();
-                    // Index 0 is the Employee Number cell
-                    request.setFirstName(getCellValueAsString(row.getCell(1)));
-                    request.setLastName(getCellValueAsString(row.getCell(2)));
-                    request.setEmail(getCellValueAsString(row.getCell(3)));
-                    request.setPhone(getCellValueAsString(row.getCell(4)));
-                    request.setJobTitle(getCellValueAsString(row.getCell(5)));
-
-                    // Index 6 is now targeting the Employment Type column
-                    String empTypeStr = getCellValueAsString(row.getCell(6));
-                    try {
-                        request.setEmploymentType(EmploymentType.valueOf(empTypeStr.toUpperCase().trim()));
-                    } catch (IllegalArgumentException e) {
-                        throw new IllegalArgumentException("'" + empTypeStr + "' is not a valid Employment Type. Expected options are: FULL_TIME, PART_TIME, CONTRACT");
-                    }
-
-                    request.setBankName(getCellValueAsString(row.getCell(7)));
-                    request.setBankAccountNumber(getCellValueAsString(row.getCell(8)));
-                    request.setBankAccountName(getCellValueAsString(row.getCell(9)));
-                    request.setPassword("Welcome123!");
-
-                    // Index 10 tracks the Department column
-                    String deptName = getCellValueAsString(row.getCell(10));
-                    if (deptName.isBlank()) deptName = "General";
-
-                    final String targetDeptName = deptName;
-                    Department dept = departmentRepository.findAllByTenantId(tenantId)
-                            .stream().filter(d -> d.getName().equalsIgnoreCase(targetDeptName))
-                            .findFirst()
-                            .orElseGet(() -> {
-                                Department newDept = Department.builder()
-                                        .tenant(tenant)
-                                        .name(targetDeptName)
-                                        .build();
-                                return departmentRepository.save(newDept);
-                            });
-                    request.setDepartmentId(dept.getId());
-
-                    // Dynamically resolve or initialize a baseline pay grade
-                    PayGrade defaultPayGrade = payGradeRepository.findAllByTenantId(tenantId).stream().findFirst()
-                            .orElseGet(() -> {
-                                log.info("No pay grade found for tenant {}. Creating a default fallback tier.", tenantId);
-                                PayGrade fallback = PayGrade.builder()
-                                        .tenant(tenant)
-                                        .name("General Grade")
-                                        .basicSalary(0L)
-                                        .build();
-                                return payGradeRepository.save(fallback);
-                            });
-                    request.setPayGradeId(defaultPayGrade.getId());
-
-                    request.setEmploymentStartDate(LocalDate.now());
-                    request.setDateOfBirth(LocalDate.of(1990, 1, 1));
-                    request.setGender(Gender.MALE);
-                    request.setMaritalStatus(MaritalStatus.SINGLE);
-                    request.setAddress("Imported address via Excel");
-
-                    createEmployee(request);
-                    successCount++;
-                } catch (Exception e) {
-                    errorCount++;
-                    log.error("Failed to parse Excel row details at row index {}: {}", row.getRowNum(), e.getMessage());
-                    // 2. Format a user-friendly error string for your script's 'result.data.errors' layout reference
-                    errors.add("Row " + (row.getRowNum() + 1) + ": " + e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            log.error("Excel import streaming error: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to read and parse Excel file workbook structure", e);
-        }
-
-        // 3. Make sure 'success: true' is passed down so the front-end fetch handles it cleanly inside result.success blocks
-        result.put("success", true);
-        result.put("successCount", successCount);
-        result.put("errorCount", errorCount);
-        result.put("errors", errors);
-        return result;
-    }
-
-    private String getCellValueAsString(Cell cell) {
-        if (cell == null) return "";
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue().trim();
-            case NUMERIC:
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    return cell.getDateCellValue().toString();
-                }
-                // Double check formatting types
-                double numericValue = cell.getNumericCellValue();
-                if (numericValue == (long) numericValue) {
-                    return String.valueOf((long) numericValue);
-                }
-                return String.valueOf(numericValue);
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            case FORMULA:
-                try {
-                    return cell.getStringCellValue().trim();
-                } catch (Exception e) {
-                    return String.valueOf(cell.getNumericCellValue());
-                }
-            default:
-                return "";
-        }
-    }
-
-    private boolean isRowEmpty(Row row) {
-        if (row == null) return true;
-        for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {
-            Cell cell = row.getCell(c);
-            if (cell != null && cell.getCellType() != CellType.BLANK && !getCellValueAsString(cell).isBlank()) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private EmployeeDetailsDTO toDetailsDto(Employee employee) {

@@ -2,7 +2,166 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
 
-<div th:fragment="content" class="font-body-md text-on-surface" x-data="{ showImportErrors: false, errorLog: [], summaryMessage: '' }">
+<div th:fragment="content" class="font-body-md text-on-surface"
+     x-data="{ showImportErrors: false, showPreview: false, errorLog: [], summaryMessage: '', previewData: null, pendingFile: null }">
+
+    <!-- PREVIEW MODAL -->
+    <div x-show="showPreview"
+         x-transition
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+         style="display: none;"
+         x-cloak>
+        <div class="bg-white rounded-xl max-w-3xl w-full p-6 shadow-xl border border-outline-variant max-h-[90vh] flex flex-col"
+             @click.away="showPreview = false; pendingFile = null">
+
+            <!-- Fatal error state -->
+            <template x-if="previewData && previewData.fatalError">
+                <div class="flex flex-col gap-md">
+                    <div class="flex items-start gap-md">
+                        <div class="p-2 rounded-full bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-[24px]">error</span>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Cannot Process File</h3>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant" x-text="previewData.fatalError"></p>
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button @click="showPreview = false; pendingFile = null"
+                                class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Normal preview state -->
+            <template x-if="previewData && !previewData.fatalError">
+                <div class="flex flex-col min-h-0 flex-1">
+
+                    <!-- Header -->
+                    <div class="flex items-center gap-md mb-md flex-shrink-0">
+                        <div class="p-2 rounded-full bg-primary-fixed text-on-primary-fixed-variant flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[24px]">preview</span>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-sm text-headline-sm text-on-surface">Import Preview</h3>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant">Review rows before confirming the import</p>
+                        </div>
+                    </div>
+
+                    <!-- Counts bar -->
+                    <div class="grid grid-cols-4 gap-sm mb-md flex-shrink-0">
+                        <div class="rounded-lg p-3 bg-secondary-container text-on-secondary-container text-center">
+                            <div class="font-headline-sm text-headline-sm" x-text="previewData.validCount"></div>
+                            <div class="font-label-sm text-label-sm">Ready</div>
+                        </div>
+                        <div class="rounded-lg p-3 bg-primary-fixed text-on-primary-fixed-variant text-center">
+                            <div class="font-headline-sm text-headline-sm" x-text="previewData.warningCount"></div>
+                            <div class="font-label-sm text-label-sm">Warnings</div>
+                        </div>
+                        <div class="rounded-lg p-3 bg-error-container text-on-error-container text-center">
+                            <div class="font-headline-sm text-headline-sm" x-text="previewData.errorCount"></div>
+                            <div class="font-label-sm text-label-sm">Will Skip</div>
+                        </div>
+                        <div class="rounded-lg p-3 bg-surface-container-low text-on-surface text-center">
+                            <div class="font-headline-sm text-headline-sm" x-text="previewData.totalRows"></div>
+                            <div class="font-label-sm text-label-sm">Total Rows</div>
+                        </div>
+                    </div>
+
+                    <!-- Global warnings -->
+                    <template x-if="previewData.globalWarnings && previewData.globalWarnings.length > 0">
+                        <div class="mb-md flex-shrink-0 p-3 rounded-lg bg-primary-fixed/30 border border-primary-fixed font-body-sm text-[12px] text-on-primary-fixed-variant space-y-1">
+                            <template x-for="(w, i) in previewData.globalWarnings" :key="i">
+                                <div class="flex gap-xs"><span>⚠️</span><span x-text="w"></span></div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Column mapping -->
+                    <template x-if="previewData.columnMapping && Object.keys(previewData.columnMapping).length > 0">
+                        <div class="mb-md flex-shrink-0">
+                            <div class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Detected Column Mapping</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="[header, field] in Object.entries(previewData.columnMapping)" :key="header">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-low border border-outline-variant font-mono text-[11px] text-on-surface">
+                                        <span x-text="header"></span>
+                                        <span class="text-on-surface-variant">→</span>
+                                        <span class="text-primary" x-text="field"></span>
+                                    </span>
+                                </template>
+                            </div>
+                            <template x-if="previewData.ignoredColumns && previewData.ignoredColumns.length > 0">
+                                <p class="mt-1.5 text-[11px] text-on-surface-variant">
+                                    Ignored columns: <span class="font-mono" x-text="previewData.ignoredColumns.join(', ')"></span>
+                                </p>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Row preview table (first 10) -->
+                    <div class="overflow-y-auto flex-1 mb-md rounded-lg border border-outline-variant">
+                        <table class="w-full text-left">
+                            <thead class="sticky top-0 bg-surface-container-low">
+                                <tr>
+                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">#</th>
+                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Status</th>
+                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Name</th>
+                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Email</th>
+                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-outline-variant">
+                                <template x-for="row in (previewData.rows || []).slice(0, 10)" :key="row.rowNumber">
+                                    <tr :class="{
+                                        'bg-secondary-container/20': row.status === 'VALID',
+                                        'bg-primary-fixed/20':       row.status === 'WARNING',
+                                        'bg-error-container/20':     row.status === 'ERROR'
+                                    }">
+                                        <td class="px-3 py-2 font-mono text-[12px] text-on-surface-variant" x-text="row.rowNumber"></td>
+                                        <td class="px-3 py-2">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                                  :class="{
+                                                      'bg-secondary-container text-on-secondary-container': row.status === 'VALID',
+                                                      'bg-primary-fixed text-on-primary-fixed-variant':    row.status === 'WARNING',
+                                                      'bg-error-container text-on-error-container':        row.status === 'ERROR'
+                                                  }"
+                                                  x-text="row.status"></span>
+                                        </td>
+                                        <td class="px-3 py-2 text-[12px] text-on-surface"
+                                            x-text="(row.firstName || '') + ' ' + (row.lastName || '')"></td>
+                                        <td class="px-3 py-2 text-[12px] text-on-surface-variant"
+                                            x-text="row.email || '—'"></td>
+                                        <td class="px-3 py-2 text-[11px] text-on-surface-variant"
+                                            x-text="(row.messages || []).join('; ') || '—'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <template x-if="previewData.rows && previewData.rows.length > 10">
+                            <div class="px-3 py-2 text-center text-[11px] text-on-surface-variant bg-surface-container-lowest border-t border-outline-variant"
+                                 x-text="`… and ${previewData.rows.length - 10} more rows not shown`"></div>
+                        </template>
+                    </div>
+
+                    <!-- Proceed / Cancel -->
+                    <div class="flex items-center justify-between flex-shrink-0">
+                        <button @click="showPreview = false; pendingFile = null"
+                                class="bg-white border border-outline-variant text-on-surface px-5 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all">
+                            Cancel
+                        </button>
+                        <button @click="window.__employeeImportConfirm()"
+                                :disabled="!previewData || previewData.importableCount === 0"
+                                class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                x-text="`Proceed with Import (${previewData ? previewData.importableCount : 0} rows)`">
+                        </button>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+    </div>
 
     <div x-show="showImportErrors"
          x-transition
@@ -65,6 +224,11 @@
                 <span class="material-symbols-outlined text-[20px]">upload_file</span>
                 Import CSV/EXCEL
             </button>
+            <a href="/api/employees/import/template"
+               class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">download</span>
+                Download Template
+            </a>
             <a href="/api/employees/export/excel"
                class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
                 <span class="material-symbols-outlined text-[20px]">table_view</span>
@@ -93,8 +257,10 @@
     </div>
 
     <div class="mb-md p-3 rounded-lg border border-primary/20 bg-white text-on-surface-variant text-[12px]">
-        <span class="font-bold text-primary">💡 Format Sequence Required:</span>
-        <code class="bg-surface-container-high px-1.5 py-0.5 rounded text-primary font-mono ml-1">Employee Number | First Name | Last Name | Email | Phone | Job Title | Employment Type | Bank Name | Account Num | Account Name | Department</code>
+        <span class="font-bold text-primary">💡 Format tip:</span>
+        Column order doesn't matter — we detect columns by header name.
+        <a href="/api/employees/import/template" class="text-primary underline hover:opacity-80">Download the template</a>
+        above for the correct format. Supported: CSV and Excel (.xlsx)
     </div>
 
     <div id="employee-filters" class="flex flex-col md:flex-row gap-sm mb-md">
@@ -137,55 +303,94 @@
 
             importBtn.addEventListener('click', function () { fileInput.click(); });
 
+            // STEP 1: file selected → POST to /preview, open preview modal
             fileInput.addEventListener('change', async function (e) {
                 var file = e.target.files[0];
                 if (!file) return;
 
+                var alpineRoot = Alpine.$data(document.querySelector('[x-data]'));
+                alpineRoot.pendingFile = file;
+
                 var formData = new FormData();
                 formData.append('file', file);
-                MaestroHR.showToast('Importing employees…', 'info');
+                MaestroHR.showToast('Analyzing file…', 'info');
 
                 try {
-                    var response = await fetch('/api/employees/import', {
+                    var response = await fetch('/api/employees/import/preview', {
                         method: 'POST',
                         headers: { 'Authorization': 'Bearer ' + MaestroHR.token },
                         body: formData
                     });
 
                     var result = await response.json();
-                    console.log('Import Response:', result);
+                    alpineRoot.previewData = result.data ? result.data : result;
+                    alpineRoot.showPreview = true;
 
-                    var targetData = result.data ? result.data : result;
-                    var successCount = typeof targetData.successCount !== 'undefined' ? targetData.successCount : 0;
-                    var errorCount = typeof targetData.errorCount !== 'undefined' ? targetData.errorCount : 0;
-                    var errorsList = targetData.errors || [];
+                } catch (err) {
+                    console.error('Preview failed:', err);
+                    MaestroHR.showToast('Failed to analyze file.', 'error');
+                    alpineRoot.pendingFile = null;
+                }
+                e.target.value = '';
+            });
 
-                    var alpineRoot = Alpine.$data(document.querySelector('[th:fragment="content"]'));
+            // STEP 2: called by "Proceed with Import" button → POST to /confirm, show summary modal
+            window.__employeeImportConfirm = async function () {
+                var alpineRoot = Alpine.$data(document.querySelector('[x-data]'));
+                var file = alpineRoot.pendingFile;
+                if (!file) return;
 
-                    // Set strings cleanly
-                    alpineRoot.summaryMessage = `Import complete. ${successCount} record(s) added successfully, and ${errorCount} row(s) skipped because their accounts already exist.`;
-                    alpineRoot.errorLog = errorsList;
+                alpineRoot.showPreview = false;
 
-                    // Always open the summary modal if there are skips or additions so the user explicitly knows what happened
+                var formData = new FormData();
+                formData.append('file', file);
+                MaestroHR.showToast('Importing employees…', 'info');
+
+                try {
+                    var response = await fetch('/api/employees/import/confirm', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + MaestroHR.token },
+                        body: formData
+                    });
+
+                    var result = await response.json();
+                    var d = result.data ? result.data : result;
+
+                    var successCount = d.successCount || 0;
+                    var skippedCount = d.skippedCount || 0;
+                    var failedCount  = d.failedCount  || 0;
+                    var totalBad     = skippedCount + failedCount;
+
+                    var errorsList = (d.failures || []).map(function (f) {
+                        return 'Row ' + f.rowNumber + ' (' + (f.email || '?') + '): ' + f.reason;
+                    }).concat(d.warnings || []);
+
+                    var msg = 'Import complete. ' + successCount + ' record(s) added successfully';
+                    if (skippedCount > 0) msg += ', ' + skippedCount + ' skipped (invalid)';
+                    if (failedCount  > 0) msg += ', ' + failedCount  + ' failed at write time';
+                    msg += '.';
+
+                    alpineRoot.summaryMessage   = msg;
+                    alpineRoot.errorLog         = errorsList;
                     alpineRoot.showImportErrors = true;
+                    alpineRoot.pendingFile      = null;
 
-                    if (errorCount > 0) {
+                    if (totalBad > 0) {
                         MaestroHR.showToast('ℹ️ Import processed with skipped rows.', 'warning');
                     } else {
                         MaestroHR.showToast('✅ All employees imported successfully.', 'success');
                     }
 
-                    // Refresh table layout via HTMX components
                     htmx.ajax('GET', '/htmx/employees/table', {
-                        target: '#employees-table', swap: 'innerHTML', values: { q: '', dept: '', status: '', page: 0 }
+                        target: '#employees-table', swap: 'innerHTML',
+                        values: { q: '', dept: '', status: '', page: 0 }
                     });
 
                 } catch (err) {
                     console.error('Import connection failure:', err);
                     MaestroHR.showToast('Import connection failed.', 'error');
                 }
-                e.target.value = '';
-            });
+            };
         })();
     </script>
 </div>
