@@ -81,9 +81,20 @@
 
     <input type="file" id="csvFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden">
 
-    <div class="mb-md p-3 rounded-lg border border-primary/20 bg-primary-fixed-dim/10 text-on-surface-variant text-[12px]">
+    <div class="mb-md p-4 rounded-lg border border-warning/20 bg-white text-on-surface-variant text-[12px] space-y-2">
+        <div class="flex items-center gap-1.5 text-warning-custom font-bold">
+            <span>⚠️</span> Important Pre-import Checklists
+        </div>
+        <ul class="list-disc list-inside space-y-1 text-surface-variant ml-1">
+            <li><strong>Employment Type:</strong> Must perfectly match one of these exact keys: <code class="bg-surface-container-high px-1 py-0.5 rounded font-mono text-primary text-[11px]">FULL_TIME</code>, <code class="bg-surface-container-high px-1 py-0.5 rounded font-mono text-primary text-[11px]">PART_TIME</code>, or <code class="bg-surface-container-high px-1 py-0.5 rounded font-mono text-primary text-[11px]">CONTRACT</code>.</li>
+            <li><strong>Departments:</strong> If you input a department name that doesn't exist yet, maestroHR will automatically create it for you.</li>
+            <li><strong>Pay Grades:</strong> Employees will be assigned to a default base tier if specific configurations aren't explicitly established beforehand. For structured payroll tracking, it is recommended to set up your official organization Pay Grades prior to importing.</li>
+        </ul>
+    </div>
+
+    <div class="mb-md p-3 rounded-lg border border-primary/20 bg-white text-on-surface-variant text-[12px]">
         <span class="font-bold text-primary">💡 Format Sequence Required:</span>
-        <code class="bg-surface-container-high px-1.5 py-0.5 rounded text-primary font-mono ml-1">First Name | Last Name | Email | Phone | Job Title | Employment Type | Bank Name | Account Num | Account Name | Department</code>
+        <code class="bg-surface-container-high px-1.5 py-0.5 rounded text-primary font-mono ml-1">Employee Number | First Name | Last Name | Email | Phone | Job Title | Employment Type | Bank Name | Account Num | Account Name | Department</code>
     </div>
 
     <div id="employee-filters" class="flex flex-col md:flex-row gap-sm mb-md">
