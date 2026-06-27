@@ -2,202 +2,118 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
 
-<div th:fragment="content" class="font-body-md text-on-surface"
-     x-data="{ showImportErrors: false, showPreview: false, errorLog: [], summaryMessage: '', previewData: null, pendingFile: null }">
+<div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- PREVIEW MODAL -->
-    <div x-show="showPreview"
-         x-transition
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
-         style="display: none;"
-         x-cloak>
-        <div class="bg-white rounded-xl max-w-3xl w-full p-6 shadow-xl border border-outline-variant max-h-[90vh] flex flex-col"
-             @click.away="showPreview = false; pendingFile = null">
+    <div id="preview-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" style="display:none">
+        <div id="preview-dialog" class="bg-white rounded-xl max-w-3xl w-full p-6 shadow-xl border border-outline-variant max-h-[90vh] flex flex-col">
 
-            <!-- Fatal error state -->
-            <template x-if="previewData && previewData.fatalError">
-                <div class="flex flex-col gap-md">
-                    <div class="flex items-start gap-md">
-                        <div class="p-2 rounded-full bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0">
-                            <span class="material-symbols-outlined text-[24px]">error</span>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Cannot Process File</h3>
-                            <p class="font-body-sm text-body-sm text-on-surface-variant" x-text="previewData.fatalError"></p>
-                        </div>
+            <!-- Fatal error panel -->
+            <div id="preview-fatal" style="display:none" class="flex flex-col gap-md">
+                <div class="flex items-start gap-md">
+                    <div class="p-2 rounded-full bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-[24px]">error</span>
                     </div>
-                    <div class="flex justify-end">
-                        <button @click="showPreview = false; pendingFile = null"
-                                class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all">
-                            Close
-                        </button>
+                    <div>
+                        <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Cannot Process File</h3>
+                        <p id="preview-fatal-msg" class="font-body-sm text-body-sm text-on-surface-variant"></p>
                     </div>
                 </div>
-            </template>
-
-            <!-- Normal preview state -->
-            <template x-if="previewData && !previewData.fatalError">
-                <div class="flex flex-col min-h-0 flex-1">
-
-                    <!-- Header -->
-                    <div class="flex items-center gap-md mb-md flex-shrink-0">
-                        <div class="p-2 rounded-full bg-primary-fixed text-on-primary-fixed-variant flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[24px]">preview</span>
-                        </div>
-                        <div>
-                            <h3 class="font-headline-sm text-headline-sm text-on-surface">Import Preview</h3>
-                            <p class="font-body-sm text-body-sm text-on-surface-variant">Review rows before confirming the import</p>
-                        </div>
-                    </div>
-
-                    <!-- Counts bar -->
-                    <div class="grid grid-cols-4 gap-sm mb-md flex-shrink-0">
-                        <div class="rounded-lg p-3 bg-secondary-container text-on-secondary-container text-center">
-                            <div class="font-headline-sm text-headline-sm" x-text="previewData.validCount"></div>
-                            <div class="font-label-sm text-label-sm">Ready</div>
-                        </div>
-                        <div class="rounded-lg p-3 bg-primary-fixed text-on-primary-fixed-variant text-center">
-                            <div class="font-headline-sm text-headline-sm" x-text="previewData.warningCount"></div>
-                            <div class="font-label-sm text-label-sm">Warnings</div>
-                        </div>
-                        <div class="rounded-lg p-3 bg-error-container text-on-error-container text-center">
-                            <div class="font-headline-sm text-headline-sm" x-text="previewData.errorCount"></div>
-                            <div class="font-label-sm text-label-sm">Will Skip</div>
-                        </div>
-                        <div class="rounded-lg p-3 bg-surface-container-low text-on-surface text-center">
-                            <div class="font-headline-sm text-headline-sm" x-text="previewData.totalRows"></div>
-                            <div class="font-label-sm text-label-sm">Total Rows</div>
-                        </div>
-                    </div>
-
-                    <!-- Global warnings -->
-                    <template x-if="previewData.globalWarnings && previewData.globalWarnings.length > 0">
-                        <div class="mb-md flex-shrink-0 p-3 rounded-lg bg-primary-fixed/30 border border-primary-fixed font-body-sm text-[12px] text-on-primary-fixed-variant space-y-1">
-                            <template x-for="(w, i) in previewData.globalWarnings" :key="i">
-                                <div class="flex gap-xs"><span>⚠️</span><span x-text="w"></span></div>
-                            </template>
-                        </div>
-                    </template>
-
-                    <!-- Column mapping -->
-                    <template x-if="previewData.columnMapping && Object.keys(previewData.columnMapping).length > 0">
-                        <div class="mb-md flex-shrink-0">
-                            <div class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Detected Column Mapping</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                <template x-for="[header, field] in Object.entries(previewData.columnMapping)" :key="header">
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-low border border-outline-variant font-mono text-[11px] text-on-surface">
-                                        <span x-text="header"></span>
-                                        <span class="text-on-surface-variant">→</span>
-                                        <span class="text-primary" x-text="field"></span>
-                                    </span>
-                                </template>
-                            </div>
-                            <template x-if="previewData.ignoredColumns && previewData.ignoredColumns.length > 0">
-                                <p class="mt-1.5 text-[11px] text-on-surface-variant">
-                                    Ignored columns: <span class="font-mono" x-text="previewData.ignoredColumns.join(', ')"></span>
-                                </p>
-                            </template>
-                        </div>
-                    </template>
-
-                    <!-- Row preview table (first 10) -->
-                    <div class="overflow-y-auto flex-1 mb-md rounded-lg border border-outline-variant">
-                        <table class="w-full text-left">
-                            <thead class="sticky top-0 bg-surface-container-low">
-                                <tr>
-                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">#</th>
-                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Status</th>
-                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Name</th>
-                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Email</th>
-                                    <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-outline-variant">
-                                <template x-for="row in (previewData.rows || []).slice(0, 10)" :key="row.rowNumber">
-                                    <tr :class="{
-                                        'bg-secondary-container/20': row.status === 'VALID',
-                                        'bg-primary-fixed/20':       row.status === 'WARNING',
-                                        'bg-error-container/20':     row.status === 'ERROR'
-                                    }">
-                                        <td class="px-3 py-2 font-mono text-[12px] text-on-surface-variant" x-text="row.rowNumber"></td>
-                                        <td class="px-3 py-2">
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
-                                                  :class="{
-                                                      'bg-secondary-container text-on-secondary-container': row.status === 'VALID',
-                                                      'bg-primary-fixed text-on-primary-fixed-variant':    row.status === 'WARNING',
-                                                      'bg-error-container text-on-error-container':        row.status === 'ERROR'
-                                                  }"
-                                                  x-text="row.status"></span>
-                                        </td>
-                                        <td class="px-3 py-2 text-[12px] text-on-surface"
-                                            x-text="(row.firstName || '') + ' ' + (row.lastName || '')"></td>
-                                        <td class="px-3 py-2 text-[12px] text-on-surface-variant"
-                                            x-text="row.email || '—'"></td>
-                                        <td class="px-3 py-2 text-[11px] text-on-surface-variant"
-                                            x-text="(row.messages || []).join('; ') || '—'"></td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                        <template x-if="previewData.rows && previewData.rows.length > 10">
-                            <div class="px-3 py-2 text-center text-[11px] text-on-surface-variant bg-surface-container-lowest border-t border-outline-variant"
-                                 x-text="`… and ${previewData.rows.length - 10} more rows not shown`"></div>
-                        </template>
-                    </div>
-
-                    <!-- Proceed / Cancel -->
-                    <div class="flex items-center justify-between flex-shrink-0">
-                        <button @click="showPreview = false; pendingFile = null"
-                                class="bg-white border border-outline-variant text-on-surface px-5 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all">
-                            Cancel
-                        </button>
-                        <button @click="window.__employeeImportConfirm()"
-                                :disabled="!previewData || previewData.importableCount === 0"
-                                class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                                x-text="`Proceed with Import (${previewData ? previewData.importableCount : 0} rows)`">
-                        </button>
-                    </div>
-
+                <div class="flex justify-end">
+                    <button id="preview-fatal-close" class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all">Close</button>
                 </div>
-            </template>
+            </div>
+
+            <!-- Normal preview panel -->
+            <div id="preview-body" style="display:none" class="flex flex-col min-h-0 flex-1">
+                <div class="flex items-center gap-md mb-md flex-shrink-0">
+                    <div class="p-2 rounded-full bg-primary-fixed text-on-primary-fixed-variant flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[24px]">preview</span>
+                    </div>
+                    <div>
+                        <h3 class="font-headline-sm text-headline-sm text-on-surface">Import Preview</h3>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Review rows before confirming the import</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-4 gap-sm mb-md flex-shrink-0">
+                    <div class="rounded-lg p-3 bg-secondary-container text-on-secondary-container text-center">
+                        <div id="preview-count-valid" class="font-headline-sm text-headline-sm">0</div>
+                        <div class="font-label-sm text-label-sm">Ready</div>
+                    </div>
+                    <div class="rounded-lg p-3 bg-primary-fixed text-on-primary-fixed-variant text-center">
+                        <div id="preview-count-warn" class="font-headline-sm text-headline-sm">0</div>
+                        <div class="font-label-sm text-label-sm">Warnings</div>
+                    </div>
+                    <div class="rounded-lg p-3 bg-error-container text-on-error-container text-center">
+                        <div id="preview-count-error" class="font-headline-sm text-headline-sm">0</div>
+                        <div class="font-label-sm text-label-sm">Will Skip</div>
+                    </div>
+                    <div class="rounded-lg p-3 bg-surface-container-low text-on-surface text-center">
+                        <div id="preview-count-total" class="font-headline-sm text-headline-sm">0</div>
+                        <div class="font-label-sm text-label-sm">Total Rows</div>
+                    </div>
+                </div>
+
+                <div id="preview-global-warnings" style="display:none"
+                     class="mb-md flex-shrink-0 p-3 rounded-lg bg-primary-fixed/30 border border-primary-fixed font-body-sm text-[12px] text-on-primary-fixed-variant space-y-1"></div>
+
+                <div id="preview-col-mapping" style="display:none" class="mb-md flex-shrink-0">
+                    <div class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Detected Column Mapping</div>
+                    <div id="preview-col-chips" class="flex flex-wrap gap-1.5"></div>
+                    <p id="preview-ignored-cols" style="display:none" class="mt-1.5 text-[11px] text-on-surface-variant"></p>
+                </div>
+
+                <div class="overflow-y-auto flex-1 mb-md rounded-lg border border-outline-variant">
+                    <table class="w-full text-left">
+                        <thead class="sticky top-0 bg-surface-container-low">
+                            <tr>
+                                <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">#</th>
+                                <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Status</th>
+                                <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Name</th>
+                                <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Email</th>
+                                <th class="px-3 py-2 font-label-sm text-[11px] text-on-surface-variant">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preview-rows"></tbody>
+                    </table>
+                    <div id="preview-more-rows" style="display:none"
+                         class="px-3 py-2 text-center text-[11px] text-on-surface-variant bg-surface-container-lowest border-t border-outline-variant"></div>
+                </div>
+
+                <div class="flex items-center justify-between flex-shrink-0">
+                    <button id="preview-cancel"
+                            class="bg-white border border-outline-variant text-on-surface px-5 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all">
+                        Cancel
+                    </button>
+                    <button id="preview-proceed"
+                            class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                        Proceed with Import
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div x-show="showImportErrors"
-         x-transition
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
-         style="display: none;"
-         x-cloak>
-        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-outline-variant transform transition-all"
-             @click.away="showImportErrors = false">
+    <!-- SUMMARY MODAL -->
+    <div id="summary-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs" style="display:none">
+        <div id="summary-dialog" class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-outline-variant transform transition-all">
             <div class="flex items-start gap-md">
-                <div class="p-2 rounded-full flex items-center justify-center"
-                     :class="errorLog.length === 0 ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary-fixed text-on-primary-fixed-variant'">
-                    <span class="material-symbols-outlined text-[24px]" x-text="errorLog.length === 0 ? 'check_circle' : 'published_with_changes'">warning</span>
+                <div id="summary-icon-wrap" class="p-2 rounded-full flex items-center justify-center">
+                    <span id="summary-icon" class="material-symbols-outlined text-[24px]">check_circle</span>
                 </div>
-
                 <div class="flex-1 min-w-0">
-                    <h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs"
-                        x-text="errorLog.length === 0 ? 'Import Successful' : 'Import Processed with Skips'">
-                    </h3>
-
-                    <p class="font-body-sm text-body-sm text-on-surface-variant mb-md" x-text="summaryMessage"></p>
-
-                    <template x-if="errorLog.length > 0">
-                        <div class="max-h-48 overflow-y-auto bg-surface-container-low border border-outline-variant rounded-lg p-3 font-mono text-[12px] text-on-surface space-y-1.5">
-                            <div class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Skipped Row Details:</div>
-                            <template x-for="(err, idx) in errorLog" :key="idx">
-                                <div class="flex gap-xs items-start text-on-surface-variant">
-                                    <span>ℹ️</span>
-                                    <span x-text="err"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </template>
+                    <h3 id="summary-title" class="font-headline-sm text-headline-sm text-on-surface mb-xs"></h3>
+                    <p id="summary-message" class="font-body-sm text-body-sm text-on-surface-variant mb-md"></p>
+                    <div id="summary-errors" style="display:none"
+                         class="max-h-48 overflow-y-auto bg-surface-container-low border border-outline-variant rounded-lg p-3 font-mono text-[12px] text-on-surface space-y-1.5">
+                        <div class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Skipped Row Details:</div>
+                        <div id="summary-error-list"></div>
+                    </div>
                 </div>
             </div>
             <div class="mt-lg flex justify-end">
-                <button @click="showImportErrors = false"
+                <button id="summary-dismiss"
                         class="bg-secondary text-white px-5 py-2 rounded-lg font-label-md text-label-md shadow-sm hover:opacity-90 transition-all">
                     Dismiss
                 </button>
@@ -297,19 +213,165 @@
 
     <script>
         (function () {
-            var importBtn = document.getElementById('import-csv-btn');
-            var fileInput = document.getElementById('csvFileInput');
+            var importBtn         = document.getElementById('import-csv-btn');
+            var fileInput         = document.getElementById('csvFileInput');
+            var previewModal      = document.getElementById('preview-modal');
+            var previewFatal      = document.getElementById('preview-fatal');
+            var previewFatalMsg   = document.getElementById('preview-fatal-msg');
+            var previewFatalClose = document.getElementById('preview-fatal-close');
+            var previewBody       = document.getElementById('preview-body');
+            var previewCountValid = document.getElementById('preview-count-valid');
+            var previewCountWarn  = document.getElementById('preview-count-warn');
+            var previewCountError = document.getElementById('preview-count-error');
+            var previewCountTotal = document.getElementById('preview-count-total');
+            var previewGlobalWarn = document.getElementById('preview-global-warnings');
+            var previewColMapping = document.getElementById('preview-col-mapping');
+            var previewColChips   = document.getElementById('preview-col-chips');
+            var previewIgnoredCols = document.getElementById('preview-ignored-cols');
+            var previewRows       = document.getElementById('preview-rows');
+            var previewMoreRows   = document.getElementById('preview-more-rows');
+            var previewCancel     = document.getElementById('preview-cancel');
+            var previewProceed    = document.getElementById('preview-proceed');
+            var summaryModal      = document.getElementById('summary-modal');
+            var summaryIconWrap   = document.getElementById('summary-icon-wrap');
+            var summaryIcon       = document.getElementById('summary-icon');
+            var summaryTitle      = document.getElementById('summary-title');
+            var summaryMessage    = document.getElementById('summary-message');
+            var summaryErrors     = document.getElementById('summary-errors');
+            var summaryErrorList  = document.getElementById('summary-error-list');
+            var summaryDismiss    = document.getElementById('summary-dismiss');
+
             if (!importBtn || !fileInput) return;
 
+            var state = { pendingFile: null };
+
+            function esc(s) {
+                var d = document.createElement('div');
+                d.textContent = String(s == null ? '' : s);
+                return d.innerHTML;
+            }
+
+            function hidePreview() {
+                previewModal.style.display = 'none';
+                state.pendingFile = null;
+            }
+
+            function showPreview(data) {
+                if (data.fatalError) {
+                    previewFatalMsg.textContent = data.fatalError;
+                    previewFatal.style.display = '';
+                    previewBody.style.display  = 'none';
+                } else {
+                    previewFatal.style.display = 'none';
+                    previewBody.style.display  = '';
+
+                    previewCountValid.textContent = data.validCount   || 0;
+                    previewCountWarn.textContent  = data.warningCount || 0;
+                    previewCountError.textContent = data.errorCount   || 0;
+                    previewCountTotal.textContent = data.totalRows    || 0;
+
+                    if (data.globalWarnings && data.globalWarnings.length) {
+                        previewGlobalWarn.innerHTML = data.globalWarnings.map(function (w) {
+                            return '<div class="flex gap-xs"><span>⚠️</span><span>' + esc(w) + '</span></div>';
+                        }).join('');
+                        previewGlobalWarn.style.display = '';
+                    } else {
+                        previewGlobalWarn.style.display = 'none';
+                    }
+
+                    var mapping = data.columnMapping || {};
+                    var mapKeys = Object.keys(mapping);
+                    if (mapKeys.length) {
+                        previewColChips.innerHTML = mapKeys.map(function (h) {
+                            return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-low border border-outline-variant font-mono text-[11px] text-on-surface">' +
+                                esc(h) + '<span class="text-on-surface-variant">→</span><span class="text-primary">' + esc(mapping[h]) + '</span></span>';
+                        }).join('');
+                        var ignored = data.ignoredColumns || [];
+                        if (ignored.length) {
+                            previewIgnoredCols.textContent = 'Ignored columns: ' + ignored.join(', ');
+                            previewIgnoredCols.style.display = '';
+                        } else {
+                            previewIgnoredCols.style.display = 'none';
+                        }
+                        previewColMapping.style.display = '';
+                    } else {
+                        previewColMapping.style.display = 'none';
+                    }
+
+                    var statusCls = {
+                        VALID:   { row: 'bg-secondary-container/20', badge: 'bg-secondary-container text-on-secondary-container' },
+                        WARNING: { row: 'bg-primary-fixed/20',       badge: 'bg-primary-fixed text-on-primary-fixed-variant' },
+                        ERROR:   { row: 'bg-error-container/20',     badge: 'bg-error-container text-on-error-container' }
+                    };
+                    var rows = data.rows || [];
+                    previewRows.innerHTML = rows.slice(0, 10).map(function (row) {
+                        var sc    = statusCls[row.status] || { row: '', badge: '' };
+                        var name  = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || '—';
+                        var notes = (row.messages || []).join('; ') || '—';
+                        return '<tr class="' + sc.row + '">' +
+                            '<td class="px-3 py-2 font-mono text-[12px] text-on-surface-variant">'  + esc(row.rowNumber)    + '</td>' +
+                            '<td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-[10px] font-bold ' + sc.badge + '">' + esc(row.status) + '</span></td>' +
+                            '<td class="px-3 py-2 text-[12px] text-on-surface">'                    + esc(name)            + '</td>' +
+                            '<td class="px-3 py-2 text-[12px] text-on-surface-variant">'            + esc(row.email || '—') + '</td>' +
+                            '<td class="px-3 py-2 text-[11px] text-on-surface-variant">'            + esc(notes)           + '</td>' +
+                            '</tr>';
+                    }).join('');
+                    if (rows.length > 10) {
+                        previewMoreRows.textContent = '… and ' + (rows.length - 10) + ' more rows not shown';
+                        previewMoreRows.style.display = '';
+                    } else {
+                        previewMoreRows.style.display = 'none';
+                    }
+
+                    var importable = data.importableCount || 0;
+                    previewProceed.textContent = 'Proceed with Import (' + importable + ' rows)';
+                    previewProceed.disabled    = importable === 0;
+                }
+                previewModal.style.display = '';
+            }
+
+            function hideSummary() {
+                summaryModal.style.display = 'none';
+            }
+
+            function showSummary(errorLog, message) {
+                var hasErrors = errorLog.length > 0;
+                if (hasErrors) {
+                    summaryIconWrap.className = 'p-2 rounded-full flex items-center justify-center bg-primary-fixed text-on-primary-fixed-variant';
+                    summaryIcon.textContent   = 'published_with_changes';
+                    summaryTitle.textContent  = 'Import Processed with Skips';
+                } else {
+                    summaryIconWrap.className = 'p-2 rounded-full flex items-center justify-center bg-secondary-container text-on-secondary-container';
+                    summaryIcon.textContent   = 'check_circle';
+                    summaryTitle.textContent  = 'Import Successful';
+                }
+                summaryMessage.textContent = message;
+                if (hasErrors) {
+                    summaryErrorList.innerHTML = errorLog.map(function (err) {
+                        return '<div class="flex gap-xs items-start text-on-surface-variant"><span>ℹ️</span><span>' + esc(err) + '</span></div>';
+                    }).join('');
+                    summaryErrors.style.display = '';
+                } else {
+                    summaryErrors.style.display = 'none';
+                }
+                summaryModal.style.display = '';
+            }
+
+            // --- event wiring ---
             importBtn.addEventListener('click', function () { fileInput.click(); });
 
-            // STEP 1: file selected → POST to /preview, open preview modal
+            previewModal.addEventListener('click', function (e) { if (e.target === previewModal) hidePreview(); });
+            previewFatalClose.addEventListener('click', hidePreview);
+            previewCancel.addEventListener('click', hidePreview);
+
+            summaryModal.addEventListener('click', function (e) { if (e.target === summaryModal) hideSummary(); });
+            summaryDismiss.addEventListener('click', hideSummary);
+
+            // STEP 1: file selected → POST /preview → open preview modal
             fileInput.addEventListener('change', async function (e) {
                 var file = e.target.files[0];
                 if (!file) return;
-
-                var alpineRoot = Alpine.$data(document.querySelector('[x-data]'));
-                alpineRoot.pendingFile = file;
+                state.pendingFile = file;
 
                 var formData = new FormData();
                 formData.append('file', file);
@@ -321,26 +383,21 @@
                         headers: { 'Authorization': 'Bearer ' + MaestroHR.token },
                         body: formData
                     });
-
                     var result = await response.json();
-                    alpineRoot.previewData = result.data ? result.data : result;
-                    alpineRoot.showPreview = true;
-
+                    showPreview(result.data ? result.data : result);
                 } catch (err) {
                     console.error('Preview failed:', err);
                     MaestroHR.showToast('Failed to analyze file.', 'error');
-                    alpineRoot.pendingFile = null;
+                    state.pendingFile = null;
                 }
                 e.target.value = '';
             });
 
-            // STEP 2: called by "Proceed with Import" button → POST to /confirm, show summary modal
-            window.__employeeImportConfirm = async function () {
-                var alpineRoot = Alpine.$data(document.querySelector('[x-data]'));
-                var file = alpineRoot.pendingFile;
+            // STEP 2: Proceed → POST /confirm → show summary modal
+            previewProceed.addEventListener('click', async function () {
+                var file = state.pendingFile;
                 if (!file) return;
-
-                alpineRoot.showPreview = false;
+                hidePreview();
 
                 var formData = new FormData();
                 formData.append('file', file);
@@ -352,10 +409,8 @@
                         headers: { 'Authorization': 'Bearer ' + MaestroHR.token },
                         body: formData
                     });
-
-                    var result = await response.json();
-                    var d = result.data ? result.data : result;
-
+                    var result       = await response.json();
+                    var d            = result.data ? result.data : result;
                     var successCount = d.successCount || 0;
                     var skippedCount = d.skippedCount || 0;
                     var failedCount  = d.failedCount  || 0;
@@ -370,27 +425,22 @@
                     if (failedCount  > 0) msg += ', ' + failedCount  + ' failed at write time';
                     msg += '.';
 
-                    alpineRoot.summaryMessage   = msg;
-                    alpineRoot.errorLog         = errorsList;
-                    alpineRoot.showImportErrors = true;
-                    alpineRoot.pendingFile      = null;
+                    showSummary(errorsList, msg);
 
-                    if (totalBad > 0) {
-                        MaestroHR.showToast('ℹ️ Import processed with skipped rows.', 'warning');
-                    } else {
-                        MaestroHR.showToast('✅ All employees imported successfully.', 'success');
-                    }
+                    MaestroHR.showToast(
+                        totalBad > 0 ? 'ℹ️ Import processed with skipped rows.' : '✅ All employees imported successfully.',
+                        totalBad > 0 ? 'warning' : 'success'
+                    );
 
                     htmx.ajax('GET', '/htmx/employees/table', {
                         target: '#employees-table', swap: 'innerHTML',
                         values: { q: '', dept: '', status: '', page: 0 }
                     });
-
                 } catch (err) {
                     console.error('Import connection failure:', err);
                     MaestroHR.showToast('Import connection failed.', 'error');
                 }
-            };
+            });
         })();
     </script>
 </div>
