@@ -247,6 +247,15 @@ public class LeaveService {
             termiiClient.sendSms(employee.getPhone(), smsMessage);
         }
 
+        // Email notification (no-op when mail is not configured)
+        notificationService.sendLeaveApprovedEmail(
+                employee,
+                request.getLeaveType().getName(),
+                request.getStartDate().format(DATE_FORMATTER),
+                request.getEndDate().format(DATE_FORMATTER),
+                request.getDaysRequested()
+        );
+
         log.info("Leave request {} approved, SMS sent to {}", requestId, employee.getPhone());
         return toDto(updated);
     }
@@ -286,6 +295,9 @@ public class LeaveService {
             );
             termiiClient.sendSms(employee.getPhone(), smsMessage);
         }
+
+        // Email notification (no-op when mail is not configured)
+        notificationService.sendLeaveRejectedEmail(employee, request.getLeaveType().getName(), reason);
 
         log.info("Leave request {} rejected: {}, SMS sent to {}", requestId, reason, employee.getPhone());
         return toDto(updated);

@@ -60,6 +60,17 @@ public class TenantUserWrites {
         this.jdbc = jdbc;
     }
 
+    /**
+     * Set a user's password hash by id (forgot-password reset). Runs with no tenant session, so
+     * it must go through the privileged datasource: under {@code maestro_app} a scoped UPDATE
+     * would match no row with no tenant bound. @return whether the row existed.
+     */
+    public boolean updatePasswordHash(UUID userId, String passwordHash) {
+        int rows = jdbc.update(
+                "UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, userId);
+        return rows > 0;
+    }
+
     /** Insert a single tenant (admin create-tenant). Assigns and back-fills its generated id. */
     public void insertTenant(Tenant tenant) {
         jdbc.execute((Connection con) -> {

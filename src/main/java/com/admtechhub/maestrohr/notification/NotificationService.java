@@ -5,10 +5,12 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,6 +24,10 @@ public class NotificationService {
     private final InAppNotificationRepository inAppNotificationRepository;
     private final Optional<EmailService> emailService;
 
+    /** Base URL for links embedded in outgoing emails (login, password reset, …). */
+    @Value("${app.url:http://localhost:8080}")
+    private String appUrl;
+
     @Async
     public void sendPayslipNotification(PayrollEntry entry, Employee employee, String period) {
         log.info("Generating payslip for employee: {}", employee.getEmployeeNumber());
@@ -31,17 +37,16 @@ public class NotificationService {
         if (payslipPdf != null) {
             // Send email if email service is available
             if (emailService.isPresent()) {
-                String subject = "Payslip for " + period;
-                String body = String.format(
-                        "<h3>Dear %s,</h3>" +
-                                "<p>Your payslip for %s is attached to this email.</p>" +
-                                "<p><strong>Net Salary:</strong> ₦%.2f</p>" +
-                                "<p>Thank you.</p>",
-                        employee.getFullName(), period, entry.getNetSalary() / 100.0
-                );
-
-                emailService.get().sendEmailWithAttachment(
-                        employee.getEmail(), subject, body, payslipPdf,
+                emailService.get().sendTemplatedEmailWithAttachment(
+                        employee.getEmail(),
+                        "Payslip for " + period,
+                        "email/payslip-notification",
+                        Map.of(
+                                "firstName", safe(employee.getFirstName()),
+                                "period", period,
+                                "netSalary", String.format("%,.2f", entry.getNetSalary() / 100.0)
+                        ),
+                        payslipPdf,
                         "payslip_" + period + ".pdf"
                 );
             } else {
@@ -106,15 +111,6 @@ public class NotificationService {
     public void sendWelcomeNotification(Employee employee, String password) {
         log.info("Sending welcome notification to employee: {}", employee.getEmail());
 
-        String welcomeMessage = String.format(
-                "Welcome to MaestroHR! Your account has been created.\n\n" +
-                        "Login Email: %s\n" +
-                        "Temporary Password: %s\n\n" +
-                        "Please login at: http://localhost:8080/login\n\n" +
-                        "You will be prompted to change your password on first login.",
-                employee.getEmail(), password
-        );
-
         // Send SMS if phone number exists
         if (employee.getPhone() != null && !employee.getPhone().isEmpty()) {
             String smsMessage = String.format(
@@ -126,28 +122,17 @@ public class NotificationService {
 
         // Send email if email service is available
         if (emailService.isPresent()) {
-            String subject = "Welcome to MaestroHR - Your Account Has Been Created";
-            String htmlBody = String.format(
-                    "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>" +
-                            "<div style='background: #2563eb; padding: 20px; text-align: center;'>" +
-                            "<h1 style='color: white; margin: 0;'>Welcome to MaestroHR</h1>" +
-                            "</div>" +
-                            "<div style='padding: 20px; border: 1px solid #e2e8f0;'>" +
-                            "<p>Dear %s,</p>" +
-                            "<p>Your account has been created in the MaestroHR system.</p>" +
-                            "<div style='background: #f1f5f9; padding: 15px; border-radius: 8px; margin: 20px 0;'>" +
-                            "<p><strong>Login Credentials:</strong></p>" +
-                            "<p><strong>Email:</strong> %s</p>" +
-                            "<p><strong>Temporary Password:</strong> %s</p>" +
-                            "</div>" +
-                            "<p><a href='http://localhost:8080/login' style='background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px;'>Login to Your Account</a></p>" +
-                            "<p>For security reasons, please change your password after your first login.</p>" +
-                            "<p>Best regards,<br>MaestroHR Team</p>" +
-                            "</div>" +
-                            "</div>",
-                    employee.getFullName(), employee.getEmail(), password
+            emailService.get().sendTemplatedEmail(
+                    employee.getEmail(),
+                    "Welcome to MaestroHR - Your Account Has Been Created",
+                    "email/welcome-employee",
+                    Map.of(
+                            "firstName", safe(employee.getFirstName()),
+                            "email", safe(employee.getEmail()),
+                            "tempPassword", safe(password),
+                            "loginUrl", appUrl + "/login"
+                    )
             );
-            emailService.get().sendSimpleEmail(employee.getEmail(), subject, htmlBody);
         }
 
         // Create in-app notification
@@ -160,5 +145,68 @@ public class NotificationService {
         );
 
         log.info("Welcome notification sent to employee: {}", employee.getEmail());
+    }
+
+    /**
+     * Forgot-password email. Runs with no tenant session (the user is locked out), so it only ever
+     * sends email — no in-app notification (which would need a tenant context).
+     */
+    public void sendPasswordResetEmail(String toEmail, String firstName, String resetUrl, int expiryMinutes) {
+        if (emailService.isEmpty()) {
+            log.warn("Email service not available. Skipping password-reset email for: {}", toEmail);
+            return;
+        }
+        emailService.get().sendTemplatedEmail(
+                toEmail,
+                "Reset your MaestroHR password",
+                "email/password-reset",
+                Map.of(
+                        "firstName", safe(firstName),
+                        "resetUrl", resetUrl,
+                        "expiryMinutes", expiryMinutes
+                )
+        );
+        log.info("Password-reset email sent to: {}", toEmail);
+    }
+
+    /** Leave-approved email (in-app + SMS are handled by the caller). */
+    public void sendLeaveApprovedEmail(Employee employee, String leaveType, String startDate,
+                                       String endDate, int days) {
+        if (emailService.isEmpty()) {
+            return;
+        }
+        emailService.get().sendTemplatedEmail(
+                employee.getEmail(),
+                "Your leave request has been approved",
+                "email/leave-approved",
+                Map.of(
+                        "firstName", safe(employee.getFirstName()),
+                        "leaveType", safe(leaveType),
+                        "startDate", safe(startDate),
+                        "endDate", safe(endDate),
+                        "days", days
+                )
+        );
+    }
+
+    /** Leave-rejected email (in-app + SMS are handled by the caller). */
+    public void sendLeaveRejectedEmail(Employee employee, String leaveType, String reason) {
+        if (emailService.isEmpty()) {
+            return;
+        }
+        emailService.get().sendTemplatedEmail(
+                employee.getEmail(),
+                "Update on your leave request",
+                "email/leave-rejected",
+                Map.of(
+                        "firstName", safe(employee.getFirstName()),
+                        "leaveType", safe(leaveType),
+                        "reason", safe(reason)
+                )
+        );
+    }
+
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
 }

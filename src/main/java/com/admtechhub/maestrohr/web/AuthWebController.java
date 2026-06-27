@@ -15,4 +15,10 @@ public class AuthWebController {
     public String register() {
         return "register";
     }
+
+    /** Reset-password page reached from the emailed link ({@code /reset-password?token=...}). */
+    @GetMapping("/reset-password")
+    public String resetPassword() {
+        return "reset-password";
+    }
 }

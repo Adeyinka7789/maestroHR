@@ -86,6 +86,11 @@ management:
 server:
   port: 8080
 
+# Public base URL used to build links embedded in outgoing emails (login link,
+# password-reset link). Override per environment via APP_URL.
+app:
+  url: ${APP_URL:http://localhost:8080}
+
 spring.jpa.open-in-view: false
 
 logging:

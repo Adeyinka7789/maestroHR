@@ -48,6 +48,7 @@ public final class PublicPaths {
             "/",
             "/login",
             "/register",
+            "/reset-password",
             "/dashboard"
     );
 

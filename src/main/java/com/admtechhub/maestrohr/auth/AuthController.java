@@ -30,4 +30,25 @@ public class AuthController {
         return ResponseEntity.ok(
                 ApiResponse.success("Login successful", response));
     }
+
+    /**
+     * Begin a forgot-password flow. Always returns the same generic message regardless of whether
+     * the email is registered, so the endpoint cannot be used to enumerate accounts.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody AuthRequest.ForgotPassword request) {
+        authService.requestPasswordReset(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(
+                "If an account exists for that email, a reset link has been sent.", null));
+    }
+
+    /** Complete a forgot-password flow with a valid token and a new password. */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody AuthRequest.ResetPassword request) {
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Your password has been reset. You can now sign in.", null));
+    }
 }

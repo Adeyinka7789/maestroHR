@@ -24,6 +24,7 @@
         .btn-primary:hover:not(:disabled) { background:var(--primary-dark); transform:translateY(-1px); }
         .btn-primary:disabled { opacity:0.65; cursor:not-allowed; transform:none; }
         .error-box { background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px 14px; color:#991b1b; font-size:14px; display:none; margin-bottom:24px; line-height:1.5; }
+        .info-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 14px; color:#166534; font-size:14px; display:none; margin-bottom:24px; line-height:1.5; }
         .footer-link { text-align:center; margin-top:24px; font-size:14px; color:var(--text-muted); }
         .footer-link a { color:var(--primary); font-weight:600; text-decoration:none; }
         @keyframes spin { to { transform:rotate(360deg); } }
@@ -44,6 +45,7 @@
         <p style="font-size:15px;color:var(--text-muted);margin:0 0 32px;">Sign in to manage your workspace</p>
 
         <div class="error-box" id="error-box"></div>
+        <div class="info-box" id="info-box"></div>
 
         <div style="display:flex;flex-direction:column;gap:20px;">
             <div>
@@ -53,7 +55,7 @@
             <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <label class="form-label" for="password" style="margin:0;">Password</label>
-                    <a href="/forgot-password" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:500;">Forgot?</a>
+                    <a href="#" id="forgot-link" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:500;">Forgot?</a>
                 </div>
                 <div style="position:relative;">
                     <input class="form-input" type="password" id="password" placeholder="••••••••"
@@ -84,11 +86,42 @@
         var pwInput    = document.getElementById('password');
         var loginBtn   = document.getElementById('login-btn');
         var errorBox   = document.getElementById('error-box');
+        var infoBox    = document.getElementById('info-box');
         var btnText    = document.getElementById('btn-text');
         var btnSpinner = document.getElementById('btn-spinner');
+        var forgotLink = document.getElementById('forgot-link');
 
         document.getElementById('toggle-pw').addEventListener('click', function () {
             pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+        });
+
+        forgotLink.addEventListener('click', async function (e) {
+            e.preventDefault();
+            errorBox.style.display = 'none';
+            infoBox.style.display  = 'none';
+
+            var email = emailInput.value.trim();
+            if (!email) {
+                showError('Enter your work email above, then click "Forgot?" again.');
+                emailInput.focus();
+                return;
+            }
+
+            try {
+                var res = await fetch('/api/auth/forgot-password', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ email: email })
+                });
+                var result = await res.json();
+                if (!res.ok) {
+                    showError(result.message || 'Could not start the reset. Please try again.');
+                    return;
+                }
+                showInfo(result.message || 'If an account exists for that email, a reset link has been sent.');
+            } catch (err) {
+                showError('Connection error. Please check your internet and try again.');
+            }
         });
 
         [emailInput, pwInput].forEach(function (el) {
@@ -171,6 +204,7 @@
         }
 
         function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+        function showInfo(msg)  { infoBox.textContent = msg; infoBox.style.display = 'block'; }
         function setLoading(on) {
             loginBtn.disabled        = on;
             btnText.textContent      = on ? 'Authenticating...' : 'Sign in';
