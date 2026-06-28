@@ -31,4 +31,12 @@ public interface LeaveBalanceRepository extends JpaRepository<LeaveBalance, UUID
                          @Param("leaveTypeId") UUID leaveTypeId,
                          @Param("year") Integer year,
                          @Param("days") Integer days);
+
+    /** Resets daysTaken to 0 and restores daysRemaining for all balances in the given year (within the current tenant). */
+    @Modifying
+    @Transactional
+    @Query("UPDATE LeaveBalance lb SET lb.daysTaken = 0, " +
+            "lb.daysRemaining = lb.totalDaysEntitled + lb.daysCarriedOver " +
+            "WHERE lb.year = :year")
+    int resetYearlyBalances(@Param("year") int year);
 }
