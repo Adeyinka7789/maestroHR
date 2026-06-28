@@ -436,6 +436,45 @@
 
     if (token) applyFeatureFlags();
 
+    // ── Trial expiry banner (SYSTEM_ADMIN only) ─────────────────────────────
+    // Calls /api/auth/me (already authenticated) and reads daysRemainingInTrial.
+    // Yellow banner <= 7 days; red banner when trial has ended (<= 0).
+    if (userRole === 'SYSTEM_ADMIN') {
+        (async function checkTrialBanner() {
+            try {
+                const res = await MaestroHR.apiCall('/api/auth/me');
+                if (!res.ok) return;
+                const data = await res.json();
+                const days = data?.data?.daysRemainingInTrial;
+                if (days == null) return; // not trialing — nothing to show
+                const banner = document.getElementById('trial-banner');
+                if (!banner) return;
+                if (days <= 0) {
+                    banner.innerHTML = `
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; background:#fef2f2; border-bottom:1px solid #fecaca; color:#7f1d1d; padding:9px 24px;">
+                            <div style="display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Your free trial has ended.
+                            </div>
+                            <a href="/htmx/plans" style="background:#dc2626; color:white; font-size:12.5px; font-weight:600; padding:5px 14px; border-radius:6px; text-decoration:none; flex-shrink:0;">Upgrade to continue →</a>
+                        </div>`;
+                } else if (days <= 7) {
+                    banner.innerHTML = `
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; background:#fffbeb; border-bottom:1px solid #fde68a; color:#78350f; padding:9px 24px;">
+                            <div style="display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                Your free trial ends in <strong style="margin:0 3px;">${days}</strong> day${days === 1 ? '' : 's'}.
+                            </div>
+                            <a href="/htmx/plans" style="background:#d97706; color:white; font-size:12.5px; font-weight:600; padding:5px 14px; border-radius:6px; text-decoration:none; flex-shrink:0;">Upgrade now →</a>
+                        </div>`;
+                }
+                if (days <= 7) banner.style.display = 'block';
+            } catch (err) {
+                console.error('Trial banner error:', err);
+            }
+        })();
+    }
+
     // ── Onboarding wizard (defined in onboarding-wizard.js, loaded before this file) ──
     window.MaestroHR.initOnboarding = window.__MaestroOnboardingInit || function () {};
     if (token) window.MaestroHR.initOnboarding();

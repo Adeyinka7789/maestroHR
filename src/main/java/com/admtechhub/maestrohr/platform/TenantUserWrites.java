@@ -37,6 +37,12 @@ import java.util.UUID;
 @Repository
 public class TenantUserWrites {
 
+    private static final String INSERT_TRIAL_SUBSCRIPTION =
+            "INSERT INTO tenant_subscriptions "
+                    + "(tenant_id, plan, status, current_period_start, current_period_end, "
+                    + "auto_renew, price_kobo, created_at, updated_at) "
+                    + "VALUES (?, 'FREE_TRIAL', 'TRIALING', ?, ?, TRUE, 0, NOW(), NOW())";
+
     private static final String INSERT_TENANT =
             "INSERT INTO tenants (id, company_name, rc_number, industry, company_size, "
                     + "subscription_plan, subscription_expires_at, is_active) "
@@ -101,6 +107,7 @@ public class TenantUserWrites {
                 insertTenant(con, tenant);
                 adminUser.setTenantId(tenant.getId());
                 insertUser(con, adminUser);
+                insertTrialSubscription(con, tenant);
                 con.commit();
             } catch (SQLException | RuntimeException e) {
                 con.rollback();
@@ -227,6 +234,15 @@ public class TenantUserWrites {
     }
 
     // ── shared insert helpers (run on the caller's connection) ────────────────────────────
+
+    private void insertTrialSubscription(Connection con, Tenant tenant) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(INSERT_TRIAL_SUBSCRIPTION)) {
+            ps.setObject(1, tenant.getId());
+            ps.setObject(2, OffsetDateTime.now());
+            ps.setObject(3, tenant.getSubscriptionExpiresAt());
+            ps.executeUpdate();
+        }
+    }
 
     private void insertTenant(Connection con, Tenant tenant) throws SQLException {
         if (tenant.getId() == null) {

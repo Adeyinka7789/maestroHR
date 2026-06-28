@@ -12,4 +12,6 @@ public class MeResponse {
     private String firstName;
     private String companyName;
     private String departmentName;
+    /** Days left in free trial. Non-null only when subscription status is TRIALING. */
+    private Integer daysRemainingInTrial;
 }

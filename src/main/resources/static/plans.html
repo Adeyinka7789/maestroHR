@@ -57,7 +57,7 @@
 
         async function fetchPrices() {
             try {
-                const response = await apiCall('/api/admin/pricing');
+                const response = await fetch('/api/pricing/public');
                 const result = await response.json();
                 if (result.success && result.data) {
                     const prices = result.data.prices || result.data;

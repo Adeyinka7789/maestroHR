@@ -7,6 +7,9 @@ import com.admtechhub.maestrohr.platform.AuthBootstrapQueries;
 import com.admtechhub.maestrohr.platform.LoginAttemptWrites;
 import com.admtechhub.maestrohr.platform.PasswordResetTokenStore;
 import com.admtechhub.maestrohr.platform.TenantUserWrites;
+import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
+import com.admtechhub.maestrohr.subscription.TenantSubscription;
+import com.admtechhub.maestrohr.subscription.TenantSubscriptionRepository;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 /**
@@ -41,6 +45,7 @@ public class AuthService {
     private final PasswordResetTokenStore passwordResetTokenStore;
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
+    private final TenantSubscriptionRepository tenantSubscriptionRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
@@ -65,7 +70,7 @@ public class AuthService {
                 .industry(request.getIndustry())
                 .companySize(request.getCompanySize())
                 .subscriptionPlan(SubscriptionPlan.FREE_TRIAL)
-                .subscriptionExpiresAt(OffsetDateTime.now().plusDays(30))
+                .subscriptionExpiresAt(OffsetDateTime.now().plusDays(14))
                 .isActive(true)
                 .build();
 
@@ -291,6 +296,14 @@ public class AuthService {
                     .orElse(null);
         }
 
+        Integer daysRemainingInTrial = null;
+        TenantSubscription sub = tenantSubscriptionRepository.findByTenantId(tenantId).orElse(null);
+        if (sub != null && sub.getStatus() == SubscriptionStatus.TRIALING
+                && sub.getCurrentPeriodEnd() != null) {
+            long days = ChronoUnit.DAYS.between(OffsetDateTime.now(), sub.getCurrentPeriodEnd());
+            daysRemainingInTrial = (int) Math.max(0, days);
+        }
+
         return MeResponse.builder()
                 .email(user.getEmail())
                 .role(user.getRole().name())
@@ -298,6 +311,7 @@ public class AuthService {
                 .firstName(firstName)
                 .companyName(companyName)
                 .departmentName(departmentName)
+                .daysRemainingInTrial(daysRemainingInTrial)
                 .build();
     }
 

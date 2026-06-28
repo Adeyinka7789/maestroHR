@@ -11,8 +11,8 @@ public enum SubscriptionPlan {
     FREE_TRIAL(
             "Free Trial",
             0,
-            30,
-            "Free 30-day trial",
+            14,
+            "Free 14-day trial",
             SubscriptionFeature.BASIC_EMPLOYEES,
             SubscriptionFeature.BASIC_PAYROLL,
             SubscriptionFeature.EMAIL_SUPPORT
