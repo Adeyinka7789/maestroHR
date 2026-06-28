@@ -63,6 +63,11 @@ public interface PayrollEntryRepository extends JpaRepository<PayrollEntry, UUID
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.payrollRun.id = :payrollRunId AND pe.employee.id = :employeeId")
     Optional<PayrollEntry> findByPayrollRunIdAndEmployeeId(@Param("payrollRunId") UUID payrollRunId, @Param("employeeId") UUID employeeId);
 
+    // Used by PayrollNotificationConsumer: eagerly fetches employee and payrollRun so both
+    // associations are available outside a JPA session (no LazyInitializationException).
+    @Query("SELECT pe FROM PayrollEntry pe JOIN FETCH pe.employee JOIN FETCH pe.payrollRun WHERE pe.payrollRun.id = :runId")
+    List<PayrollEntry> findByPayrollRunIdWithEntities(@Param("runId") UUID runId);
+
     // Per-run entry counts for the whole tenant, backing the payroll list's "employees"
     // column without lazy-loading every run's full entry collection. Returns rows of
     // [runId (UUID), Long]; runs with no entries (uncomputed drafts) are absent.

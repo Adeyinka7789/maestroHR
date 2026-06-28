@@ -2,6 +2,8 @@ package com.admtechhub.maestrohr.notification;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.kafka.NotificationEvent;
+import com.admtechhub.maestrohr.kafka.NotificationProducer;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,7 @@ public class NotificationService {
     private final TermiiClient termiiClient;
     private final InAppNotificationRepository inAppNotificationRepository;
     private final Optional<EmailService> emailService;
+    private final NotificationProducer notificationProducer;
 
     /** Base URL for links embedded in outgoing emails (login, password reset, …). */
     @Value("${app.url:http://localhost:8080}")
@@ -35,30 +38,43 @@ public class NotificationService {
         byte[] payslipPdf = payslipGenerator.generatePayslip(entry, employee, period);
 
         if (payslipPdf != null) {
-            // Send email if email service is available
-            if (emailService.isPresent()) {
-                emailService.get().sendTemplatedEmailWithAttachment(
-                        employee.getEmail(),
-                        "Payslip for " + period,
-                        "email/payslip-notification",
-                        Map.of(
-                                "firstName", safe(employee.getFirstName()),
-                                "period", period,
-                                "netSalary", String.format("%,.2f", entry.getNetSalary() / 100.0)
-                        ),
-                        payslipPdf,
-                        "payslip_" + period + ".pdf"
-                );
-            } else {
-                log.warn("Email service not available. Skipping email for: {}", employee.getEmail());
+            Map<String, Object> emailVars = Map.of(
+                    "firstName", safe(employee.getFirstName()),
+                    "period", period,
+                    "netSalary", String.format("%,.2f", entry.getNetSalary() / 100.0)
+            );
+            NotificationEvent emailEvent = NotificationEvent.builder()
+                    .type("EMAIL")
+                    .to(employee.getEmail())
+                    .subject("Payslip for " + period)
+                    .templateName("email/payslip-notification")
+                    .variables(emailVars)
+                    .attachmentBytes(payslipPdf)
+                    .attachmentName("payslip_" + period + ".pdf")
+                    .build();
+            if (!notificationProducer.publish(emailEvent)) {
+                if (emailService.isPresent()) {
+                    emailService.get().sendTemplatedEmailWithAttachment(
+                            employee.getEmail(), "Payslip for " + period,
+                            "email/payslip-notification", emailVars,
+                            payslipPdf, "payslip_" + period + ".pdf");
+                } else {
+                    log.warn("Email service not available. Skipping payslip email for: {}", employee.getEmail());
+                }
             }
 
-            // Always send SMS summary
             String smsMessage = String.format(
                     "MaestroHR: Your salary for %s is ₦%.2f. Check your email for payslip.",
-                    period, entry.getNetSalary() / 100.0
-            );
-            termiiClient.sendSms(employee.getPhone(), smsMessage);
+                    period, entry.getNetSalary() / 100.0);
+            NotificationEvent smsEvent = NotificationEvent.builder()
+                    .type("SMS")
+                    .to(employee.getPhone())
+                    .smsMessage(smsMessage)
+                    .build();
+            if (!notificationProducer.publish(smsEvent)) {
+                termiiClient.sendSms(employee.getPhone(), smsMessage);
+            }
+
             createInAppNotification(
                     employee.getEmail(),
                     "PAYSLIP_READY",
@@ -111,31 +127,37 @@ public class NotificationService {
     public void sendWelcomeNotification(Employee employee, String password) {
         log.info("Sending welcome notification to employee: {}", employee.getEmail());
 
-        // Send SMS if phone number exists
         if (employee.getPhone() != null && !employee.getPhone().isEmpty()) {
             String smsMessage = String.format(
                     "MaestroHR: Your account has been created. Login with Email: %s, Password: %s",
-                    employee.getEmail(), password
-            );
-            termiiClient.sendSms(employee.getPhone(), smsMessage);
+                    employee.getEmail(), password);
+            NotificationEvent smsEvent = NotificationEvent.builder()
+                    .type("SMS").to(employee.getPhone()).smsMessage(smsMessage).build();
+            if (!notificationProducer.publish(smsEvent)) {
+                termiiClient.sendSms(employee.getPhone(), smsMessage);
+            }
         }
 
-        // Send email if email service is available
-        if (emailService.isPresent()) {
-            emailService.get().sendTemplatedEmail(
+        Map<String, Object> emailVars = Map.of(
+                "firstName", safe(employee.getFirstName()),
+                "email", safe(employee.getEmail()),
+                "tempPassword", safe(password),
+                "loginUrl", appUrl + "/login"
+        );
+        NotificationEvent emailEvent = NotificationEvent.builder()
+                .type("EMAIL")
+                .to(employee.getEmail())
+                .subject("Welcome to MaestroHR - Your Account Has Been Created")
+                .templateName("email/welcome-employee")
+                .variables(emailVars)
+                .build();
+        if (!notificationProducer.publish(emailEvent)) {
+            emailService.ifPresent(svc -> svc.sendTemplatedEmail(
                     employee.getEmail(),
                     "Welcome to MaestroHR - Your Account Has Been Created",
-                    "email/welcome-employee",
-                    Map.of(
-                            "firstName", safe(employee.getFirstName()),
-                            "email", safe(employee.getEmail()),
-                            "tempPassword", safe(password),
-                            "loginUrl", appUrl + "/login"
-                    )
-            );
+                    "email/welcome-employee", emailVars));
         }
 
-        // Create in-app notification
         createInAppNotification(
                 employee.getEmail(),
                 "WELCOME",
@@ -197,38 +219,46 @@ public class NotificationService {
     /** Leave-approved email (in-app + SMS are handled by the caller). */
     public void sendLeaveApprovedEmail(Employee employee, String leaveType, String startDate,
                                        String endDate, int days) {
-        if (emailService.isEmpty()) {
-            return;
-        }
-        emailService.get().sendTemplatedEmail(
-                employee.getEmail(),
-                "Your leave request has been approved",
-                "email/leave-approved",
-                Map.of(
-                        "firstName", safe(employee.getFirstName()),
-                        "leaveType", safe(leaveType),
-                        "startDate", safe(startDate),
-                        "endDate", safe(endDate),
-                        "days", days
-                )
+        Map<String, Object> vars = Map.of(
+                "firstName", safe(employee.getFirstName()),
+                "leaveType", safe(leaveType),
+                "startDate", safe(startDate),
+                "endDate", safe(endDate),
+                "days", days
         );
+        NotificationEvent event = NotificationEvent.builder()
+                .type("EMAIL")
+                .to(employee.getEmail())
+                .subject("Your leave request has been approved")
+                .templateName("email/leave-approved")
+                .variables(vars)
+                .build();
+        if (!notificationProducer.publish(event)) {
+            emailService.ifPresent(svc -> svc.sendTemplatedEmail(
+                    employee.getEmail(), "Your leave request has been approved",
+                    "email/leave-approved", vars));
+        }
     }
 
     /** Leave-rejected email (in-app + SMS are handled by the caller). */
     public void sendLeaveRejectedEmail(Employee employee, String leaveType, String reason) {
-        if (emailService.isEmpty()) {
-            return;
-        }
-        emailService.get().sendTemplatedEmail(
-                employee.getEmail(),
-                "Update on your leave request",
-                "email/leave-rejected",
-                Map.of(
-                        "firstName", safe(employee.getFirstName()),
-                        "leaveType", safe(leaveType),
-                        "reason", safe(reason)
-                )
+        Map<String, Object> vars = Map.of(
+                "firstName", safe(employee.getFirstName()),
+                "leaveType", safe(leaveType),
+                "reason", safe(reason)
         );
+        NotificationEvent event = NotificationEvent.builder()
+                .type("EMAIL")
+                .to(employee.getEmail())
+                .subject("Update on your leave request")
+                .templateName("email/leave-rejected")
+                .variables(vars)
+                .build();
+        if (!notificationProducer.publish(event)) {
+            emailService.ifPresent(svc -> svc.sendTemplatedEmail(
+                    employee.getEmail(), "Update on your leave request",
+                    "email/leave-rejected", vars));
+        }
     }
 
     private static String safe(String s) {

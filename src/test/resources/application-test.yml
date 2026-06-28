@@ -17,3 +17,12 @@ spring:
   datasource:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  kafka:
+    # Resolve KAFKA_BOOTSTRAP_SERVERS without requiring the env var in CI/test runners.
+    # fail-fast: false so missing broker does not abort context startup.
+    # auto-startup: false so @KafkaListener containers never connect during tests.
+    bootstrap-servers: localhost:9092
+    admin:
+      fail-fast: false
+    listener:
+      auto-startup: false

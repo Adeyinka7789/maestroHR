@@ -13,6 +13,7 @@ import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
+import com.admtechhub.maestrohr.kafka.PayrollEventProducer;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class PayrollRunService {
     private final UserRepository userRepository;
     private final PayrollEngine payrollEngine;
     private final NotificationService notificationService;
+    private final PayrollEventProducer payrollEventProducer;
     private final LeaveService leaveService;
     private final AttendanceService attendanceService;
     private final LoanService loanService;
@@ -267,18 +269,22 @@ public class PayrollRunService {
         // happens once) make a double-apply impossible.
         loanService.applyRepaymentsForRun(payrollRun, payrollRun.getEntries());
 
-        // After setting status to APPROVED, trigger notifications
-        for (PayrollEntry entry : payrollRun.getEntries()) {
-            notificationService.sendPayslipNotification(
-                    entry,
-                    entry.getEmployee(),
-                    payrollRun.getPeriod()
-            );
-        }
         payrollRun.setApprovedBy(approvedBy);
         payrollRun.setApprovedAt(LocalDateTime.now());
 
         PayrollRun updated = payrollRunRepository.save(payrollRun);
+
+        // Publish event so PayrollNotificationConsumer generates + dispatches payslips async.
+        // Falls back to the synchronous per-entry loop when Kafka is unavailable.
+        try {
+            payrollEventProducer.publishPayrollApproved(payrollRunId, currentTenantId());
+        } catch (Exception e) {
+            log.warn("Kafka unavailable; sending payslip notifications synchronously: {}", e.getMessage());
+            for (PayrollEntry entry : payrollRun.getEntries()) {
+                notificationService.sendPayslipNotification(
+                        entry, entry.getEmployee(), payrollRun.getPeriod());
+            }
+        }
         notificationService.createInAppNotification(
                 approvedBy.getEmail(),
                 "PAYROLL_APPROVED",

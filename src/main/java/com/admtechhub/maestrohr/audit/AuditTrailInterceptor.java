@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.audit;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.kafka.AuditEvent;
+import com.admtechhub.maestrohr.kafka.AuditEventProducer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.util.UUID;
 public class AuditTrailInterceptor implements HandlerInterceptor {
 
     private final AuditTrailService auditTrailService;
+    private final AuditEventProducer auditEventProducer;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -60,18 +63,17 @@ public class AuditTrailInterceptor implements HandlerInterceptor {
         // Set by JwtAuthFilter when the request carries an impersonation token; NULL otherwise.
         Object impersonatedBy = request.getAttribute("impersonatedBy");
 
-        auditTrailService.record(
-                tenantId,
-                actorEmail,
-                method + " " + path,
-                path.startsWith("/api/reports") ? "REPORT" : "REQUEST",
-                entityId,
-                path,
-                method,
-                request.getRemoteAddr(),
-                response.getStatus(),
-                details,
-                impersonatedBy instanceof String s ? s : null
-        );
+        String entityType = path.startsWith("/api/reports") ? "REPORT" : "REQUEST";
+        String impersonatedByStr = impersonatedBy instanceof String s ? s : null;
+
+        AuditEvent auditEvent = new AuditEvent(tenantId, actorEmail, method + " " + path,
+                entityType, entityId, path, method, request.getRemoteAddr(),
+                response.getStatus(), details, impersonatedByStr);
+
+        if (!auditEventProducer.publish(auditEvent)) {
+            auditTrailService.record(tenantId, actorEmail, method + " " + path,
+                    entityType, entityId, path, method, request.getRemoteAddr(),
+                    response.getStatus(), details, impersonatedByStr);
+        }
     }
 }
