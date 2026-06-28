@@ -128,8 +128,14 @@
         }
     }
 
+    // Show User Management nav only for SYSTEM_ADMIN (SUPER_ADMIN sees their own console instead)
+    if (userRole === 'SYSTEM_ADMIN') {
+        const usersLink = document.querySelector('.nav-item[data-route="users"]');
+        if (usersLink) usersLink.style.display = '';
+    }
+
     // Hide audit log link for non‑authorized roles
-    if (userRole !== 'HR_ADMIN' && userRole !== 'SUPER_ADMIN') {
+    if (userRole !== 'HR_ADMIN' && userRole !== 'SUPER_ADMIN' && userRole !== 'SYSTEM_ADMIN') {
         const auditLink = document.querySelector('a[data-route="audit"]');
         if (auditLink) auditLink.style.display = 'none';
     }

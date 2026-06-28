@@ -88,14 +88,14 @@ public class PayrollDetailService {
                 // approve); submit is HR_ADMIN/SUPER_ADMIN; compute and reject follow the
                 // initiate gate (HR_ADMIN/FINANCE_OFFICER/SUPER_ADMIN), matching their REST
                 // endpoints — reject is not approval, so the initiator role may send a run back.
-                run.isEditable() && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
-                run.canSubmit() && hasAnyRole("HR_ADMIN", "SUPER_ADMIN"),
+                run.isEditable() && hasAnyRole("HR_ADMIN", "SYSTEM_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+                run.canSubmit() && hasAnyRole("HR_ADMIN", "SYSTEM_ADMIN", "SUPER_ADMIN"),
                 run.canApprove() && hasAnyRole("FINANCE_OFFICER", "SUPER_ADMIN"),
-                run.canReject() && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+                run.canReject() && hasAnyRole("HR_ADMIN", "SYSTEM_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
 
                 // Step D: export once figures are final (APPROVED onward); mark-paid completes
                 // the lifecycle and, like approve, is finance-only (segregation of duties).
-                exportable(run.getStatus()) && hasAnyRole("HR_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+                exportable(run.getStatus()) && hasAnyRole("HR_ADMIN", "SYSTEM_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
                 run.canComplete() && hasAnyRole("FINANCE_OFFICER", "SUPER_ADMIN"),
 
                 rows);

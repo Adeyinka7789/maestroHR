@@ -60,7 +60,7 @@ public class EmployeeDetailService {
         // is super-admin only and only when nothing depends on the record (checked against the
         // payroll/leave/attendance/HOD tables). Both are also re-enforced server-side on the action.
         boolean terminated = EmployeeStatus.TERMINATED.name().equals(statusName);
-        boolean canTerminate = hasAnyRole("ROLE_HR_ADMIN", "ROLE_SUPER_ADMIN") && !terminated;
+        boolean canTerminate = hasAnyRole("ROLE_HR_ADMIN", "ROLE_SYSTEM_ADMIN", "ROLE_SUPER_ADMIN") && !terminated;
         boolean canHardDelete = hasAnyRole("ROLE_SUPER_ADMIN") && employeeService.canHardDelete(e.getId());
 
         return new EmployeeDetailView(

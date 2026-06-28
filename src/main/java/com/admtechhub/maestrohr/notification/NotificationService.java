@@ -148,6 +148,31 @@ public class NotificationService {
     }
 
     /**
+     * Invite-user email — sends login credentials to a newly created user account.
+     * Runs within the inviting SYSTEM_ADMIN's request, so the tenant session is bound and
+     * the in-app path is available, but we only send email here (no Employee record exists).
+     */
+    @Async
+    public void sendUserInviteEmail(String toEmail, String tempPassword) {
+        if (emailService.isEmpty()) {
+            log.warn("Email service not available. Skipping invite email for: {}", toEmail);
+            return;
+        }
+        emailService.get().sendTemplatedEmail(
+                toEmail,
+                "Your MaestroHR account has been created",
+                "email/welcome-employee",
+                Map.of(
+                        "firstName", localPart(toEmail),
+                        "email", safe(toEmail),
+                        "tempPassword", safe(tempPassword),
+                        "loginUrl", appUrl + "/login"
+                )
+        );
+        log.info("User invite email sent to: {}", toEmail);
+    }
+
+    /**
      * Forgot-password email. Runs with no tenant session (the user is locked out), so it only ever
      * sends email — no in-app notification (which would need a tenant context).
      */
@@ -208,5 +233,11 @@ public class NotificationService {
 
     private static String safe(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String localPart(String email) {
+        if (email == null) return "there";
+        int at = email.indexOf('@');
+        return at > 0 ? email.substring(0, at) : email;
     }
 }

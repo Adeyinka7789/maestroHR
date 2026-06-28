@@ -75,12 +75,12 @@ class AuthServiceWriteTest {
         createdTenantIds.add(res.getTenantId());
 
         assertNotNull(res.getTenantId());
-        assertEquals("HR_ADMIN", res.getRole());
+        assertEquals("SYSTEM_ADMIN", res.getRole());
         assertEquals(req.getAdminEmail(), res.getEmail());
 
         assertEquals(1L, count("SELECT count(*) FROM tenants WHERE id = ?", res.getTenantId()));
         assertEquals(1L, count(
-                "SELECT count(*) FROM users WHERE tenant_id = ? AND email = ? AND role = 'HR_ADMIN'",
+                "SELECT count(*) FROM users WHERE tenant_id = ? AND email = ? AND role = 'SYSTEM_ADMIN'",
                 res.getTenantId(), req.getAdminEmail()));
     }
 

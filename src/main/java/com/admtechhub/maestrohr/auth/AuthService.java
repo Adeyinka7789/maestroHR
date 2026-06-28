@@ -69,7 +69,7 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getAdminEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(UserRole.HR_ADMIN)
+                .role(UserRole.SYSTEM_ADMIN)
                 .build();
 
         // Atomically inserts the tenant then its admin user (wiring user.tenant_id to the new

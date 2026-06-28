@@ -26,7 +26,7 @@
             </p>
         </div>
         <!-- Add Employee / Run Payroll are HR/admin-only actions. -->
-        <div th:if="${view.role == 'HR_ADMIN' or view.role == 'SUPER_ADMIN'}" class="flex items-center gap-sm">
+        <div th:if="${view.role == 'HR_ADMIN' or view.role == 'SUPER_ADMIN' or view.role == 'SYSTEM_ADMIN'}" class="flex items-center gap-sm">
             <a href="/htmx/employee-create" hx-get="/htmx/employee-create" hx-target="#page-content"
                hx-push-url="true" hx-swap="innerHTML"
                class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
@@ -43,7 +43,7 @@
     </div>
 
     <!-- ============================ HR_ADMIN / SUPER_ADMIN ============================ -->
-    <div th:if="${view.role == 'HR_ADMIN' or view.role == 'SUPER_ADMIN'}">
+    <div th:if="${view.role == 'HR_ADMIN' or view.role == 'SUPER_ADMIN' or view.role == 'SYSTEM_ADMIN'}">
 
     <!-- Bento metrics -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">

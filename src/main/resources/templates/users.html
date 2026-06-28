@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Users</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                <span th:text="${rows.size()}">0</span> user<span th:if="${rows.size() != 1}">s</span> in your organisation
+            </p>
+        </div>
+        <button type="button" onclick="openInviteModal()"
+                class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+            <span class="material-symbols-outlined text-[18px]">person_add</span>
+            Invite User
+        </button>
+    </div>
+
+    <!-- Action banners -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Done.</span>
+    </div>
+    <div th:if="${error}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${error}">Error</span>
+    </div>
+
+    <!-- ── Invite modal ── -->
+    <div id="invite-modal" style="display:none"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center"
+         onclick="if(event.target===this)closeInviteModal()">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-[440px] mx-4"
+             onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between p-md border-b border-outline-variant">
+                <h2 class="font-label-lg text-label-lg text-on-surface">Invite User</h2>
+                <button type="button" onclick="closeInviteModal()"
+                        class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+            <form hx-post="/htmx/users/invite" hx-target="#page-content" hx-swap="innerHTML">
+                <div class="p-md space-y-md">
+                    <div>
+                        <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">
+                            Email address <span class="text-error">*</span>
+                        </label>
+                        <input id="invite-email" name="email" type="email" autocomplete="off"
+                               placeholder="colleague@company.com"
+                               class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">
+                            Role <span class="text-error">*</span>
+                        </label>
+                        <select name="role"
+                                class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                            <option value="">Select a role…</option>
+                            <option th:each="r : ${assignableRoles}"
+                                    th:value="${r.name()}"
+                                    th:text="${r.name().replace('_',' ').toLowerCase().substring(0,1).toUpperCase() + r.name().replace('_',' ').toLowerCase().substring(1)}">HR Admin</option>
+                        </select>
+                    </div>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant">
+                        A temporary password will be emailed to the invitee. They can change it after signing in.
+                    </p>
+                </div>
+                <div class="flex justify-end gap-sm px-md py-sm bg-surface-container-low border-t border-outline-variant">
+                    <button type="button" onclick="closeInviteModal()"
+                            class="px-4 py-2.5 rounded-lg border border-outline bg-white text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">send</span>
+                        Send Invite
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Change Role modal ── -->
+    <div id="role-modal" style="display:none"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 items-center justify-center"
+         onclick="if(event.target===this)closeRoleModal()">
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden w-full max-w-[380px] mx-4"
+             onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between p-md border-b border-outline-variant">
+                <h2 class="font-label-lg text-label-lg text-on-surface">Change Role</h2>
+                <button type="button" onclick="closeRoleModal()"
+                        class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+            <form id="role-form" hx-target="#page-content" hx-swap="innerHTML">
+                <div class="p-md">
+                    <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">New Role</label>
+                    <select id="role-select" name="role"
+                            class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option th:each="r : ${assignableRoles}"
+                                th:value="${r.name()}"
+                                th:text="${r.name().replace('_',' ').toLowerCase().substring(0,1).toUpperCase() + r.name().replace('_',' ').toLowerCase().substring(1)}">HR Admin</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-sm px-md py-sm bg-surface-container-low border-t border-outline-variant">
+                    <button type="button" onclick="closeRoleModal()"
+                            class="px-4 py-2.5 rounded-lg border border-outline bg-white text-on-surface font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">check</span>
+                        Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Users table ── -->
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">User</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Role</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Last Login</th>
+                    <th class="px-md py-sm"></th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+
+                <tr th:each="row : ${rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <!-- Email + self indicator -->
+                    <td class="px-md py-md">
+                        <div class="font-label-md text-label-md text-on-surface" th:text="${row.email}">user@example.com</div>
+                        <div th:if="${row.self}" class="font-body-xs text-body-xs text-on-surface-variant mt-0.5">You</div>
+                    </td>
+
+                    <!-- Role badge -->
+                    <td class="px-md py-md">
+                        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:9999px;white-space:nowrap"
+                              th:style="${row.roleBadgeStyle}"
+                              th:text="${row.roleDisplay}">HR Admin</span>
+                    </td>
+
+                    <!-- Active/Inactive badge -->
+                    <td class="px-md py-md">
+                        <span th:if="${row.active}"
+                              style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:9999px;background:#dcfce7;color:#15803d">Active</span>
+                        <span th:unless="${row.active}"
+                              style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:9999px;background:#fee2e2;color:#b91c1c">Inactive</span>
+                    </td>
+
+                    <!-- Last login -->
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.lastLogin}">Never</td>
+
+                    <!-- Actions -->
+                    <td class="px-md py-md text-right" style="white-space:nowrap">
+
+                        <!-- Change Role (not allowed on self, SUPER_ADMIN, or SYSTEM_ADMIN rows) -->
+                        <button th:if="${!row.self and row.role.name() != 'SUPER_ADMIN' and row.role.name() != 'SYSTEM_ADMIN'}"
+                                type="button"
+                                th:attr="data-id=${row.id},data-role=${row.role.name()}"
+                                onclick="openRoleModal(this)"
+                                title="Change role"
+                                class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+                        </button>
+
+                        <!-- Deactivate (not on self or SUPER_ADMIN, only if active) -->
+                        <button th:if="${!row.self and row.role.name() != 'SUPER_ADMIN' and row.active}"
+                                type="button"
+                                th:attr="hx-post=|/htmx/users/${row.id}/deactivate|"
+                                hx-target="#page-content" hx-swap="innerHTML"
+                                hx-confirm="Deactivate this user? They will immediately lose access."
+                                title="Deactivate"
+                                class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-error transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">person_off</span>
+                        </button>
+
+                        <!-- Reactivate (not on self, only if inactive) -->
+                        <button th:if="${!row.self and !row.active}"
+                                type="button"
+                                th:attr="hx-post=|/htmx/users/${row.id}/reactivate|"
+                                hx-target="#page-content" hx-swap="innerHTML"
+                                hx-confirm="Reactivate this user?"
+                                title="Reactivate"
+                                class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">person_check</span>
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- Empty state -->
+                <tr th:if="${rows.isEmpty()}">
+                    <td colspan="5" class="px-md py-xl text-center">
+                        <p class="font-label-md text-label-md text-on-surface mb-xs">No users yet</p>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Invite your team to get started.</p>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            function el(id) { return document.getElementById(id); }
+
+            window.openInviteModal = function () {
+                el('invite-email').value = '';
+                el('invite-modal').style.display = 'flex';
+                setTimeout(function () { el('invite-email').focus(); }, 50);
+            };
+            window.closeInviteModal = function () {
+                el('invite-modal').style.display = 'none';
+            };
+
+            window.openRoleModal = function (btn) {
+                var id   = btn.dataset.id;
+                var role = btn.dataset.role;
+                var form = el('role-form');
+                form.setAttribute('hx-post', '/htmx/users/' + id + '/role');
+                htmx.process(form);
+                var sel = el('role-select');
+                if (sel) sel.value = role;
+                el('role-modal').style.display = 'flex';
+            };
+            window.closeRoleModal = function () {
+                el('role-modal').style.display = 'none';
+            };
+        }());
+    </script>
+</div>
+
+</body>
+</html>
