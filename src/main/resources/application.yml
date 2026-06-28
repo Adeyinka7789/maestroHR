@@ -74,6 +74,26 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        acks: all
+        retries: 3
+        enable.idempotence: true        # prevents duplicates on retries
+    consumer:
+      group-id: maestrohr
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.admtechhub.maestrohr.*"
+    admin:
+      fail-fast: true                   # fail startup if broker is unreachable
+      auto-create: true                 # create missing topics (optional)
+
 management:
   endpoints:
     web:
@@ -156,3 +176,4 @@ sentry:
 web:
   resources:
     static-locations: classpath:/static/, file:uploads/
+

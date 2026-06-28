@@ -148,6 +148,10 @@
             <version>5.2.5</version>
         </dependency>
         <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.sentry</groupId>
             <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
             <version>7.8.0</version>
@@ -244,9 +248,8 @@
                     <debugSentryCli>true</debugSentryCli>
                     <org>adm-tech-hub</org>
                     <project>java-spring-boot</project>
-                    <!-- in case you're self hosting, provide the URL here -->
+                    <!-- in case you're self-hosting, provide the URL here -->
                     <!--<url>http://localhost:8000/</url>-->
-                    <authToken>${env.SENTRY_AUTH_TOKEN}</authToken>
                 </configuration>
                 <executions>
                     <execution>
@@ -271,6 +274,7 @@
                         <configuration>
                             <nodeVersion>v22.16.0</nodeVersion>
                             <npmVersion>11.11.0</npmVersion>
+                            <installDirectory>target</installDirectory>
                         </configuration>
                         <executions>
                             <execution>
