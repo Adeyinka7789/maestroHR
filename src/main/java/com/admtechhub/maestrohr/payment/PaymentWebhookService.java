@@ -1,7 +1,9 @@
 package com.admtechhub.maestrohr.payment;
 
+import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.payment.dto.PaystackWebhookPayload;
 import com.admtechhub.maestrohr.platform.WebhookTenantResolver;
+import com.admtechhub.maestrohr.payroll.*;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
 import com.admtechhub.maestrohr.tenant.*;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +29,9 @@ public class PaymentWebhookService {
     private final InvoiceRepository invoiceRepository;
     private final WebhookTenantResolver webhookTenantResolver;
     private final EntityManager entityManager;
+    private final PayrollEntryRepository payrollEntryRepository;
+    private final PayrollRunRepository payrollRunRepository;
+    private final NotificationService notificationService;
 
     /**
      * Handle subscription creation event
@@ -208,6 +214,96 @@ public class PaymentWebhookService {
 
             // Send notification to tenant (implement later)
         }
+    }
+
+    /**
+     * Handle transfer.success: marks the matching PayrollEntry PAID, auto-completes the run
+     * when all entries are paid, and notifies the employee via SMS + email.
+     */
+    @Transactional
+    public void handleTransferSuccess(PaystackWebhookPayload payload) {
+        String reference = payload.getData().getReference();
+        if (reference == null || reference.isBlank()) {
+            log.warn("transfer.success without a reference; ignoring");
+            return;
+        }
+
+        Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByTransferReference(reference);
+        if (tenantIdOpt.isEmpty()) {
+            log.debug("transfer.success for reference {} — no matching payroll entry, skipping", reference);
+            return;
+        }
+        UUID tenantId = tenantIdOpt.get();
+        bindTenantSession(tenantId);
+
+        PayrollEntry entry = payrollEntryRepository.findByTransferReference(reference).orElse(null);
+        if (entry == null) {
+            log.warn("transfer.success: entry not visible for reference {} after binding tenant {}", reference, tenantId);
+            return;
+        }
+        if (entry.getTransferStatus() == TransferStatus.PAID) {
+            log.info("transfer.success for {} already processed; ignoring (idempotent)", reference);
+            return;
+        }
+
+        entry.setTransferStatus(TransferStatus.PAID);
+        payrollEntryRepository.save(entry);
+
+        PayrollRun payrollRun = entry.getPayrollRun();
+        long pendingCount = payrollEntryRepository.countByTransferStatus(payrollRun.getId(), TransferStatus.PENDING);
+        if (pendingCount == 0 && payrollRun.canComplete()) {
+            payrollRun.setStatus(PayrollStatus.COMPLETED);
+            payrollRunRepository.save(payrollRun);
+            log.info("All transfers completed for payroll run {}; status → COMPLETED", payrollRun.getId());
+        }
+
+        String companyName = payrollRun.getTenant().getCompanyName();
+        notificationService.sendSalaryCreditNotification(entry, entry.getEmployee(), payrollRun.getPeriod(), companyName);
+        log.info("transfer.success processed: entry {} → PAID, employee {} notified", entry.getId(), entry.getEmployee().getEmployeeNumber());
+    }
+
+    /**
+     * Handle transfer.failed: marks the PayrollEntry FAILED and notifies HR_ADMINs via
+     * in-app notification so they can investigate and retry.
+     */
+    @Transactional
+    public void handleTransferFailed(PaystackWebhookPayload payload) {
+        String reference = payload.getData().getReference();
+        if (reference == null || reference.isBlank()) {
+            log.warn("transfer.failed without a reference; ignoring");
+            return;
+        }
+
+        Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByTransferReference(reference);
+        if (tenantIdOpt.isEmpty()) {
+            log.debug("transfer.failed for reference {} — no matching payroll entry, skipping", reference);
+            return;
+        }
+        UUID tenantId = tenantIdOpt.get();
+        bindTenantSession(tenantId);
+
+        PayrollEntry entry = payrollEntryRepository.findByTransferReference(reference).orElse(null);
+        if (entry == null) {
+            log.warn("transfer.failed: entry not visible for reference {} after binding tenant {}", reference, tenantId);
+            return;
+        }
+
+        entry.setTransferStatus(TransferStatus.FAILED);
+        payrollEntryRepository.save(entry);
+
+        String employeeName = entry.getEmployee().getFullName();
+        String period = entry.getPayrollRun().getPeriod();
+        String alertMessage = String.format("Salary transfer failed for %s (%s). Reference: %s",
+                employeeName, period, reference);
+
+        List<String> hrEmails = webhookTenantResolver.findHrAdminEmails(tenantId);
+        for (String hrEmail : hrEmails) {
+            notificationService.createInAppNotification(hrEmail,
+                    "TRANSFER_FAILED", "Salary transfer failed", alertMessage,
+                    "/payroll/" + entry.getPayrollRun().getId());
+        }
+
+        log.error("transfer.failed processed: entry {} → FAILED, {} HR admin(s) notified", entry.getId(), hrEmails.size());
     }
 
     /**

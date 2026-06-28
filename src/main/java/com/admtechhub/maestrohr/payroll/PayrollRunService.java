@@ -348,7 +348,22 @@ public class PayrollRunService {
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
 
         if (!payrollRun.canComplete()) {
-            throw new IllegalStateException("Payroll must be APPROVED to mark as paid. Current status: " + payrollRun.getStatus());
+            throw new IllegalStateException(
+                    "Payroll must be APPROVED or DISBURSING to mark as paid. Current status: " + payrollRun.getStatus());
+        }
+
+        String period = payrollRun.getPeriod();
+        String companyName = payrollRun.getTenant().getCompanyName();
+
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        for (PayrollEntry entry : entries) {
+            entry.setTransferStatus(TransferStatus.PAID);
+        }
+        payrollEntryRepository.saveAll(entries);
+
+        for (PayrollEntry entry : entries) {
+            notificationService.sendSalaryProcessedNotification(
+                    entry, entry.getEmployee(), period, companyName);
         }
 
         payrollRun.setStatus(PayrollStatus.COMPLETED);
@@ -359,11 +374,11 @@ public class PayrollRunService {
                     payrollRun.getInitiatedBy().getEmail(),
                     "PAYROLL_COMPLETED",
                     "Payroll completed",
-                    "Payroll run " + payrollRun.getPeriod() + " has been marked as paid.",
+                    "Payroll run " + period + " has been marked as paid.",
                     "/payroll/" + payrollRunId
             );
         }
-        log.info("Payroll run {} marked as paid (COMPLETED)", payrollRunId);
+        log.info("Payroll run {} marked as paid (COMPLETED), {} employees notified", payrollRunId, entries.size());
 
         return toResponse(updated);
     }

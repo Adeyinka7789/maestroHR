@@ -51,6 +51,20 @@ public class WebhookTenantResolver {
                 (rs, n) -> rs.getObject("id", UUID.class), subscriptionCode));
     }
 
+    /** Owning tenant of the payroll entry carrying this Paystack transfer reference (transfer.success/failed). */
+    public Optional<UUID> findTenantIdByTransferReference(String transferReference) {
+        return single(jdbc.query(
+                "SELECT tenant_id FROM payroll_entries WHERE transfer_reference = ? LIMIT 1",
+                (rs, n) -> rs.getObject("tenant_id", UUID.class), transferReference));
+    }
+
+    /** HR_ADMIN email addresses for a tenant — used to send in-app failure alerts. */
+    public List<String> findHrAdminEmails(UUID tenantId) {
+        return jdbc.query(
+                "SELECT email FROM users WHERE tenant_id = ? AND role = 'HR_ADMIN'",
+                (rs, n) -> rs.getString("email"), tenantId);
+    }
+
     private Optional<UUID> single(List<UUID> rows) {
         return rows.stream().findFirst();
     }

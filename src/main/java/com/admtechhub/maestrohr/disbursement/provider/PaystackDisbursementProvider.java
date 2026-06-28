@@ -98,7 +98,9 @@ public class PaystackDisbursementProvider implements DisbursementProvider {
     }
 
     private String getOrCreateRecipientCode(SalaryPayment payment) {
-        // Check if recipient exists, create if not
+        if (payment.getPaystackRecipientCode() != null && !payment.getPaystackRecipientCode().isBlank()) {
+            return payment.getPaystackRecipientCode();
+        }
         return paystackClient.createTransferRecipient(
                 payment.getAccountName(),
                 payment.getAccountNumber(),

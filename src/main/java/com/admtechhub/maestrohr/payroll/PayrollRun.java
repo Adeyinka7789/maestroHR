@@ -105,11 +105,11 @@ public class PayrollRun extends BaseEntity {
     }
 
     /**
-     * Whether the run may be manually marked paid (APPROVED → COMPLETED). The payment file
-     * is exported and uploaded to the bank out-of-band, so a finance user attests completion
-     * by hand; only an APPROVED run can be completed.
+     * Whether the run may be marked completed. Accepts both APPROVED (manual/bank path via
+     * markAsPaid or CSV export) and DISBURSING (Paystack path, after all transfer.success
+     * webhooks arrive and auto-complete logic fires, or when called explicitly).
      */
     public boolean canComplete() {
-        return status == PayrollStatus.APPROVED;
+        return status == PayrollStatus.APPROVED || status == PayrollStatus.DISBURSING;
     }
 }

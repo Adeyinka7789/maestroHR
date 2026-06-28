@@ -32,7 +32,7 @@ public class DisbursementFactory {
     }
 
     public DisbursementProvider getDefaultProvider() {
-        return providers.get("PAYSTACK");
+        return getProvider("PAYSTACK");
     }
 
     public void addProvider(String name, DisbursementProvider provider) {

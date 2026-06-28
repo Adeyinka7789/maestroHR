@@ -69,10 +69,10 @@ public class PaystackWebhookController {
                     paymentWebhookService.handleInvoicePaymentFailed(webhookPayload);
                     break;
                 case "transfer.success":
-                    log.info("Transfer successful: {}", webhookPayload.getData().getReference());
+                    paymentWebhookService.handleTransferSuccess(webhookPayload);
                     break;
                 case "transfer.failed":
-                    log.error("Transfer failed: {}", webhookPayload.getData().getReference());
+                    paymentWebhookService.handleTransferFailed(webhookPayload);
                     break;
                 default:
                     log.debug("Unhandled event type: {}", event);

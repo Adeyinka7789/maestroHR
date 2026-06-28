@@ -12,6 +12,8 @@ public class DisbursementResult {
     private String batchReference;
     private List<TransferResult> transfers;
     private String message;
+    /** Populated by CSVDisbursementProvider; null for all other providers. */
+    private byte[] csvBytes;
 
     @Data
     @Builder

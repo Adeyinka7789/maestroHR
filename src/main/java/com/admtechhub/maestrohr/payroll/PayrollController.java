@@ -128,8 +128,20 @@ public class PayrollController {
 
     @PostMapping("/{payrollRunId}/disburse")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<PayrollRunResponse>> disburseSalaries(@PathVariable UUID payrollRunId) {
-        PayrollRun payrollRun = disbursementService.disburseSalaries(payrollRunId);
+    public ResponseEntity<?> disburseSalaries(
+            @PathVariable UUID payrollRunId,
+            @RequestParam(defaultValue = "PAYSTACK") String provider) {
+        if ("CSV".equalsIgnoreCase(provider)) {
+            byte[] csvData = disbursementService.disburseSalariesCsv(payrollRunId);
+            PayrollRunResponse run = payrollRunService.getPayrollRunResponse(payrollRunId);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv"));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename("payroll-disbursement-" + run.getPeriod() + ".csv")
+                    .build());
+            return ResponseEntity.ok().headers(headers).body(csvData);
+        }
+        disbursementService.disburseSalaries(payrollRunId);
         return ResponseEntity.ok(ApiResponse.success("Salary disbursement initiated",
                 payrollRunService.getPayrollRunResponse(payrollRunId)));
     }

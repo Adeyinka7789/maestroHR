@@ -18,12 +18,11 @@ public class CSVDisbursementProvider implements DisbursementProvider {
     @Override
     public DisbursementResult initiateBulkTransfer(List<SalaryPayment> payments) {
         log.info("Generating CSV file for {} payments", payments.size());
-
-        String csvContent = generateCSV(payments);
-
+        byte[] csvBytes = generateCSVFile(payments);
         return DisbursementResult.builder()
                 .success(true)
                 .batchReference(generateBatchReference())
+                .csvBytes(csvBytes)
                 .message("CSV file generated successfully. Please download and upload to your bank.")
                 .build();
     }

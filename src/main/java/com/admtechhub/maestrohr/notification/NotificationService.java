@@ -216,6 +216,64 @@ public class NotificationService {
         log.info("Password-reset email sent to: {}", toEmail);
     }
 
+    /**
+     * Notifies an employee that their salary was credited (Paystack transfer.success path).
+     * Sends SMS + email (payslip-notification template) + in-app notification.
+     */
+    @Async
+    public void sendSalaryCreditNotification(PayrollEntry entry, Employee employee, String period, String companyName) {
+        String netFormatted = String.format("%,.2f", entry.getNetSalary() / 100.0);
+        String smsMessage = String.format(
+                "Dear %s, your salary of ₦%s for %s has been credited to your account. - %s",
+                safe(employee.getFirstName()), netFormatted, period, safe(companyName));
+        NotificationEvent smsEvent = NotificationEvent.builder()
+                .type("SMS").to(employee.getPhone()).smsMessage(smsMessage).build();
+        if (!notificationProducer.publish(smsEvent)) {
+            termiiClient.sendSms(employee.getPhone(), smsMessage);
+        }
+
+        Map<String, Object> emailVars = Map.of(
+                "firstName", safe(employee.getFirstName()),
+                "period", period,
+                "netSalary", netFormatted);
+        NotificationEvent emailEvent = NotificationEvent.builder()
+                .type("EMAIL").to(employee.getEmail())
+                .subject("Salary Credited - " + period)
+                .templateName("email/payslip-notification")
+                .variables(emailVars)
+                .build();
+        if (!notificationProducer.publish(emailEvent)) {
+            emailService.ifPresent(svc -> svc.sendTemplatedEmail(
+                    employee.getEmail(), "Salary Credited - " + period,
+                    "email/payslip-notification", emailVars));
+        }
+
+        createInAppNotification(employee.getEmail(), "SALARY_CREDITED", "Salary credited",
+                String.format("Your salary of ₦%s for %s has been credited to your account.", netFormatted, period),
+                "/reports/payslip?employeeId=" + employee.getId() + "&payrollRunId=" + entry.getPayrollRun().getId());
+    }
+
+    /**
+     * Notifies an employee that their salary was processed (manual bank / markAsPaid path).
+     * Sends SMS + in-app notification only (no PDF re-generation).
+     */
+    @Async
+    public void sendSalaryProcessedNotification(PayrollEntry entry, Employee employee, String period, String companyName) {
+        String netFormatted = String.format("%,.2f", entry.getNetSalary() / 100.0);
+        String smsMessage = String.format(
+                "Dear %s, your salary of ₦%s for %s has been processed. - %s",
+                safe(employee.getFirstName()), netFormatted, period, safe(companyName));
+        NotificationEvent smsEvent = NotificationEvent.builder()
+                .type("SMS").to(employee.getPhone()).smsMessage(smsMessage).build();
+        if (!notificationProducer.publish(smsEvent)) {
+            termiiClient.sendSms(employee.getPhone(), smsMessage);
+        }
+
+        createInAppNotification(employee.getEmail(), "SALARY_PROCESSED", "Salary processed",
+                String.format("Your salary of ₦%s for %s has been processed.", netFormatted, period),
+                "/reports/payslip?employeeId=" + employee.getId() + "&payrollRunId=" + entry.getPayrollRun().getId());
+    }
+
     /** Leave-approved email (in-app + SMS are handled by the caller). */
     public void sendLeaveApprovedEmail(Employee employee, String leaveType, String startDate,
                                        String endDate, int days) {

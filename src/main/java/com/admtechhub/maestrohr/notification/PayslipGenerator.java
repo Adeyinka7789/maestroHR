@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.employee.Department;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
+import com.admtechhub.maestrohr.payroll.TransferStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,8 @@ import org.thymeleaf.context.Context;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 @Component
 @RequiredArgsConstructor
@@ -74,6 +77,24 @@ public class PayslipGenerator {
                     + unpaidLeaveDeduction + attendanceDeduction + loanDeduction + otherDeductions;
             context.setVariable("totalDeductions", totalDeductions / 100.0);
             context.setVariable("netPay", netPay / 100.0);
+
+            // Payment status variables
+            boolean isPaid = entry.getTransferStatus() == TransferStatus.PAID
+                    || entry.getTransferStatus() == TransferStatus.SUCCESS;
+            context.setVariable("isPaid", isPaid);
+
+            if (isPaid && entry.getPayrollRun() != null && entry.getPayrollRun().getUpdatedAt() != null) {
+                context.setVariable("paymentDate",
+                        DateTimeFormatter.ofPattern("dd MMM yyyy")
+                                .withLocale(Locale.ENGLISH)
+                                .format(entry.getPayrollRun().getUpdatedAt()));
+            } else {
+                context.setVariable("paymentDate", null);
+            }
+
+            String transferRef = entry.getTransferReference();
+            context.setVariable("paymentMethod",
+                    transferRef != null && transferRef.startsWith("SAL-") ? "Bank Transfer" : "Paystack Transfer");
 
             String html = templateEngine.process("payslip", context);
             log.debug("Payslip HTML: {}", html);

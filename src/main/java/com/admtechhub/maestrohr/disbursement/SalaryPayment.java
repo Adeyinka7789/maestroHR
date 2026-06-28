@@ -16,4 +16,6 @@ public class SalaryPayment {
     private Long amountKobo;  // Amount in kobo (1 NGN = 100 kobo)
     private String reference;
     private String narration;
+    /** Pre-stored Paystack recipient code; when non-blank, skips createTransferRecipient call. */
+    private String paystackRecipientCode;
 }

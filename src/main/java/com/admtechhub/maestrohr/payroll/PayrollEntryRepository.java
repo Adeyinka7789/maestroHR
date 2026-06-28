@@ -63,6 +63,12 @@ public interface PayrollEntryRepository extends JpaRepository<PayrollEntry, UUID
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.payrollRun.id = :payrollRunId AND pe.employee.id = :employeeId")
     Optional<PayrollEntry> findByPayrollRunIdAndEmployeeId(@Param("payrollRunId") UUID payrollRunId, @Param("employeeId") UUID employeeId);
 
+    // Find entry by its Paystack transfer reference — used by the transfer.success/failed webhook
+    // handlers which have no tenant context when called, so this is paired with a
+    // WebhookTenantResolver lookup + bindTenantSession before the JPQL filter fires.
+    @Query("SELECT pe FROM PayrollEntry pe WHERE pe.transferReference = :ref")
+    Optional<PayrollEntry> findByTransferReference(@Param("ref") String ref);
+
     // Used by PayrollNotificationConsumer: eagerly fetches employee and payrollRun so both
     // associations are available outside a JPA session (no LazyInitializationException).
     @Query("SELECT pe FROM PayrollEntry pe JOIN FETCH pe.employee JOIN FETCH pe.payrollRun WHERE pe.payrollRun.id = :runId")
