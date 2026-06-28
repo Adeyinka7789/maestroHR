@@ -1,5 +1,7 @@
 package com.admtechhub.maestrohr.auth;
 
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.platform.AuthBootstrapQueries;
 import com.admtechhub.maestrohr.platform.LoginAttemptWrites;
@@ -38,6 +40,7 @@ public class AuthService {
     private final TenantUserWrites tenantUserWrites;
     private final PasswordResetTokenStore passwordResetTokenStore;
     private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
@@ -254,5 +257,54 @@ public class AuthService {
 
     private void resetFailedAttempts(AuthBootstrapQueries.UserAuthRow auth) {
         loginAttemptWrites.resetFailedLogin(auth.id());
+    }
+
+    /**
+     * Returns the current user's profile for the onboarding wizard. Requires an active tenant
+     * session (called from an authenticated /api/auth/me request). firstName falls back to the
+     * email local-part when no employee record exists. departmentName is populated only for
+     * DEPT_MANAGER; companyName comes via the privileged datasource to avoid RLS edge cases.
+     */
+    @Transactional(readOnly = true)
+    public MeResponse getMe(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        java.util.Optional<Employee> empOpt = employeeRepository.findByEmail(email);
+
+        String firstName = empOpt
+                .map(Employee::getFirstName)
+                .orElseGet(() -> {
+                    int at = email.indexOf('@');
+                    return at > 0 ? email.substring(0, at) : email;
+                });
+
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        String companyName = authBootstrapQueries.findTenantById(tenantId)
+                .map(AuthBootstrapQueries.TenantNameRow::companyName)
+                .orElse("");
+
+        String departmentName = null;
+        if (user.getRole() == UserRole.DEPT_MANAGER) {
+            departmentName = empOpt
+                    .map(e -> e.getDepartment() != null ? e.getDepartment().getName() : null)
+                    .orElse(null);
+        }
+
+        return MeResponse.builder()
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .hasCompletedOnboarding(user.isHasCompletedOnboarding())
+                .firstName(firstName)
+                .companyName(companyName)
+                .departmentName(departmentName)
+                .build();
+    }
+
+    /** Marks the current user's onboarding tour as done (idempotent). */
+    @Transactional
+    public void completeOnboarding(String email) {
+        userRepository.markOnboardingComplete(email);
+        log.debug("Onboarding completed for user: {}", email);
     }
 }

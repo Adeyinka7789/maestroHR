@@ -436,6 +436,10 @@
 
     if (token) applyFeatureFlags();
 
+    // ── Onboarding wizard (defined in onboarding-wizard.js, loaded before this file) ──
+    window.MaestroHR.initOnboarding = window.__MaestroOnboardingInit || function () {};
+    if (token) window.MaestroHR.initOnboarding();
+
     // ── Auto‑load content for the current route ─────────────────
     (function autoLoadInitialContent() {
         const currentPath = window.location.pathname;

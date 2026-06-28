@@ -45,6 +45,10 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
 
+    @Column(name = "has_completed_onboarding", nullable = false)
+    @Builder.Default
+    private boolean hasCompletedOnboarding = false;
+
     public boolean isLocked() {
         return lockedUntil != null && lockedUntil.isAfter(OffsetDateTime.now());
     }

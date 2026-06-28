@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -50,5 +52,32 @@ public class AuthController {
         authService.resetPassword(request.getToken(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success(
                 "Your password has been reset. You can now sign in.", null));
+    }
+
+    /**
+     * Returns the current user's profile for the onboarding wizard.
+     * Requires a valid Bearer token — returns 401 if called without auth.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MeResponse>> me(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Unauthorized"));
+        }
+        MeResponse me = authService.getMe(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("ok", me));
+    }
+
+    /** Marks the current user's onboarding tour as completed. Idempotent. */
+    @PostMapping("/onboarding/complete")
+    public ResponseEntity<ApiResponse<Void>> completeOnboarding(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Unauthorized"));
+        }
+        authService.completeOnboarding(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Onboarding completed", null));
     }
 }

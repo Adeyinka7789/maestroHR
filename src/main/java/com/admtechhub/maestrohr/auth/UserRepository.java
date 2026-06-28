@@ -1,8 +1,11 @@
 package com.admtechhub.maestrohr.auth;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,4 +34,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT COUNT(u) FROM User u WHERE u.lockedUntil > CURRENT_TIMESTAMP")
     long countLockedUsers();
+
+    @Modifying
+    @Query("UPDATE User u SET u.hasCompletedOnboarding = true WHERE u.email = :email")
+    void markOnboardingComplete(@Param("email") String email);
 }

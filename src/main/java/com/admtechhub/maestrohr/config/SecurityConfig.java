@@ -61,6 +61,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // ── Authenticated sub-paths of /api/auth/** ───────────────────
+                        // These are evaluated first, before the broad /api/auth/** permitAll
+                        // below, so they require a valid session even though the parent
+                        // pattern is public. JwtAuthFilter still sets TenantContext for
+                        // valid tokens on NO_TENANT paths, so RLS-scoped reads work here.
+                        .requestMatchers("/api/auth/me", "/api/auth/onboarding/complete").authenticated()
                         // ── Public endpoints ──────────────────────────────────────────
                         // NO_TENANT (truly public APIs + static) ∪ UI_SHELL (Thymeleaf pages,
                         // auth handled client-side via JWT). Single source of truth: PublicPaths.
