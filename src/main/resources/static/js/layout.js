@@ -634,4 +634,82 @@
 
         if (!navigator.onLine) showOfflineBanner();
     })();
+
+    // ── Mobile bottom nav ─────────────────────────────────────────────
+    function navigateTo(route, path) {
+        htmx.ajax('GET', path, { target: '#page-content', swap: 'innerHTML' });
+        history.pushState({}, '', path);
+    }
+
+    function setMobileActive(activeId) {
+        ['mob-home', 'mob-quick', 'mob-notifications'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.toggle('active', id === activeId);
+        });
+    }
+
+    function initMobileNav() {
+        if (window.innerWidth > 768) return;
+
+        var quickActions = {
+            'HR_ADMIN':       { icon: 'group',          label: 'Employees',  route: 'employees' },
+            'SYSTEM_ADMIN':   { icon: 'group',          label: 'Employees',  route: 'employees' },
+            'EMPLOYEE':       { icon: 'fingerprint',    label: 'Attendance', route: 'attendance-me' },
+            'FINANCE_OFFICER':{ icon: 'payments',       label: 'Payroll',    route: 'payroll' },
+            'DEPT_MANAGER':   { icon: 'event_available',label: 'Leave',      route: 'leave' },
+            'SUPER_ADMIN':    { icon: 'corporate_fare', label: 'Tenants',    route: 'subscribers' }
+        };
+
+        var qa = quickActions[userRole] || quickActions['HR_ADMIN'];
+        document.getElementById('mob-quick-icon').textContent  = qa.icon;
+        document.getElementById('mob-quick-label').textContent = qa.label;
+        document.getElementById('mob-quick').dataset.route     = qa.route;
+
+        document.getElementById('mob-home').addEventListener('click', function () {
+            navigateTo('dashboard', '/htmx/dashboard');
+            setMobileActive('mob-home');
+        });
+
+        document.getElementById('mob-quick').addEventListener('click', function () {
+            navigateTo(qa.route, '/htmx/' + qa.route.replace('-me', '/me'));
+            setMobileActive('mob-quick');
+        });
+
+        document.getElementById('mob-notifications').addEventListener('click', function () {
+            var toggle = document.getElementById('notification-toggle');
+            if (toggle) toggle.click();
+            setMobileActive('mob-notifications');
+        });
+
+        document.getElementById('mob-menu').addEventListener('click', function () {
+            var toggle = document.getElementById('mobile-menu-toggle');
+            if (toggle) toggle.click();
+        });
+
+        function syncNotifBadge() {
+            var badge    = document.getElementById('notification-badge');
+            var mobBadge = document.getElementById('mob-notif-badge');
+            if (badge && mobBadge) {
+                var count = badge.textContent.trim();
+                if (count && count !== '0' && badge.style.display !== 'none') {
+                    mobBadge.textContent = count;
+                    mobBadge.style.display = 'block';
+                } else {
+                    mobBadge.style.display = 'none';
+                }
+            }
+        }
+
+        syncNotifBadge();
+        setInterval(syncNotifBadge, 30000);
+
+        document.body.addEventListener('htmx:pushedIntoHistory', function (e) {
+            var path = e.detail.path || '';
+            if (path.includes('dashboard'))    setMobileActive('mob-home');
+            else if (path.includes(qa.route))  setMobileActive('mob-quick');
+            else                               setMobileActive(null);
+        });
+    }
+
+    initMobileNav();
 })();
