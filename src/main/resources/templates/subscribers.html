@@ -25,19 +25,21 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Subscribers</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Tenant portfolio, subscription plans, and account posture.
             </p>
         </div>
-        <a href="/htmx/admin" hx-get="/htmx/admin" hx-target="#page-content"
-           hx-push-url="true" hx-swap="innerHTML"
-           class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
-            <span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
-            Open Admin Console
-        </a>
+        <div class="page-header-actions">
+            <a href="/htmx/admin" hx-get="/htmx/admin" hx-target="#page-content"
+               hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+                Open Admin Console
+            </a>
+        </div>
     </div>
 
     <!-- Stat cards (global portfolio totals — unaffected by the filters below) -->

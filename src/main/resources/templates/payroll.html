@@ -39,14 +39,14 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Payroll Runs</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Review monthly payroll runs and their approval status
             </p>
         </div>
-
+        <div class="page-header-actions">
         <!--
           Initiate form (Step C). Posts the chosen month to /htmx/payroll/initiate; on
           success the controller swaps #page-content with the new run's detail fragment
@@ -67,6 +67,7 @@
                 Initiate Payroll
             </button>
         </form>
+        </div>
     </div>
 
     <!--

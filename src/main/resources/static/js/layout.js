@@ -354,6 +354,40 @@
 
     if (token) fetchNotifications();
 
+    // ── Help panel toggle ───────────────────────────────────────────
+    document.getElementById('help-toggle')?.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var panel = document.getElementById('help-panel');
+        if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', function(e) {
+        var panel = document.getElementById('help-panel');
+        var toggle = document.getElementById('help-toggle');
+        if (panel && toggle && !panel.contains(e.target) && !toggle.contains(e.target)) {
+            panel.style.display = 'none';
+        }
+    });
+
+    // ── Support contacts ────────────────────────────────────────────
+    if (token) {
+        fetch('/api/tenant/support-contacts', { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var wa = document.getElementById('help-whatsapp');
+                var em = document.getElementById('help-email');
+                if (data.supportWhatsapp && wa) {
+                    wa.href = 'https://wa.me/' + data.supportWhatsapp.replace(/[^0-9]/g, '');
+                } else if (wa) {
+                    wa.style.display = 'none';
+                }
+                if (data.supportEmail && em) {
+                    em.href = 'mailto:' + data.supportEmail;
+                } else if (em) {
+                    em.style.display = 'none';
+                }
+            }).catch(function() {});
+    }
+
     // ── Platform broadcasts (Feature 5) ────────────────────────────
     // Unread platform announcements, filtered server-side to this tenant's plan tier, shown as
     // dismissible banners above the topbar. Dismiss = POST .../read, which removes it for good.
@@ -667,8 +701,14 @@
         if (quickLabel) quickLabel.textContent = qa.label;
         document.getElementById('mob-quick').dataset.route     = qa.route;
 
+        if (userRole === 'SUPER_ADMIN') {
+            document.getElementById('mob-home').dataset.route = 'admin';
+        }
+
         document.getElementById('mob-home').addEventListener('click', function () {
-            navigateTo('dashboard', '/htmx/dashboard');
+            var homePath  = userRole === 'SUPER_ADMIN' ? '/htmx/admin'     : '/htmx/dashboard';
+            var homeRoute = userRole === 'SUPER_ADMIN' ? 'admin'            : 'dashboard';
+            navigateTo(homeRoute, homePath);
             setMobileActive('mob-home');
         });
 
@@ -677,11 +717,23 @@
             setMobileActive('mob-quick');
         });
 
-        document.getElementById('mob-notifications').addEventListener('click', function () {
-            var path = (userRole === 'EMPLOYEE') ? '/htmx/attendance/me' : '/htmx/attendance';
-            navigateTo('attendance', path);
-            setMobileActive('mob-notifications');
-        });
+        if (userRole === 'SUPER_ADMIN') {
+            document.getElementById('mob-notifications').addEventListener('click', function () {
+                navigateTo('admin-analytics', '/htmx/admin/analytics');
+                setMobileActive('mob-notifications');
+            });
+            var notifBtn = document.getElementById('mob-notifications');
+            if (notifBtn) {
+                notifBtn.querySelector('.material-symbols-outlined').textContent = 'bar_chart';
+                notifBtn.querySelector('span:last-child').textContent = 'Analytics';
+            }
+        } else {
+            document.getElementById('mob-notifications').addEventListener('click', function () {
+                var path = (userRole === 'EMPLOYEE') ? '/htmx/attendance/me' : '/htmx/attendance';
+                navigateTo('attendance', path);
+                setMobileActive('mob-notifications');
+            });
+        }
 
         document.getElementById('mob-menu').addEventListener('click', function () {
             var toggle = document.getElementById('mobile-menu-toggle');
@@ -706,8 +758,9 @@
         setInterval(syncNotifBadge, 30000);
 
         document.body.addEventListener('htmx:pushedIntoHistory', function (e) {
-            var path = e.detail.path || '';
-            if (path.includes('dashboard'))    setMobileActive('mob-home');
+            var path     = e.detail.path || '';
+            var homeKey  = userRole === 'SUPER_ADMIN' ? 'admin' : 'dashboard';
+            if (path.includes(homeKey))        setMobileActive('mob-home');
             else if (path.includes(qa.route))  setMobileActive('mob-quick');
             else                               setMobileActive(null);
         });

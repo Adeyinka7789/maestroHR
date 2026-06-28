@@ -323,6 +323,11 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
                     <span class="nav-label">Feature Flags</span>
                 </a>
+                <a href="/htmx/admin/platform-settings" class="nav-item" data-route="admin-platform-settings" data-label="Platform Settings"
+                   hx-get="/htmx/admin/platform-settings" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span class="nav-label">Platform Settings</span>
+                </a>
                 <a href="/htmx/subscribers" class="nav-item" data-route="subscribers" data-label="Subscribers"
                    hx-get="/htmx/subscribers" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -397,6 +402,23 @@
                 <div class="top-search">
                     <input id="global-search-input" class="form-input" type="search" placeholder="Search employees, payroll, leave...">
                     <div id="global-search-results" class="top-search-results"></div>
+                </div>
+                <div style="position:relative;">
+                    <button id="help-toggle" title="Help &amp; Support" style="background:none; border:none; cursor:pointer; color:#6b7280; padding:5px; border-radius:6px; font-size:13px; font-weight:600; width:28px; height:28px; border:1.5px solid #e2e8f0; border-radius:50%; display:flex; align-items:center; justify-content:center;">?</button>
+                    <div id="help-panel" style="display:none; position:absolute; right:0; top:calc(100% + 8px); width:220px; background:white; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.10); z-index:200; padding:8px 0;">
+                        <div style="padding:10px 14px 6px; font-size:11px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:.05em;">Help &amp; Support</div>
+                        <a id="help-whatsapp" href="#" target="_blank" style="display:flex; align-items:center; gap:10px; padding:9px 14px; color:#111827; text-decoration:none; font-size:13px;">
+                            <span style="font-size:16px;">💬</span> Chat on WhatsApp
+                        </a>
+                        <a id="help-email" href="#" style="display:flex; align-items:center; gap:10px; padding:9px 14px; color:#111827; text-decoration:none; font-size:13px;">
+                            <span style="font-size:16px;">📧</span> Email Support
+                        </a>
+                        <div style="border-top:1px solid #f3f4f6; margin:4px 0;"></div>
+                        <a href="/htmx/settings" hx-get="/htmx/settings" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                           style="display:flex; align-items:center; gap:10px; padding:9px 14px; color:#111827; text-decoration:none; font-size:13px;">
+                            <span style="font-size:16px;">⚙️</span> Settings
+                        </a>
+                    </div>
                 </div>
                 <div style="position:relative;">
                     <button id="notification-toggle" style="background:none; border:none; cursor:pointer; color:#6b7280; padding:5px; border-radius:6px; position:relative;">

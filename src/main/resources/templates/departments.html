@@ -25,18 +25,20 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Departments</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 <span th:text="${view.totalElements}">8</span> departments
             </p>
         </div>
-        <button type="button" onclick="openDeptCreate()"
-                class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
-            <span class="material-symbols-outlined text-[18px]">add</span>
-            New Department
-        </button>
+        <div class="page-header-actions">
+            <button type="button" onclick="openDeptCreate()"
+                    class="inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+                New Department
+            </button>
+        </div>
     </div>
 
     <!-- Action banners -->

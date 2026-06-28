@@ -121,6 +121,8 @@ logging:
     com.admtechhub.maestrohr: DEBUG
     org.flywaydb: INFO
     org.springframework.web: INFO
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR
   pattern:
     console: "%clr(%d{HH:mm:ss}){faint} %clr(%-5level) [%X{requestId:-na}/%X{tenantId:-na}] %clr(%-40.40logger{39}){cyan} : %msg%n"
 

@@ -127,13 +127,14 @@
         <span th:text="${error}">Error</span>
     </div>
 
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Employees</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 <span th:text="${view.totalElements}">124</span> records
             </p>
         </div>
+        <div class="page-header-actions">
         <div class="flex items-center gap-sm">
             <button id="import-csv-btn" type="button"
                     class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
@@ -168,6 +169,7 @@
                 <span class="material-symbols-outlined text-[20px]">person_add</span>
                 Add Employee
             </a>
+        </div>
         </div>
     </div>
 

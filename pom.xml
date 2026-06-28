@@ -245,6 +245,7 @@
                 <version>0.11.0</version>
                 <extensions>true</extensions>
                 <configuration>
+                    <skip>${sentry.skip}</skip>
                     <debugSentryCli>true</debugSentryCli>
                     <org>adm-tech-hub</org>
                     <project>java-spring-boot</project>

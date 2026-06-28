@@ -79,14 +79,14 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Attendance</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Daily attendance roster for your team
             </p>
         </div>
-
+        <div class="page-header-actions">
         <!--
           Mark Attendance (Step C) — HR/manager write for ANY employee on ANY (non-future) day.
           An inline <details> dropdown (no modal), mirroring the leave page's inline forms. Posts
@@ -147,6 +147,7 @@
                 </div>
             </form>
         </details>
+        </div>
     </div>
 
     <!--

@@ -13,14 +13,14 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Platform Overview</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Real-time performance metrics and tenant management.
             </p>
         </div>
-        <div class="flex items-center gap-sm">
+        <div class="page-header-actions flex items-center gap-sm">
             <a href="/htmx/admin/pricing" hx-get="/htmx/admin/pricing" hx-target="#page-content"
                hx-push-url="true" hx-swap="innerHTML"
                class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">

@@ -4,14 +4,14 @@
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Audit Logs</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Cross-tenant system activity and user actions.
             </p>
         </div>
-        <div class="flex items-center gap-sm">
+        <div class="page-header-actions flex items-center gap-sm">
             <a th:href="@{/api/admin/audit/export(tenantId=${tenantId},actor=${actor},action=${action},entityType=${entityType},statusGroup=${statusGroup},dateFrom=${dateFrom},dateTo=${dateTo})}"
                class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
                 <span class="material-symbols-outlined text-[20px]">download</span>

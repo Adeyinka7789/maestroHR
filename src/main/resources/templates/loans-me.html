@@ -22,14 +22,14 @@
 
     <div th:if="${noProfile == null}">
         <!-- Header -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
-            <div>
+        <div class="page-header">
+            <div class="page-header-text">
                 <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">My Loans</h1>
                 <p class="font-body-md text-body-md text-on-surface-variant">
                     Apply for a loan or salary advance, repaid through your monthly payroll
                 </p>
             </div>
-
+            <div class="page-header-actions">
             <!-- Apply — inline <details> dropdown (no modal). Posts to /htmx/loans/me/apply. -->
             <details class="relative" data-popover>
                 <summary class="list-none cursor-pointer inline-flex items-center gap-xs px-4 py-2.5 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
@@ -69,6 +69,7 @@
                     </div>
                 </form>
             </details>
+            </div>
         </div>
 
         <!-- Result banners -->

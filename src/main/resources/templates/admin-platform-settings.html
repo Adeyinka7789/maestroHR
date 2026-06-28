@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<!--
+  admin-platform-settings.html — server-rendered HTMX fragment for the super-admin platform
+  settings console. Rendered by SuperAdminPlatformSettingsController as
+  "admin-platform-settings :: content" and swapped into #page-content. Styled with Stitch
+  design-system tokens, matching admin-analytics.html / admin-dashboard.html conventions.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Platform Settings</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Global defaults and configuration applied across all tenants.
+            </p>
+        </div>
+        <div class="page-header-actions flex items-center gap-sm">
+            <a href="/htmx/admin" hx-get="/htmx/admin" hx-target="#page-content"
+               hx-push-url="true" hx-swap="innerHTML"
+               class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+                Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div id="platform-settings-banner" style="display:none;" class="mb-md p-sm rounded-lg font-label-md text-label-md"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-md">
+
+        <!-- ── 1. Support & Contact ─────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">support_agent</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Support &amp; Contact</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <form onsubmit="savePlatformCard(event, ['support_email','support_whatsapp','support_url'])">
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Support Email</label>
+                        <input type="email" name="support_email" class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="support@yourcompany.com"
+                               th:value="${settings['support_email']}">
+                    </div>
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">WhatsApp Number</label>
+                        <input type="text" name="support_whatsapp" class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="+2348012345678"
+                               th:value="${settings['support_whatsapp']}">
+                    </div>
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Support / Docs URL</label>
+                        <input type="url" name="support_url" class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="https://help.yourcompany.com"
+                               th:value="${settings['support_url']}">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── 2. Platform Identity ─────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">badge</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Platform Identity</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <form onsubmit="savePlatformCard(event, ['platform_name'])">
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Platform Name</label>
+                        <input type="text" name="platform_name" class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="MaestroHR"
+                               th:value="${settings['platform_name']}">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── 3. Trial & Billing ──────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">schedule</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Trial &amp; Billing</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <form onsubmit="savePlatformCard(event, ['trial_duration_days','trial_grace_period_days'])">
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Trial Duration (days)</label>
+                        <input type="number" name="trial_duration_days" min="1" max="90" class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               th:value="${settings['trial_duration_days']}">
+                    </div>
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Grace Period after Expiry (days)</label>
+                        <input type="number" name="trial_grace_period_days" min="0" max="30" class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               th:value="${settings['trial_grace_period_days']}">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── 4. Payroll Defaults ─────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">account_balance</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Payroll Defaults</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <div class="flex items-start gap-xs bg-tertiary-fixed rounded-lg p-sm mb-md">
+                    <span class="material-symbols-outlined text-tertiary text-[18px] mt-[2px]">info</span>
+                    <p class="font-body-sm text-body-sm text-on-tertiary-fixed-variant">
+                        Nigerian statutory defaults. Only change if regulations change.
+                    </p>
+                </div>
+                <form onsubmit="savePayrollDefaults(event)">
+                    <div class="grid grid-cols-2 gap-sm mb-md">
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Minimum Wage (₦)</label>
+                            <input type="number" id="min_wage_naira" min="0" step="100"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${minWageNaira}">
+                        </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Employee Pension %</label>
+                            <input type="number" name="pension_employee_pct" min="0" max="100" step="0.5"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['pension_employee_pct']}">
+                        </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Employer Pension %</label>
+                            <input type="number" name="pension_employer_pct" min="0" max="100" step="0.5"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['pension_employer_pct']}">
+                        </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">NHF Rate %</label>
+                            <input type="number" name="nhf_rate_pct" min="0" max="100" step="0.1"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['nhf_rate_pct']}">
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── 5. Security ─────────────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">lock</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Security</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <form onsubmit="savePlatformCard(event, ['max_failed_logins'])">
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Failed Login Attempts</label>
+                        <input type="number" name="max_failed_logins" min="1" max="10"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               th:value="${settings['max_failed_logins']}">
+                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Account is locked after this many consecutive failures. Range: 1–10.</p>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── 6. Notifications ────────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">sms</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Notifications</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <form onsubmit="savePlatformCard(event, ['sms_sender_id'])">
+                    <div class="mb-md">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">SMS Sender ID</label>
+                        <input type="text" name="sms_sender_id" maxlength="11"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="MaestroHR"
+                               th:value="${settings['sms_sender_id']}">
+                        <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Max 11 characters. Alphanumeric only.</p>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div><!-- /grid -->
+
+    <script th:inline="none">
+    (function () {
+        var token = localStorage.getItem('maestrohr_token');
+
+        function showBanner(msg, ok) {
+            var el = document.getElementById('platform-settings-banner');
+            el.textContent = msg;
+            el.className = 'mb-md p-sm rounded-lg font-label-md text-label-md ' +
+                (ok ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fee2e2] text-[#991b1b]');
+            el.style.display = 'block';
+            setTimeout(function () { el.style.display = 'none'; }, 4000);
+        }
+
+        window.savePlatformCard = function (e, keys) {
+            e.preventDefault();
+            var form = e.target;
+            var payload = {};
+            keys.forEach(function (k) {
+                var el = form.querySelector('[name="' + k + '"]');
+                if (el) payload[k] = el.value.trim();
+            });
+            fetch('/api/admin/platform-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(payload)
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { showBanner(d.success ? 'Settings saved.' : (d.message || 'Save failed.'), !!d.success); })
+            .catch(function () { showBanner('Network error — settings not saved.', false); });
+        };
+
+        window.savePayrollDefaults = function (e) {
+            e.preventDefault();
+            var form = e.target;
+            var naira = parseFloat(document.getElementById('min_wage_naira').value) || 0;
+            var payload = {
+                min_wage_kobo: String(Math.round(naira * 100)),
+                pension_employee_pct: form.querySelector('[name="pension_employee_pct"]').value.trim(),
+                pension_employer_pct: form.querySelector('[name="pension_employer_pct"]').value.trim(),
+                nhf_rate_pct: form.querySelector('[name="nhf_rate_pct"]').value.trim()
+            };
+            fetch('/api/admin/platform-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify(payload)
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { showBanner(d.success ? 'Payroll defaults saved.' : (d.message || 'Save failed.'), !!d.success); })
+            .catch(function () { showBanner('Network error — settings not saved.', false); });
+        };
+    })();
+    </script>
+</div>
+</body>
+</html>
