@@ -290,87 +290,231 @@
 <!-- ============================== GRID ============================== -->
 <div th:fragment="grid">
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<style>
+/* split layout */
+.pg-split { display:flex; gap:1.5rem; align-items:flex-start; }
+.pg-left  { flex:0 0 60%; min-width:0; }
+.pg-right { flex:0 0 calc(40% - 1.5rem); position:sticky; top:1rem; }
+/* table */
+.pg-table { width:100%; border-collapse:collapse; }
+.pg-table thead tr { border-bottom:2px solid #e5e7eb; }
+.pg-table thead th { padding:.625rem 1rem; text-align:left; font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; }
+.pg-table-row { cursor:pointer; }
+.pg-table-row td { padding:.8rem 1rem; border-bottom:1px solid #f3f4f6; vertical-align:middle; transition:background .12s, color .12s; }
+.pg-table-row:hover:not(.pg-active) td { background:#f0f4ff; }
+.pg-table-row.pg-active td { background:#00236f; color:#fff; }
+.pg-table-row.pg-active .pg-badge { background:rgba(255,255,255,.2); color:#fff; }
+/* detail card */
+.pg-detail-card { background:#fff; border:1px solid #e5e7eb; border-radius:.75rem; padding:1.5rem; min-height:220px; transition:opacity .15s; }
+.pg-detail-card.pg-fading { opacity:0; }
+.pg-pay-track { background:#f1f5f9; border-radius:9999px; height:6px; margin:.25rem 0 1rem; }
+.pg-pay-fill  { background:#00236f; border-radius:9999px; height:6px; }
+.pg-salary-line { display:flex; justify-content:space-between; padding:.35rem 0; border-bottom:1px solid #f3f4f6; }
+.pg-gross-big { font-size:1.4rem; font-weight:700; color:#00236f; margin:1rem 0 .25rem; }
+/* mobile accordion */
+.pg-mobile-detail-row { display:none; }
+.pg-mobile-detail-row.pg-expanded { display:table-row; }
+.pg-mobile-detail-row > td { padding:.75rem 1rem 1.25rem; background:#eef2ff; border-bottom:2px solid #00236f; }
+/* responsive */
+@media (max-width:768px) {
+  .pg-split { flex-direction:column; }
+  .pg-right { display:none; }
+  .pg-table thead th:nth-child(2), .pg-table-row td:nth-child(2) { display:none; }
+}
+@media (min-width:769px) {
+  .pg-chevron-col { display:none; }
+  .pg-mobile-detail-row { display:none !important; }
+}
+</style>
 
-        <!-- One card per pay grade -->
-        <div th:each="row : ${view.rows}"
-             class="bg-white border border-outline-variant rounded-xl overflow-hidden flex flex-col">
+<div class="pg-split">
 
-            <!-- Card header: grade name + status + assigned headcount -->
-            <div class="p-md border-b border-outline-variant flex items-start justify-between gap-sm">
-                <div class="min-w-0">
-                    <p class="font-label-sm text-label-sm text-on-surface-variant">Grade</p>
-                    <p class="font-label-md text-label-md text-on-surface mt-xs truncate" th:text="${row.name}">Senior Engineer</p>
-                    <p class="text-[12px] text-on-surface-variant mt-xs">
-                        <span th:text="${row.employeeCount}">12</span>
-                        <span th:text="${row.employeeCount == 1 ? 'employee' : 'employees'}">employees</span>
-                    </p>
-                </div>
-                <span class="px-2 py-1 rounded text-[10px] font-bold flex-shrink-0"
-                      th:classappend="${row.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
-                      th:text="${row.active ? 'Active' : 'Inactive'}">Active</span>
-            </div>
+    <!-- LEFT: scrollable table -->
+    <div class="pg-left">
+        <table class="pg-table">
+            <thead>
+                <tr>
+                    <th>Grade Name</th>
+                    <th>Employees</th>
+                    <th>Gross Monthly</th>
+                    <th>Status</th>
+                    <th class="pg-chevron-col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <th:block th:each="row, stat : ${view.rows}">
+                    <tr class="pg-table-row"
+                        th:id="|pg-row-${row.id}|"
+                        th:data-id="${row.id}"
+                        th:classappend="${stat.first} ? ' pg-active' : ''">
+                        <td>
+                            <span class="font-label-md text-label-md" th:text="${row.name}">Grade</span>
+                        </td>
+                        <td class="font-body-sm text-body-sm text-on-surface-variant" th:text="${row.employeeCount}">0</td>
+                        <td class="font-table-data text-table-data" th:text="${row.grossFormatted}">₦0</td>
+                        <td>
+                            <span class="pg-badge px-2 py-1 rounded text-[10px] font-bold"
+                                  th:classappend="${row.active} ? ' bg-secondary-container text-on-secondary-container' : ' bg-surface-container text-on-surface-variant'"
+                                  th:text="${row.active} ? 'Active' : 'Inactive'">Active</span>
+                        </td>
+                        <td class="pg-chevron-col text-on-surface-variant text-xs text-center">▾</td>
+                    </tr>
+                    <!-- mobile accordion row — populated by JS on first tap -->
+                    <tr class="pg-mobile-detail-row" th:id="|pg-mobile-detail-${row.id}|">
+                        <td colspan="5"></td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
 
-            <!-- Relative-pay bar -->
-            <div class="px-md pt-md">
-                <div class="flex items-center justify-between mb-xs">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant">Relative pay level</span>
-                    <span class="font-label-sm text-label-sm text-primary" th:text="${row.relativePct} + '%'">100%</span>
-                </div>
-                <div class="h-1.5 bg-surface-container-low rounded-full overflow-hidden">
-                    <div class="h-full bg-primary rounded-full" th:style="'width:' + ${row.relativePct} + '%'"></div>
-                </div>
-            </div>
-
-            <!-- Salary components -->
-            <div class="p-md flex-1 flex flex-col">
-                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant">
-                    <span class="font-body-sm text-body-sm text-on-surface-variant">Basic Salary</span>
-                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.basicFormatted}">₦300,000</span>
-                </div>
-                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant">
-                    <span class="font-body-sm text-body-sm text-on-surface-variant">Housing Allowance</span>
-                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.housingFormatted}">₦100,000</span>
-                </div>
-                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant">
-                    <span class="font-body-sm text-body-sm text-on-surface-variant">Transport Allowance</span>
-                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.transportFormatted}">₦50,000</span>
-                </div>
-                <div class="flex items-center justify-between py-1.5">
-                    <span class="font-body-sm text-body-sm text-on-surface-variant">Other Allowances</span>
-                    <span class="font-table-data text-table-data text-on-surface" th:text="${row.otherFormatted}">₦0</span>
-                </div>
-            </div>
-
-            <!-- Footer: gross + edit -->
-            <div class="px-md py-sm bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
-                <span class="font-label-sm text-label-sm text-on-surface-variant">Gross Monthly</span>
-                <div class="flex items-center gap-sm">
-                    <span class="font-headline-lg text-headline-lg text-primary font-table-data" th:text="${row.grossFormatted}">₦450,000</span>
-                    <button type="button" onclick="openPGEdit(this)"
-                            th:attr="data-id=${row.id},data-name=${row.name},data-basic=${row.basicSalary},data-housing=${row.housingAllowance},data-transport=${row.transportAllowance},data-other=${row.otherAllowances}"
-                            class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
-                        <span class="material-symbols-outlined text-[18px]">edit</span>
-                    </button>
-                    <!-- Soft-delete — blocked server-side while employees are still on this grade. -->
-                    <button type="button"
-                            th:attr="hx-post='/htmx/pay-grades/' + ${row.id} + '/delete'"
-                            hx-target="#page-content" hx-swap="innerHTML"
-                            hx-confirm="Move this pay grade to trash? Employees on it must be reassigned first. It can be restored within 90 days."
-                            class="p-1.5 rounded-lg text-on-surface-variant hover:bg-error hover:text-white transition-colors">
-                        <span class="material-symbols-outlined text-[18px]">delete</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Empty state -->
+        <!-- empty state -->
         <div th:if="${view.rows.isEmpty()}"
-             class="col-span-full bg-white border border-outline-variant rounded-xl px-md py-xl text-center">
+             class="bg-white border border-outline-variant rounded-xl px-md py-xl text-center mt-md">
             <p class="font-label-md text-label-md text-on-surface mb-xs">No pay grades found</p>
             <p class="font-body-sm text-body-sm text-on-surface-variant">Try adjusting your search.</p>
         </div>
     </div>
+
+    <!-- RIGHT: sticky detail panel -->
+    <div class="pg-right">
+        <div class="pg-detail-card" id="pg-detail-display">
+            <!-- JS populates from hidden server-rendered divs below -->
+        </div>
+    </div>
+
+</div><!-- /pg-split -->
+
+
+<!-- Server-rendered detail data — hidden, read by JS, no extra API calls -->
+<div aria-hidden="true" style="display:none">
+    <div th:each="row : ${view.rows}" th:id="|grade-detail-${row.id}|">
+
+        <!-- card header -->
+        <div class="flex items-start justify-between mb-md">
+            <h3 class="font-label-lg text-label-lg text-on-surface" style="margin:0" th:text="${row.name}">Grade</h3>
+            <span class="pg-badge px-2 py-1 rounded text-[10px] font-bold"
+                  th:classappend="${row.active} ? ' bg-secondary-container text-on-secondary-container' : ' bg-surface-container text-on-surface-variant'"
+                  th:text="${row.active} ? 'Active' : 'Inactive'">Active</span>
+        </div>
+
+        <!-- relative pay bar -->
+        <p class="font-label-sm text-label-sm text-on-surface-variant mb-xs">Relative pay level</p>
+        <div class="pg-pay-track">
+            <div class="pg-pay-fill" th:style="|width:${row.relativePct}%|"></div>
+        </div>
+
+        <!-- salary breakdown -->
+        <div class="pg-salary-line">
+            <span class="font-body-sm text-body-sm text-on-surface-variant">Basic Salary</span>
+            <span class="font-table-data text-table-data text-on-surface" th:text="${row.basicFormatted}">₦0</span>
+        </div>
+        <div class="pg-salary-line">
+            <span class="font-body-sm text-body-sm text-on-surface-variant">Housing Allowance</span>
+            <span class="font-table-data text-table-data text-on-surface" th:text="${row.housingFormatted}">₦0</span>
+        </div>
+        <div class="pg-salary-line">
+            <span class="font-body-sm text-body-sm text-on-surface-variant">Transport Allowance</span>
+            <span class="font-table-data text-table-data text-on-surface" th:text="${row.transportFormatted}">₦0</span>
+        </div>
+        <div class="pg-salary-line" style="border-bottom:none">
+            <span class="font-body-sm text-body-sm text-on-surface-variant">Other Allowances</span>
+            <span class="font-table-data text-table-data text-on-surface" th:text="${row.otherFormatted}">₦0</span>
+        </div>
+
+        <!-- gross total -->
+        <div class="pg-gross-big">
+            <span th:text="${row.grossFormatted}">₦0</span>
+            <span class="font-body-sm text-body-sm text-on-surface-variant"> / month</span>
+        </div>
+
+        <!-- action buttons — exact same HTMX / onclick attrs as original -->
+        <div class="flex gap-sm mt-md">
+            <button type="button" onclick="openPGEdit(this)"
+                    th:attr="data-id=${row.id},data-name=${row.name},data-basic=${row.basicSalary},data-housing=${row.housingAllowance},data-transport=${row.transportAllowance},data-other=${row.otherAllowances}"
+                    class="inline-flex items-center gap-xs px-3 py-2 rounded-lg border border-outline text-on-surface font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                <span class="material-symbols-outlined text-[16px]">edit</span> Edit
+            </button>
+            <!-- Soft-delete — blocked server-side while employees are still on this grade. -->
+            <button type="button"
+                    th:attr="hx-post='/htmx/pay-grades/' + ${row.id} + '/delete'"
+                    hx-target="#page-content" hx-swap="innerHTML"
+                    hx-confirm="Move this pay grade to trash? Employees on it must be reassigned first. It can be restored within 90 days."
+                    class="inline-flex items-center gap-xs px-3 py-2 rounded-lg border border-error text-error font-label-sm text-label-sm hover:bg-error hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-[16px]">delete</span> Delete
+            </button>
+        </div>
+
+    </div>
+</div><!-- /hidden detail data -->
+
+
+<script>
+(function () {
+    var rows     = Array.from(document.querySelectorAll('.pg-table-row'));
+    var display  = document.getElementById('pg-detail-display');
+    var activeId = null;
+
+    function getDetail(id) {
+        var src = document.getElementById('grade-detail-' + id);
+        return src ? src.innerHTML : '';
+    }
+
+    function showDetail(id) {
+        if (!display || id === activeId) return;
+        activeId = id;
+        rows.forEach(function (r) { r.classList.remove('pg-active'); });
+        var row = document.getElementById('pg-row-' + id);
+        if (row) row.classList.add('pg-active');
+
+        display.classList.add('pg-fading');
+        setTimeout(function () {
+            display.innerHTML = getDetail(id);
+            if (window.htmx) htmx.process(display);
+            display.classList.remove('pg-fading');
+        }, 150);
+    }
+
+    function toggleMobile(id) {
+        var mRow = document.getElementById('pg-mobile-detail-' + id);
+        if (!mRow) return;
+        var open = mRow.classList.contains('pg-expanded');
+        document.querySelectorAll('.pg-mobile-detail-row.pg-expanded').forEach(function (r) {
+            r.classList.remove('pg-expanded');
+        });
+        if (!open) {
+            var cell = mRow.querySelector('td');
+            if (cell && !cell.innerHTML.trim()) {
+                cell.innerHTML = getDetail(id);
+                if (window.htmx) htmx.process(cell);
+            }
+            mRow.classList.add('pg-expanded');
+        }
+    }
+
+    rows.forEach(function (row) {
+        var id = row.dataset.id;
+        row.addEventListener('mouseenter', function () {
+            if (window.innerWidth > 768) showDetail(id);
+        });
+        row.addEventListener('click', function () {
+            if (window.innerWidth > 768) showDetail(id);
+            else                         toggleMobile(id);
+        });
+    });
+
+    // initialise: show first row detail on desktop
+    if (rows.length && window.innerWidth > 768) {
+        var firstId = rows[0].dataset.id;
+        activeId = firstId;
+        rows[0].classList.add('pg-active');
+        if (display) {
+            display.innerHTML = getDetail(firstId);
+            if (window.htmx) htmx.process(display);
+        }
+    }
+}());
+</script>
+
 </div>
 
 </body>
