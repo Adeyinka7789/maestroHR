@@ -49,7 +49,9 @@ public final class PublicPaths {
             "/login",
             "/register",
             "/reset-password",
-            "/dashboard"
+            "/dashboard",
+            "/manifest.json",
+            "/offline.html"
     );
 
     /**

@@ -587,4 +587,51 @@
             evt.detail.issueRequest(true); // true = skip any further confirm processing
         }
     });
+
+    // ── PWA: offline / online detection ──────────────────────────────────────
+    (function initOfflineDetection() {
+        let offlineBanner = null;
+
+        function getOrCreateBanner() {
+            if (offlineBanner) return offlineBanner;
+            offlineBanner = document.createElement('div');
+            offlineBanner.id = 'offline-banner';
+            offlineBanner.style.cssText = [
+                'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:9999',
+                'background:#b45309', 'color:#fff', 'text-align:center',
+                'font-size:.875rem', 'font-weight:500', 'padding:.45rem 1rem',
+                'transition:transform .25s ease'
+            ].join(';');
+            offlineBanner.textContent = "You're offline — some features may be limited";
+            document.body.prepend(offlineBanner);
+            return offlineBanner;
+        }
+
+        function showOfflineBanner() {
+            const banner = getOrCreateBanner();
+            banner.style.transform = 'translateY(0)';
+        }
+
+        function hideOfflineBanner() {
+            if (offlineBanner) offlineBanner.style.transform = 'translateY(-100%)';
+        }
+
+        window.isOnline = function () { return navigator.onLine; };
+
+        window.addEventListener('offline', function () {
+            showOfflineBanner();
+        });
+
+        window.addEventListener('online', function () {
+            hideOfflineBanner();
+            if (window.showToast) window.showToast('Back online!', 'success');
+            if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                navigator.serviceWorker.ready.then(function (reg) {
+                    reg.sync.register('attendance-sync').catch(function () {});
+                });
+            }
+        });
+
+        if (!navigator.onLine) showOfflineBanner();
+    })();
 })();

@@ -137,6 +137,13 @@
             }
         }
     </style>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#00236f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MaestroHR">
+    <link rel="apple-touch-icon" href="/images/icon-192.png">
 </head>
 <body class="bg-slate-50">
 
@@ -473,6 +480,22 @@
         window.addEventListener('resize', checkMobile);
         checkMobile();
     })();
+</script>
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/js/sw.js', { scope: '/' })
+                .then(reg => console.log('SW registered:', reg.scope))
+                .catch(err => console.log('SW failed:', err));
+        });
+        navigator.serviceWorker.addEventListener('message', function (event) {
+            const data = event.data;
+            if (data && data.type === 'ATTENDANCE_SYNCED') {
+                if (window.showToast) window.showToast('Attendance synced successfully', 'success');
+            }
+        });
+    }
 </script>
 
 </body>
