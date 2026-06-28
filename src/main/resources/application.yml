@@ -90,9 +90,11 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.admtechhub.maestrohr.*"
+        reconnect.backoff.ms: 10000
+        reconnect.backoff.max.ms: 60000
     admin:
-      fail-fast: true                   # fail startup if broker is unreachable
-      auto-create: true                 # create missing topics (optional)
+      fail-fast: true                  # fail startup if broker is unreachable
+      auto-create: false                # don't try to create topics on startup locally
 
 management:
   endpoints:

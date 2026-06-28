@@ -140,6 +140,18 @@
                 <span class="material-symbols-outlined text-[20px]">upload_file</span>
                 Import CSV/EXCEL
             </button>
+            <div style="position:relative; display:inline-flex; align-items:center;">
+                <button id="import-help-btn" title="Import help"
+                        style="width:28px;height:28px;border-radius:50%;background:#e8eaf6;border:1.5px solid #9fa8da;color:#3949ab;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;">?</button>
+                <div id="import-help-popover"
+                     style="display:none;position:absolute;top:36px;left:0;z-index:200;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.12);padding:14px 16px;width:300px;font-size:12.5px;line-height:1.6;color:#374151;">
+                    <p style="margin:0 0 6px;"><strong>Employment Type:</strong> FULL_TIME, PART_TIME, or CONTRACT</p>
+                    <p style="margin:0 0 6px;"><strong>Departments:</strong> Auto-created if not found</p>
+                    <p style="margin:0 0 6px;"><strong>Pay Grades:</strong> Uses default if not specified</p>
+                    <p style="margin:0 0 10px;"><strong>Format:</strong> Column order doesn't matter — detected by header name</p>
+                    <a href="/api/employees/import/template" style="color:#2563eb;font-size:12px;text-decoration:underline;">Download Template</a>
+                </div>
+            </div>
             <a href="/api/employees/import/template"
                class="flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all duration-300">
                 <span class="material-symbols-outlined text-[20px]">download</span>
@@ -161,16 +173,7 @@
 
     <input type="file" id="csvFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden">
 
-    <div class="mb-md p-4 rounded-lg border border-warning/20 bg-white text-on-surface-variant text-[12px] space-y-2">
-        <div class="flex items-center gap-1.5 text-warning-custom font-bold">
-            <span>⚠️</span> Important Pre-import Checklists
-        </div>
-        <ul class="list-disc list-inside space-y-1 text-surface-variant ml-1">
-            <li><strong>Employment Type:</strong> Must perfectly match one of these exact keys: <code class="bg-surface-container-high px-1 py-0.5 rounded font-mono text-primary text-[11px]">FULL_TIME</code>, <code class="bg-surface-container-high px-1 py-0.5 rounded font-mono text-primary text-[11px]">PART_TIME</code>, or <code class="bg-surface-container-high px-1 py-0.5 rounded font-mono text-primary text-[11px]">CONTRACT</code>.</li>
-            <li><strong>Departments:</strong> If you input a department name that doesn't exist yet, maestroHR will automatically create it for you.</li>
-            <li><strong>Pay Grades:</strong> Employees will be assigned to a default base tier if specific configurations aren't explicitly established beforehand. For structured payroll tracking, it is recommended to set up your official organization Pay Grades prior to importing.</li>
-        </ul>
-    </div>
+
 
     <div id="employee-filters" class="flex flex-col md:flex-row gap-sm mb-md">
         <div class="relative flex-1">
@@ -352,6 +355,19 @@
 
             // --- event wiring ---
             importBtn.addEventListener('click', function () { fileInput.click(); });
+
+            // Import help popover toggle
+            var helpBtn     = document.getElementById('import-help-btn');
+            var helpPopover = document.getElementById('import-help-popover');
+            if (helpBtn && helpPopover) {
+                helpBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    helpPopover.style.display = helpPopover.style.display === 'none' ? 'block' : 'none';
+                });
+                document.addEventListener('click', function () {
+                    helpPopover.style.display = 'none';
+                });
+            }
 
             previewModal.addEventListener('click', function (e) { if (e.target === previewModal) hidePreview(); });
             previewFatalClose.addEventListener('click', hidePreview);

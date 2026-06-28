@@ -1,0 +1,15 @@
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    admin:
+      fail-fast: false
+    listener:
+      auto-startup: false  # disables all @KafkaListener consumers
+    producer:
+      properties:
+        max.block.ms: 1000  # fail fast on produce instead of hanging
+
+logging:
+  level:
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR

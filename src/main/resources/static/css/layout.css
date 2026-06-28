@@ -220,14 +220,14 @@ body.sidebar-pinned .nav-item {
 
 /* ── Mobile bottom nav ────────────────────────────────────────── */
 #mobile-bottom-nav {
+    display: none;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     height: 64px;
     background: white;
-    border-top: 1px solid var(--color-outline-variant, #e2e8f0);
-    display: none; /* shown via JS on mobile */
+    border-top: 1px solid #e2e8f0;
     align-items: center;
     justify-content: space-around;
     z-index: 100;
@@ -266,11 +266,30 @@ body.sidebar-pinned .nav-item {
     text-align: center;
 }
 @media (max-width: 768px) {
-    #mobile-bottom-nav { display: flex; }
-    #page-content { padding-bottom: 80px; }
+    #mobile-bottom-nav { display: flex !important; }
+    #page-content { padding-bottom: 80px !important; }
     #current-date { display: none; }
     #sidebar-toggle { display: none; }
 }
 @media (min-width: 769px) {
     #mobile-bottom-nav { display: none !important; }
+}
+/* ── Employees page mobile fixes ─────────────────────────────── */
+.flex.flex-col.md\:flex-row { flex-direction: column !important; }
+.flex.items-center.gap-sm { flex-wrap: wrap; gap: 8px !important; }
+
+#employees-table { overflow-x: auto; }
+
+@media (max-width: 768px) {
+    .btn-secondary, .btn-primary {
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+    }
+    .flex.flex-col.md\:flex-row.md\:items-center {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    .flex.items-center.gap-sm {
+        flex-wrap: wrap !important;
+    }
 }

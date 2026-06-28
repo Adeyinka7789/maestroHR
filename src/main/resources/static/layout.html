@@ -131,6 +131,9 @@
                 display: none;
             }
 
+            /* Bottom nav handles sidebar — hide topbar hamburger on mobile */
+            #mobile-menu-toggle { display: none !important; }
+
             /* Remove the desktop "flex‑1" behaviour on main content */
             .sidebar-content {
                 margin-left: 0 !important;
@@ -499,7 +502,7 @@
 </script>
 
 
-<nav id="mobile-bottom-nav" style="display:none">
+<nav id="mobile-bottom-nav">
   <button class="mobile-nav-item active" id="mob-home" data-route="dashboard">
     <span class="material-symbols-outlined">grid_view</span>
     <span>Home</span>
@@ -509,9 +512,8 @@
     <span id="mob-quick-label">Employees</span>
   </button>
   <button class="mobile-nav-item" id="mob-notifications">
-    <span class="material-symbols-outlined">notifications</span>
-    <span id="mob-notif-badge" style="display:none"></span>
-    <span>Alerts</span>
+    <span class="material-symbols-outlined">fingerprint</span>
+    <span>Attendance</span>
   </button>
   <button class="mobile-nav-item" id="mob-menu">
     <span class="material-symbols-outlined">menu</span>

@@ -661,8 +661,10 @@
         };
 
         var qa = quickActions[userRole] || quickActions['HR_ADMIN'];
-        document.getElementById('mob-quick-icon').textContent  = qa.icon;
-        document.getElementById('mob-quick-label').textContent = qa.label;
+        var quickIcon = document.getElementById('mob-quick-icon');
+        var quickLabel = document.getElementById('mob-quick-label');
+        if (quickIcon) quickIcon.textContent = qa.icon;
+        if (quickLabel) quickLabel.textContent = qa.label;
         document.getElementById('mob-quick').dataset.route     = qa.route;
 
         document.getElementById('mob-home').addEventListener('click', function () {
@@ -676,8 +678,8 @@
         });
 
         document.getElementById('mob-notifications').addEventListener('click', function () {
-            var toggle = document.getElementById('notification-toggle');
-            if (toggle) toggle.click();
+            var path = (userRole === 'EMPLOYEE') ? '/htmx/attendance/me' : '/htmx/attendance';
+            navigateTo('attendance', path);
             setMobileActive('mob-notifications');
         });
 
@@ -711,5 +713,10 @@
         });
     }
 
-    initMobileNav();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMobileNav);
+    } else {
+        initMobileNav();
+    }
+
 })();
