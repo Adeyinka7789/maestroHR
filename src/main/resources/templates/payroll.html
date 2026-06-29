@@ -46,20 +46,17 @@
                 Review monthly payroll runs and their approval status
             </p>
         </div>
-        <div class="page-header-actions">
-        <!--
-          Initiate form (Step C). Posts the chosen month to /htmx/payroll/initiate; on
-          success the controller swaps #page-content with the new run's detail fragment
-          (Compute lives there) and pushes its URL. A duplicate period / bad month comes
-          back as the ${error} banner below. type="month" yields the "YYYY-MM" the
-          controller parses.
-        -->
+        <div class="page-header-actions" style="display:flex; align-items:center; gap:12px;">
         <form hx-post="/htmx/payroll/initiate" hx-target="#page-content" hx-swap="innerHTML"
-              class="flex items-end gap-sm">
-            <div>
-                <label for="payroll-period" class="block mb-xs font-label-sm text-label-sm text-on-surface">Payroll month</label>
+              style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <label for="payroll-period"
+                       style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.05em;">Select Month</label>
                 <input type="month" id="payroll-period" name="period" required
-                       class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                       th:value="${#temporals.format(#temporals.createNow(), 'yyyy-MM')}"
+                       min="2020-01"
+                       th:max="${#temporals.format(#temporals.createNow(), 'yyyy-MM')}"
+                       style="padding:8px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; color:#111827; background:white; cursor:pointer;">
             </div>
             <button type="submit"
                     class="inline-flex items-center gap-xs px-4 py-2 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity whitespace-nowrap">
