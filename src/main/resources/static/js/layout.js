@@ -74,7 +74,8 @@
             const icons = {
                 success: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
                 error:   '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-                info:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+                info:    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+                warning: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
             };
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
@@ -771,5 +772,66 @@
     } else {
         initMobileNav();
     }
+
+    // ── Auto close buttons for modals ─────────────────────────────
+    function addModalCloseButtons() {
+        var selectors = [
+            '.fixed.inset-0 > div',
+            '[role="dialog"]',
+            '.modal-container > div',
+        ];
+
+        selectors.forEach(function (sel) {
+            document.querySelectorAll(sel).forEach(function (modal) {
+                if (modal.querySelector('.modal-auto-close')) return;
+                if (modal.closest('#toast-container, #impersonation-banner, #trial-banner, #broadcast-banner-container, nav, aside, header')) return;
+
+                var closeBtn = document.createElement('button');
+                closeBtn.className = 'modal-auto-close';
+                closeBtn.innerHTML = '✕';
+                closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;background:none;border:none;cursor:pointer;font-size:18px;color:#6b7280;line-height:1;padding:4px;border-radius:4px;z-index:10;';
+                closeBtn.title = 'Close';
+                closeBtn.addEventListener('click', function () {
+                    var overlay = modal.closest('.fixed.inset-0');
+                    if (overlay) overlay.style.display = 'none';
+                    else modal.style.display = 'none';
+                });
+
+                if (getComputedStyle(modal).position === 'static') {
+                    modal.style.position = 'relative';
+                }
+                modal.appendChild(closeBtn);
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', addModalCloseButtons);
+    document.addEventListener('htmx:afterSwap', addModalCloseButtons);
+
+    // ── Inactivity timeout (2-hour session) ───────────────────────────
+    // Warns at 1h55m, then logs out at 2h. Resets on any user interaction.
+    (function initIdleTimeout() {
+        const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+        const WARN_BEFORE_MS  = 5 * 60 * 1000;
+        let idleTimer;
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(function () {
+                MaestroHR.showToast('You have been idle. Logging out in 5 minutes...', 'warning');
+                setTimeout(function () {
+                    localStorage.clear();
+                    document.cookie = 'maestrohr_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                    window.location.href = '/login?reason=idle';
+                }, WARN_BEFORE_MS);
+            }, IDLE_TIMEOUT_MS - WARN_BEFORE_MS);
+        }
+
+        ['click', 'keypress', 'scroll', 'mousemove', 'touchstart'].forEach(function (evt) {
+            document.addEventListener(evt, resetIdleTimer, { passive: true });
+        });
+
+        resetIdleTimer();
+    })();
 
 })();

@@ -129,7 +129,7 @@ logging:
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expiry-ms: 86400000
+    expiry-ms: 7200000
     refresh-expiry-ms: 604800000
     impersonation-expiry-ms: 1200000   # 20 minutes — short-lived, no refresh (Feature 4)
 

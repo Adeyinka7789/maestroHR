@@ -205,6 +205,11 @@
 
         function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
         function showInfo(msg)  { infoBox.textContent = msg; infoBox.style.display = 'block'; }
+
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'idle') {
+            showInfo('You were logged out due to inactivity. Please log in again.');
+        }
         function setLoading(on) {
             loginBtn.disabled        = on;
             btnText.textContent      = on ? 'Authenticating...' : 'Sign in';

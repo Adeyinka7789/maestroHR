@@ -99,6 +99,7 @@ body.sidebar-pinned .sidebar-content { margin-left: 240px; }
 .toast-success { background: #1a2e1f; color: #86efac; border: 1px solid #166534; }
 .toast-error { background: #2e1a1a; color: #fca5a5; border: 1px solid #991b1b; }
 .toast-info { background: #1a2040; color: #93c5fd; border: 1px solid #1e40af; }
+.toast-warning { background: #2e2000; color: #fcd34d; border: 1px solid #92400e; }
 @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
 /* Search */
@@ -311,5 +312,21 @@ body.sidebar-pinned .nav-item {
         flex-direction: column;
         align-items: center;
         text-align: center;
+    }
+    #import-help-btn { display: none !important; }
+    .page-header-actions {
+        flex-wrap: wrap !important;
+        width: 100% !important;
+    }
+    .page-header-actions > * {
+        flex: 1 1 calc(50% - 6px) !important;
+        min-width: 140px !important;
+        justify-content: center !important;
+        font-size: 12px !important;
+        padding: 8px 10px !important;
+    }
+    .page-header-text h1,
+    .page-header-text p {
+        text-align: left !important;
     }
 }
