@@ -176,9 +176,9 @@
     <input type="file" id="csvFileInput" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden">
 
 
-
     <div id="employee-filters" class="flex flex-col md:flex-row gap-sm mb-md">
-        <div class="relative flex-1">
+        <!-- Search - takes more space on desktop -->
+        <div class="relative flex-1 min-w-0">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
             <input type="search" name="q" th:value="${view.search}"
                    placeholder="Search by name, email, or employee ID…"
@@ -188,23 +188,26 @@
                    class="w-full pl-10 pr-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary">
         </div>
 
-        <select name="dept"
-                hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
-                hx-include="#employee-filters" hx-trigger="change"
-                class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
-            <option value="">All departments</option>
-            <option th:each="d : ${view.departments}" th:value="${d.id}" th:text="${d.name}"
-                    th:selected="${d.selected}">Engineering</option>
-        </select>
+        <!-- Department and Status on the same line - fixed width on desktop, full width on mobile -->
+        <div class="flex gap-sm w-full md:w-auto">
+            <select name="dept"
+                    hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
+                    hx-include="#employee-filters" hx-trigger="change"
+                    class="flex-1 md:flex-none md:w-48 px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                <option value="">All departments</option>
+                <option th:each="d : ${view.departments}" th:value="${d.id}" th:text="${d.name}"
+                        th:selected="${d.selected}">Engineering</option>
+            </select>
 
-        <select name="status"
-                hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
-                hx-include="#employee-filters" hx-trigger="change"
-                class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
-            <option value="">All statuses</option>
-            <option th:each="s : ${view.statuses}" th:value="${s.value}" th:text="${s.label}"
-                    th:selected="${s.selected}">Active</option>
-        </select>
+            <select name="status"
+                    hx-get="/htmx/employees/table" hx-target="#employees-table" hx-swap="innerHTML"
+                    hx-include="#employee-filters" hx-trigger="change"
+                    class="flex-1 md:flex-none md:w-40 px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                <option value="">All statuses</option>
+                <option th:each="s : ${view.statuses}" th:value="${s.value}" th:text="${s.label}"
+                        th:selected="${s.selected}">Active</option>
+            </select>
+        </div>
     </div>
 
     <div id="employees-table" th:insert="~{employees :: table}"></div>
