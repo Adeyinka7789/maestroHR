@@ -22,6 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -141,5 +142,49 @@ class AuthServiceTest {
         ArgumentCaptor<User> cap = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(cap.capture());
         assertThat(cap.getValue().getPasswordHash()).isEqualTo(newHash);
+    }
+
+    // 16 ── requestPasswordReset with unknown email is silent — no token minted, no email sent
+    @Test
+    void requestPasswordReset_unknownEmail_isSilent() {
+        when(authBootstrapQueries.findUserByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        authService.requestPasswordReset(EMAIL);
+
+        verify(passwordResetTokenStore, never()).insert(any(), any(), any());
+        verify(notificationService, never()).sendPasswordResetEmail(any(), any(), any(), anyInt());
+    }
+
+    // 17 ── resetPassword with expired token throws
+    @Test
+    void resetPassword_expiredToken_throws() {
+        UUID tokenValue = UUID.randomUUID();
+        UUID tokenId = UUID.randomUUID();
+        PasswordResetTokenStore.TokenRow expired = new PasswordResetTokenStore.TokenRow(
+                tokenId, EMAIL, tokenValue,
+                OffsetDateTime.now().minusMinutes(1), false);
+        when(passwordResetTokenStore.findByToken(tokenValue)).thenReturn(Optional.of(expired));
+
+        assertThatThrownBy(() -> authService.resetPassword(tokenValue.toString(), "newPass"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expired");
+    }
+
+    // 18 ── resetPassword with valid token updates password hash and marks token used
+    @Test
+    void resetPassword_validToken_updatesPasswordAndConsumesToken() {
+        UUID tokenValue = UUID.randomUUID();
+        UUID tokenId = UUID.randomUUID();
+        PasswordResetTokenStore.TokenRow valid = new PasswordResetTokenStore.TokenRow(
+                tokenId, EMAIL, tokenValue,
+                OffsetDateTime.now().plusHours(1), false);
+        when(passwordResetTokenStore.findByToken(tokenValue)).thenReturn(Optional.of(valid));
+        when(authBootstrapQueries.findUserByEmail(EMAIL)).thenReturn(Optional.of(activeRow(0)));
+        when(passwordEncoder.encode("newPass123")).thenReturn("$2a$10$newHash");
+
+        authService.resetPassword(tokenValue.toString(), "newPass123");
+
+        verify(tenantUserWrites).updatePasswordHash(USER_UUID, "$2a$10$newHash");
+        verify(passwordResetTokenStore).markUsed(tokenId);
     }
 }
