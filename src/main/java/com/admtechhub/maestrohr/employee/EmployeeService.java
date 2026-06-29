@@ -319,6 +319,10 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
 
+        if (employee.getStatus() == EmployeeStatus.TERMINATED) {
+            throw new IllegalStateException("Employee is already terminated.");
+        }
+
         employee.setStatus(EmployeeStatus.TERMINATED);
         employee.setTerminationDate(terminationDate);
 
