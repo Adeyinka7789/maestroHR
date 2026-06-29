@@ -3,6 +3,7 @@ package com.admtechhub.maestrohr.payroll;
 import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
+import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.kafka.PayrollEventProducer;
@@ -89,7 +90,10 @@ class PayrollRunServiceTest {
     @Test
     void approvePayroll_loanDriftDetected_throws() {
         UUID runId = UUID.randomUUID();
-        User initiator = User.builder().email("hr@company.com").build();
+        User initiator = User.builder()
+                .email("hr@company.com")
+                .role(UserRole.HR_ADMIN) // FIXED: Added role to prevent NPE
+                .build();
         PayrollRun run = PayrollRun.builder()
                 .status(PayrollStatus.PENDING_APPROVAL)
                 .initiatedBy(initiator)
@@ -97,7 +101,10 @@ class PayrollRunServiceTest {
 
         when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
         when(userRepository.findById(USER_ID))
-                .thenReturn(Optional.of(User.builder().email("mgr@company.com").build()));
+                .thenReturn(Optional.of(User.builder()
+                        .email("mgr@company.com")
+                        .role(UserRole.DEPT_MANAGER) // FIXED: Added role to prevent NPE
+                        .build()));
         doThrow(new IllegalStateException("Loan deductions have changed since payroll was computed"))
                 .when(loanService).verifyDeductionsCurrent(any());
 
@@ -126,8 +133,15 @@ class PayrollRunServiceTest {
     @Test
     void submitForApproval_fromDraft_succeeds() {
         UUID runId = UUID.randomUUID();
-        User initiator = User.builder().email("hr@company.com").build();
-        Tenant tenant = Tenant.builder().companyName("Acme Ltd").build();
+        // FIXED: Added role to User builder to prevent NPE when calling getRole().name()
+        User initiator = User.builder()
+                .email("hr@company.com")
+                .role(UserRole.HR_ADMIN)
+                .build();
+        Tenant tenant = Tenant.builder()
+                .companyName("Acme Ltd")
+                .build();
+        tenant.setId(TENANT);
         PayrollRun run = PayrollRun.builder()
                 .status(PayrollStatus.DRAFT)
                 .initiatedBy(initiator)
@@ -142,8 +156,9 @@ class PayrollRunServiceTest {
                 .thenReturn(List.of(mock(PayrollEntry.class)));
         when(payrollRunRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        payrollRunService.submitForApproval(runId);
+        PayrollRunResponse response = payrollRunService.submitForApproval(runId);
 
+        assertNotNull(response);
         verify(payrollRunRepository).save(argThat(r -> r.getStatus() == PayrollStatus.PENDING_APPROVAL));
     }
 }
