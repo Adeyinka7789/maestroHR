@@ -316,7 +316,8 @@ public class EmployeeImportService {
             try {
                 row.employmentType = EmploymentType.valueOf(empType.trim().toUpperCase().replace(' ', '_'));
             } catch (IllegalArgumentException e) {
-                error(row, "Employment type '" + empType + "' is invalid. Expected FULL_TIME, PART_TIME or CONTRACT.");
+                row.employmentType = EmploymentType.FULL_TIME;
+                warn(row, "Unknown employment type '" + empType + "', defaulted to FULL_TIME.");
             }
         }
 
