@@ -13,7 +13,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,6 +37,9 @@ class TenantValidationFilterTest {
     private MockHttpServletRequest request(String uri) {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.setRequestURI(uri);
+        // Explicitly set Accept header to application/json to ensure 403 response
+        // instead of redirect to /login (which happens for text/html Accept header)
+        req.addHeader("Accept", "application/json");
         return req;
     }
 
@@ -68,7 +71,25 @@ class TenantValidationFilterTest {
 
         filter.doFilter(request("/api/employees"), res, chain);
 
-        assertEquals(403, res.getStatus());
+        // Verify we get 403 for API request (with Accept: application/json header)
+        assertEquals(403, res.getStatus(),
+                "Protected path without tenant must return 403 for API requests");
+        verify(chain, never()).doFilter(any(), any());
+    }
+
+    // ── Test HTML browser request gets redirected to login ───────────────────
+    @Test
+    void protectedPath_withoutTenant_htmlRequest_redirectsToLogin() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setRequestURI("/api/employees");
+        req.addHeader("Accept", "text/html");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+
+        filter.doFilter(req, res, chain);
+
+        assertEquals(302, res.getStatus(),
+                "Browser request without tenant should redirect to /login");
+        assertEquals("/login", res.getRedirectedUrl());
         verify(chain, never()).doFilter(any(), any());
     }
 
@@ -93,7 +114,8 @@ class TenantValidationFilterTest {
 
         filter.doFilter(request(path), res, chain);
 
-        assertEquals(403, res.getStatus());
+        assertEquals(403, res.getStatus(),
+                "UI shell route without tenant must return 403 for API requests");
         verify(chain, never()).doFilter(any(), any());
     }
 }
