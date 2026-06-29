@@ -59,8 +59,6 @@ class PayrollRunServiceTest {
         TenantContext.clear();
     }
 
-    // ── 1: initiatePayroll duplicate period ──────────────────────────────────
-
     @Test
     void initiatePayroll_duplicatePeriod_throws() {
         when(payrollRunRepository.existsByTenant_IdAndPayrollMonthAndPayrollYear(TENANT, 6, 2026))
@@ -72,38 +70,33 @@ class PayrollRunServiceTest {
         verify(payrollRunRepository, never()).save(any());
     }
 
-    // ── 2: approvePayroll called on DRAFT run ────────────────────────────────
-
     @Test
     void approvePayroll_wrongStatus_throws() {
         UUID runId = UUID.randomUUID();
         PayrollRun run = PayrollRun.builder().status(PayrollStatus.DRAFT).build();
         when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
 
-        // canApprove() → false for DRAFT → IllegalStateException before user lookup
         assertThrows(IllegalStateException.class,
                 () -> payrollRunService.approvePayroll(runId, USER_ID));
     }
-
-    // ── 3: approvePayroll with stale loan deductions ─────────────────────────
 
     @Test
     void approvePayroll_loanDriftDetected_throws() {
         UUID runId = UUID.randomUUID();
         User initiator = User.builder()
                 .email("hr@company.com")
-                .role(UserRole.HR_ADMIN) // FIXED: Added role to prevent NPE
+                .role(UserRole.HR_ADMIN)
                 .build();
         PayrollRun run = PayrollRun.builder()
                 .status(PayrollStatus.PENDING_APPROVAL)
                 .initiatedBy(initiator)
-                .build(); // entries defaults to empty ArrayList
+                .build();
 
         when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
         when(userRepository.findById(USER_ID))
                 .thenReturn(Optional.of(User.builder()
                         .email("mgr@company.com")
-                        .role(UserRole.DEPT_MANAGER) // FIXED: Added role to prevent NPE
+                        .role(UserRole.DEPT_MANAGER)
                         .build()));
         doThrow(new IllegalStateException("Loan deductions have changed since payroll was computed"))
                 .when(loanService).verifyDeductionsCurrent(any());
@@ -111,11 +104,8 @@ class PayrollRunServiceTest {
         assertThrows(IllegalStateException.class,
                 () -> payrollRunService.approvePayroll(runId, USER_ID));
 
-        // status must NOT have advanced — no save should have occurred
         verify(payrollRunRepository, never()).save(any());
     }
-
-    // ── 4: markAsPaid called on DRAFT run ────────────────────────────────────
 
     @Test
     void markAsPaid_wrongStatus_throws() {
@@ -123,25 +113,23 @@ class PayrollRunServiceTest {
         PayrollRun run = PayrollRun.builder().status(PayrollStatus.DRAFT).build();
         when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
 
-        // canComplete() → false for DRAFT
         assertThrows(IllegalStateException.class,
                 () -> payrollRunService.markAsPaid(runId));
     }
 
-    // ── 5: submitForApproval happy path ──────────────────────────────────────
-
     @Test
     void submitForApproval_fromDraft_succeeds() {
         UUID runId = UUID.randomUUID();
-        // FIXED: Added role to User builder to prevent NPE when calling getRole().name()
         User initiator = User.builder()
                 .email("hr@company.com")
                 .role(UserRole.HR_ADMIN)
                 .build();
+
         Tenant tenant = Tenant.builder()
                 .companyName("Acme Ltd")
                 .build();
         tenant.setId(TENANT);
+
         PayrollRun run = PayrollRun.builder()
                 .status(PayrollStatus.DRAFT)
                 .initiatedBy(initiator)
@@ -151,7 +139,6 @@ class PayrollRunServiceTest {
                 .build();
 
         when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
-        // At least one entry so the empty-payroll guard does not fire
         when(payrollEntryRepository.findByPayrollRunId(runId))
                 .thenReturn(List.of(mock(PayrollEntry.class)));
         when(payrollRunRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

@@ -56,6 +56,80 @@
         <span th:text="${formError}">Something went wrong.</span>
     </div>
 
+    <!-- Setup Guide (collapsible) -->
+    <details class="mb-lg group">
+        <summary class="cursor-pointer list-none flex items-center justify-between px-4 py-3 rounded-xl bg-white border border-outline-variant hover:bg-surface-container-lowest transition-colors">
+            <div class="flex items-center gap-sm">
+                <span class="material-symbols-outlined text-primary text-[20px]">menu_book</span>
+                <span class="font-label-md text-label-md text-on-surface">Setup Guide: How to Connect Biometric Devices</span>
+            </div>
+            <span class="material-symbols-outlined text-on-surface-variant text-[18px] group-open:rotate-180 transition-transform">expand_more</span>
+        </summary>
+        <div class="mt-sm px-4 py-4 rounded-xl bg-white border border-outline-variant space-y-4">
+
+            <!-- Step 1 -->
+            <div class="flex gap-sm">
+                <div class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-[13px] flex-shrink-0">1</div>
+                <div>
+                    <p class="font-label-md text-label-md text-on-surface mb-xs">Register the device here</p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant">
+                        Use the <strong>Register New Device</strong> section below. Give it a name, optional serial ID, and location.
+                        After clicking <strong>Generate API Key</strong>, copy the key immediately — it will never be shown again.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="flex gap-sm">
+                <div class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-[13px] flex-shrink-0">2</div>
+                <div>
+                    <p class="font-label-md text-label-md text-on-surface mb-xs">Configure the biometric device</p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant">
+                        On your device's admin panel (ZKTeco, Hikvision, etc.), set the <strong>Push / Webhook URL</strong> to:
+                    </p>
+                    <code class="block mt-1 font-mono text-sm bg-surface-container-low px-3 py-2 rounded-lg border border-outline-variant break-all select-all">
+                        https://hr.admtechub.com/api/v1/device/events
+                    </code>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-2">
+                        Add a custom HTTP header:
+                    </p>
+                    <code class="block mt-1 font-mono text-sm bg-surface-container-low px-3 py-2 rounded-lg border border-outline-variant break-all select-all">
+                        X-Device-Api-Key: mhrdev_xxxxxxxxxxxxxxxx
+                    </code>
+                </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="flex gap-sm">
+                <div class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-[13px] flex-shrink-0">3</div>
+                <div>
+                    <p class="font-label-md text-label-md text-on-surface mb-xs">Link employees to the device</p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant">
+                        Each employee must enter their <strong>Device ID</strong> (the ID assigned to their fingerprint on the biometric machine) on their <strong>Profile page</strong>.
+                        They can update it themselves by clicking their avatar → <strong>My Profile</strong>.
+                    </p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                        Alternatively, HR can set it via the employee edit form under <strong>Employees → Edit</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="flex gap-sm">
+                <div class="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-[13px] flex-shrink-0">4</div>
+                <div>
+                    <p class="font-label-md text-label-md text-on-surface mb-xs">Attendance records appear automatically</p>
+                    <p class="font-body-sm text-body-sm text-on-surface-variant">
+                        Once the device sends a clock-in/out event, it will appear on the <strong>Attendance</strong> page.
+                        If an employee's Device ID doesn't match any record, the event will show in the
+                        <strong>Sync Errors</strong> tab here — you can resolve it after linking the correct employee.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </details>
+
     <!-- Tab strip -->
     <div class="flex gap-xs mb-lg border-b border-outline-variant">
         <button type="button"
