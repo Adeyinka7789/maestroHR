@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>Seeding uses the owner DataSource (postgres superuser), which bypasses both RLS and
  * {@code @SQLRestriction} so cross-tenant rows can be inserted without interference.
- */
+ **/
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TenantIsolationTest {
@@ -185,8 +185,7 @@ class TenantIsolationTest {
 
     @AfterEach
     void clearTenantContext() {
-        TenantContext.setCurrentTenant("");
-    }
+        TenantContext.clear();}
 
     @AfterAll
     void cleanup() throws SQLException {
