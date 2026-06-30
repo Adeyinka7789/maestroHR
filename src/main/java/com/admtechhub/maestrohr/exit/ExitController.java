@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -23,22 +24,23 @@ public class ExitController {
     private final ExitService exitService;
 
     @GetMapping("/requests")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<List<ExitRequestDTO>>> getExitRequests() {
-        List<ExitRequestDTO> requests = exitService.getAllExitRequests();
-        return ResponseEntity.ok(ApiResponse.success("Exit requests retrieved", requests));
+        return ResponseEntity.ok(ApiResponse.success("Exit requests retrieved",
+                exitService.getAllExitRequests()));
     }
 
     @GetMapping("/requests/{id}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<ExitRequestDTO>> getExitRequest(@PathVariable UUID id) {
-        ExitRequestDTO dto = exitService.getExitRequestById(id);
-        return ResponseEntity.ok(ApiResponse.success("Exit request details", dto));
+        return ResponseEntity.ok(ApiResponse.success("Exit request details",
+                exitService.getExitRequestById(id)));
     }
 
     @PostMapping("/requests")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<ExitRequestDTO>> createExitRequest(@RequestBody Map<String, Object> payload) {
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<ExitRequestDTO>> createExitRequest(
+            @RequestBody Map<String, Object> payload) {
         UUID employeeId = UUID.fromString((String) payload.get("employeeId"));
         String exitType = (String) payload.get("exitType");
         LocalDate lastWorkingDay = LocalDate.parse((String) payload.get("lastWorkingDay"));
@@ -49,31 +51,55 @@ public class ExitController {
     }
 
     @PutMapping("/clearance/{exitRequestId}/{itemId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> updateClearance(@PathVariable UUID exitRequestId,
-                                                             @PathVariable UUID itemId,
-                                                             @RequestParam String status) {
-        // TODO: replace "system" with actual user email/name from security context
-        exitService.updateClearanceItem(exitRequestId, itemId, status, "system");
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> updateClearance(
+            @PathVariable UUID exitRequestId,
+            @PathVariable UUID itemId,
+            @RequestParam String status,
+            Authentication authentication) {
+        String clearedBy = authentication != null ? authentication.getName() : "system";
+        exitService.updateClearanceItem(exitRequestId, itemId, status, clearedBy);
         return ResponseEntity.ok(ApiResponse.success("Clearance updated", null));
     }
 
+    @GetMapping("/settlement/{exitRequestId}/auto")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<FinalSettlementDTO>> autoSettlement(
+            @PathVariable UUID exitRequestId) {
+        FinalSettlementDTO dto = exitService.calculateAutoSettlement(exitRequestId);
+        return ResponseEntity.ok(ApiResponse.success("Auto-calculated settlement", dto));
+    }
+
     @PostMapping("/settlement/{exitRequestId}")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> calculateSettlement(@PathVariable UUID exitRequestId,
-                                                                 @RequestBody Map<String, Object> payload) {
-        BigDecimal unpaidSalary = new BigDecimal(payload.get("unpaidSalary").toString());
-        BigDecimal accruedLeave = new BigDecimal(payload.get("accruedLeave").toString());
-        BigDecimal severancePay = new BigDecimal(payload.get("severancePay").toString());
-        BigDecimal otherDeductions = new BigDecimal(payload.get("otherDeductions").toString());
-        exitService.calculateSettlement(exitRequestId, unpaidSalary, accruedLeave, severancePay, otherDeductions);
-        return ResponseEntity.ok(ApiResponse.success("Settlement calculated", null));
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<FinalSettlementDTO>> calculateSettlement(
+            @PathVariable UUID exitRequestId,
+            @RequestBody Map<String, Object> payload) {
+        BigDecimal unpaidSalary = parseBd(payload.get("unpaidSalary"));
+        BigDecimal accruedLeave = parseBd(payload.get("accruedLeave"));
+        BigDecimal severancePay = parseBd(payload.get("severancePay"));
+        BigDecimal loanDeduction = parseBd(payload.get("loanDeduction"));
+        BigDecimal otherDeductions = parseBd(payload.get("otherDeductions"));
+        FinalSettlementDTO dto = exitService.calculateSettlement(
+                exitRequestId, unpaidSalary, accruedLeave, severancePay, loanDeduction, otherDeductions);
+        return ResponseEntity.ok(ApiResponse.success("Settlement calculated", dto));
+    }
+
+    @PostMapping("/settlement/{exitRequestId}/mark-paid")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> markPaid(@PathVariable UUID exitRequestId) {
+        exitService.markPaid(exitRequestId);
+        return ResponseEntity.ok(ApiResponse.success("Settlement marked as paid", null));
     }
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getStats() {
-        Map<String, Object> stats = exitService.getStats();
-        return ResponseEntity.ok(ApiResponse.success("Exit stats retrieved", stats));
+        return ResponseEntity.ok(ApiResponse.success("Exit stats retrieved", exitService.getStats()));
+    }
+
+    private BigDecimal parseBd(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        return new BigDecimal(value.toString());
     }
 }

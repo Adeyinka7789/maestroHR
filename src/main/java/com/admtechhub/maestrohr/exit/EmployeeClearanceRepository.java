@@ -16,4 +16,7 @@ public interface EmployeeClearanceRepository extends JpaRepository<EmployeeClear
 
     @Query("SELECT COUNT(ec) FROM EmployeeClearance ec WHERE ec.exitRequest.id = :exitRequestId AND ec.status = 'CLEARED'")
     long countClearedByExitRequestId(@Param("exitRequestId") UUID exitRequestId);
+
+    @Query("SELECT COUNT(ec) FROM EmployeeClearance ec WHERE ec.exitRequest.id = :exitRequestId")
+    long countByExitRequestId(@Param("exitRequestId") UUID exitRequestId);
 }

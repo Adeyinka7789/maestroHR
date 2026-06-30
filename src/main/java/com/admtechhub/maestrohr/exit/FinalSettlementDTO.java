@@ -19,6 +19,7 @@ public class FinalSettlementDTO {
     private BigDecimal unpaidSalary;
     private BigDecimal accruedLeave;
     private BigDecimal severancePay;
+    private BigDecimal loanDeduction;
     private BigDecimal otherDeductions;
     private BigDecimal totalPayable;
     private String paymentStatus;

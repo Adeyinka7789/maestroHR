@@ -18,11 +18,14 @@ public interface ExitRequestRepository extends JpaRepository<ExitRequest, UUID> 
     @Query("SELECT e FROM ExitRequest e WHERE e.employee.id = :employeeId")
     List<ExitRequest> findByEmployeeId(@Param("employeeId") UUID employeeId);
 
-    @Query("SELECT COUNT(e) FROM ExitRequest e WHERE e.tenant.id = :tenantId AND e.status = 'PENDING'")
-    long countPendingByTenantId(@Param("tenantId") UUID tenantId);
-
     @Query("SELECT COUNT(e) FROM ExitRequest e WHERE e.tenant.id = :tenantId AND e.status = 'IN_CLEARANCE'")
     long countInClearanceByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query("SELECT COUNT(e) FROM ExitRequest e WHERE e.tenant.id = :tenantId AND e.status = 'CLEARANCE_COMPLETE'")
+    long countClearanceCompleteByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query("SELECT COUNT(e) FROM ExitRequest e WHERE e.tenant.id = :tenantId AND e.status = 'SETTLED'")
+    long countSettledByTenantId(@Param("tenantId") UUID tenantId);
 
     @Query("SELECT COUNT(e) FROM ExitRequest e WHERE e.tenant.id = :tenantId AND e.status = 'COMPLETED'")
     long countCompletedByTenantId(@Param("tenantId") UUID tenantId);

@@ -17,6 +17,7 @@ public class EmployeeClearanceDTO {
     private UUID exitRequestId;
     private UUID clearanceItemId;
     private String clearanceItemName;
+    private String clearanceItemDepartment;
     private String status;
     private String clearedBy;
     private LocalDateTime clearedAt;

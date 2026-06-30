@@ -49,10 +49,7 @@ public class PageController {
         return htmxRequest != null ? "forward:/training-management.html" : "forward:/layout.html";
     }
 
-    @GetMapping("/htmx/exit-management")
-    public String exitManagement(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/exit-management.html" : "forward:/layout.html";
-    }
+    // NOTE: /htmx/exit-management is owned by ExitManagementController (server-rendered fragment).
 
     @GetMapping("/htmx/audit")
     public String audit(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {

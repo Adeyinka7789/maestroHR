@@ -227,6 +227,16 @@ public class LoanService {
         return loanRepository.existsByEmployeeId(employeeId);
     }
 
+    /** Total outstanding balance (naira) across all ACTIVE loans — used in exit settlement. */
+    @Transactional(readOnly = true)
+    public java.math.BigDecimal getOutstandingLoanBalance(UUID employeeId) {
+        long kobo = loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employeeId, LoanStatus.ACTIVE)
+                .stream()
+                .mapToLong(l -> l.getRemainingBalance() != null ? l.getRemainingBalance() : 0L)
+                .sum();
+        return java.math.BigDecimal.valueOf(kobo, 2);
+    }
+
     // ── Payroll integration ──────────────────────────────────────────────────
 
     /**

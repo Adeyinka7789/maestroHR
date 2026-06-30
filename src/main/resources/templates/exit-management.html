@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<!--
+  exit-management.html — server-rendered HTMX fragment (Option 3).
+  Rendered by ExitManagementController as "exit-management :: list" or "exit-management :: detail".
+  Swapped into #page-content in layout.html.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ═══════════════════════════════ LIST FRAGMENT ═══════════════════════════════ -->
+<div th:fragment="list" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="mb-lg flex items-start justify-between flex-wrap gap-sm">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Exit Management</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Manage employee separations, clearance, and final settlements
+            </p>
+        </div>
+        <!-- Initiate Exit modal trigger -->
+        <button type="button" onclick="document.getElementById('exit-create-modal').showModal()"
+                class="flex items-center gap-xs bg-primary text-white px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-[20px]">person_off</span>
+            Initiate Exit
+        </button>
+    </div>
+
+    <!-- Banners -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${success}">Done.</span>
+    </div>
+    <div th:if="${formError}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${formError}">Something went wrong.</span>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="flex flex-wrap gap-md mb-md">
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">In Clearance</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.stats.inClearance}">0</p>
+        </div>
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Clearance Complete</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.stats.clearanceComplete}">0</p>
+        </div>
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Settled</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.stats.settled}">0</p>
+        </div>
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Completed</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.stats.completed}">0</p>
+        </div>
+        <div class="px-4 py-3 rounded-xl bg-white border border-outline-variant">
+            <p class="font-label-sm text-label-sm text-on-surface-variant">Total Pending Payable</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface" th:text="${view.stats.totalPayable}">₦0</p>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                <tr class="bg-surface-container-low">
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Employee</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Exit Type</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Last Day</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Status</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant">Clearance</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Actions</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                <tr th:if="${view.rows.isEmpty()}">
+                    <td colspan="6" class="px-md py-lg text-center text-on-surface-variant font-body-sm text-body-sm">
+                        No exit requests yet. Click "Initiate Exit" to start one.
+                    </td>
+                </tr>
+                <tr th:each="row : ${view.rows}" class="hover:bg-surface-container-lowest transition-colors">
+                    <td class="px-md py-md">
+                        <div class="flex items-center gap-sm">
+                            <div class="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-label-sm text-label-sm flex-shrink-0"
+                                 th:text="${row.employeeInitials}">AB</div>
+                            <p class="font-label-md text-label-md text-on-surface" th:text="${row.employeeName}">Ada Bello</p>
+                        </div>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.exitType}">Resignation</td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant" th:text="${row.lastWorkingDay}">31 Jul 2025</td>
+                    <td class="px-md py-md">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                              th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                              th:text="${row.statusLabel}">In Clearance</span>
+                    </td>
+                    <td class="px-md py-md font-table-data text-table-data text-on-surface-variant"
+                        th:text="${row.clearedItems} + ' / ' + ${row.totalItems} + ' items'">0 / 4 items</td>
+                    <td class="px-md py-md text-right">
+                        <a th:href="'/htmx/exit-management/' + ${row.id}"
+                           th:attr="hx-get='/htmx/exit-management/' + ${row.id}"
+                           hx-target="#page-content" hx-swap="innerHTML" hx-push-url="true"
+                           class="px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface-variant font-label-sm text-label-sm hover:bg-surface-container transition-colors">
+                            View
+                        </a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Initiate Exit modal (native dialog) -->
+    <dialog id="exit-create-modal" class="rounded-xl border border-outline-variant shadow-xl p-0 w-[480px] max-w-[95vw] backdrop:bg-black/40">
+        <form method="dialog" class="p-lg" hx-post="/htmx/exit-management/create"
+              hx-target="#page-content" hx-swap="innerHTML" hx-on::after-request="this.closest('dialog').close()">
+            <h2 class="font-headline-sm text-headline-sm text-on-surface mb-md">Initiate Exit</h2>
+            <div class="grid gap-sm">
+                <label class="block">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Employee ID</span>
+                    <input type="text" name="employeeId" required placeholder="UUID"
+                           class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                </label>
+                <label class="block">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Exit Type</span>
+                    <select name="exitType" required
+                            class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="RESIGNATION">Resignation</option>
+                        <option value="RETIREMENT">Retirement</option>
+                        <option value="TERMINATION">Termination</option>
+                        <option value="CONTRACT_END">Contract End</option>
+                        <option value="REDUNDANCY">Redundancy</option>
+                        <option value="DEATH">Death</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Last Working Day</span>
+                    <input type="date" name="lastWorkingDay" required
+                           class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                </label>
+                <label class="block">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Reason</span>
+                    <textarea name="reason" rows="3" placeholder="Optional reason…"
+                              class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary resize-none"></textarea>
+                </label>
+            </div>
+            <div class="flex justify-end gap-xs mt-lg">
+                <button type="button" onclick="document.getElementById('exit-create-modal').close()"
+                        class="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant font-label-sm text-label-sm hover:bg-surface-container transition-colors">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                    Create
+                </button>
+            </div>
+        </form>
+    </dialog>
+</div>
+
+<!-- ═══════════════════════════════ DETAIL FRAGMENT ══════════════════════════════ -->
+<div th:fragment="detail" class="font-body-md text-on-surface">
+
+    <!-- Back button -->
+    <div class="mb-md">
+        <a href="/htmx/exit-management" hx-get="/htmx/exit-management"
+           hx-target="#page-content" hx-swap="innerHTML" hx-push-url="true"
+           class="inline-flex items-center gap-xs text-on-surface-variant font-label-sm text-label-sm hover:text-primary transition-colors">
+            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to Exit Management
+        </a>
+    </div>
+
+    <!-- Banners -->
+    <div th:if="${success}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${success}">Done.</span>
+    </div>
+    <div th:if="${formError}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${formError}">Something went wrong.</span>
+    </div>
+    <div th:if="${settlementError}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">warning</span>
+        <span>Auto-calculation unavailable: <span th:text="${settlementError}">reason</span></span>
+    </div>
+
+    <!-- Employee header card -->
+    <div class="bg-white border border-outline-variant rounded-xl p-md mb-md">
+        <div class="flex flex-wrap items-center gap-md">
+            <div class="w-14 h-14 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-headline-sm text-headline-sm flex-shrink-0"
+                 th:text="${exit.employeeName != null ? exit.employeeName.substring(0,1) : '?'}">A</div>
+            <div class="flex-1">
+                <h1 class="font-headline-md text-headline-md text-on-surface" th:text="${exit.employeeName}">Employee Name</h1>
+                <p class="font-body-sm text-body-sm text-on-surface-variant"
+                   th:text="${exit.employeeNumber + ' · ' + exit.exitType + ' · Last day: ' + (exit.lastWorkingDay != null ? exit.lastWorkingDay : 'TBD')}">E001 · Resignation</p>
+            </div>
+            <span class="px-3 py-1.5 rounded-lg text-[11px] font-bold status-pill"
+                  th:classappend="${exit.status == 'COMPLETED' ? 'bg-secondary-container text-on-secondary-container' : (exit.status == 'CLEARANCE_COMPLETE' or exit.status == 'SETTLED' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                  th:text="${exit.status}">IN_CLEARANCE</span>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-md">
+
+        <!-- Clearance checklist -->
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <h2 class="font-title-md text-title-md text-on-surface mb-md">Clearance Checklist</h2>
+            <div th:if="${exit.clearanceItems.isEmpty()}" class="text-on-surface-variant font-body-sm text-body-sm py-sm">
+                No clearance items configured for this tenant.
+            </div>
+            <ul class="space-y-sm" th:unless="${exit.clearanceItems.isEmpty()}">
+                <li th:each="item : ${exit.clearanceItems}"
+                    class="flex items-center justify-between p-sm rounded-lg border border-outline-variant">
+                    <div class="flex items-center gap-sm">
+                        <span th:if="${item.status == 'CLEARED'}"
+                              class="material-symbols-outlined text-secondary text-[20px]">check_circle</span>
+                        <span th:unless="${item.status == 'CLEARED'}"
+                              class="material-symbols-outlined text-on-surface-variant text-[20px]">radio_button_unchecked</span>
+                        <div>
+                            <p class="font-label-md text-label-md text-on-surface" th:text="${item.clearanceItemName}">Return Laptop</p>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant"
+                               th:if="${item.status == 'CLEARED'}"
+                               th:text="'Cleared by ' + ${item.clearedBy} + (item.clearedAt != null ? ' · ' + item.clearedAt : '')">Cleared by HR</p>
+                            <p class="font-body-sm text-body-sm text-on-surface-variant"
+                               th:unless="${item.status == 'CLEARED'}"
+                               th:text="${item.clearanceItemDepartment != null ? item.clearanceItemDepartment : 'Pending'}">IT · Pending</p>
+                        </div>
+                    </div>
+                    <button th:unless="${item.status == 'CLEARED' or exit.status == 'SETTLED' or exit.status == 'COMPLETED'}"
+                            type="button"
+                            th:attr="hx-post='/htmx/exit-management/' + ${exit.id} + '/clearance/' + ${item.clearanceItemId} + '/clear'"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            hx-confirm="Mark this item as cleared?"
+                            class="px-3 py-1 rounded-lg bg-secondary-container text-on-secondary-container font-label-sm text-label-sm hover:opacity-90 transition-opacity text-[12px]">
+                        Mark Cleared
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Settlement card -->
+        <div class="bg-white border border-outline-variant rounded-xl p-md">
+            <h2 class="font-title-md text-title-md text-on-surface mb-md">Final Settlement</h2>
+
+            <!-- Already settled: show read-only breakdown -->
+            <div th:if="${exit.settlement != null}">
+                <dl class="space-y-xs text-body-sm font-body-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-on-surface-variant">Unpaid Salary</dt>
+                        <dd class="text-on-surface" th:text="'₦' + ${#numbers.formatDecimal(exit.settlement.unpaidSalary, 1, 'COMMA', 2, 'POINT')}">₦0</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-on-surface-variant">Accrued Leave</dt>
+                        <dd class="text-on-surface" th:text="'₦' + ${#numbers.formatDecimal(exit.settlement.accruedLeave, 1, 'COMMA', 2, 'POINT')}">₦0</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-on-surface-variant">Severance Pay</dt>
+                        <dd class="text-on-surface" th:text="'₦' + ${#numbers.formatDecimal(exit.settlement.severancePay, 1, 'COMMA', 2, 'POINT')}">₦0</dd>
+                    </div>
+                    <div class="flex justify-between text-error" th:if="${exit.settlement.loanDeduction != null and exit.settlement.loanDeduction.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
+                        <dt>Loan Deduction</dt>
+                        <dd th:text="'− ₦' + ${#numbers.formatDecimal(exit.settlement.loanDeduction, 1, 'COMMA', 2, 'POINT')}">₦0</dd>
+                    </div>
+                    <div class="flex justify-between text-error" th:if="${exit.settlement.otherDeductions != null and exit.settlement.otherDeductions.compareTo(T(java.math.BigDecimal).ZERO) > 0}">
+                        <dt>Other Deductions</dt>
+                        <dd th:text="'− ₦' + ${#numbers.formatDecimal(exit.settlement.otherDeductions, 1, 'COMMA', 2, 'POINT')}">₦0</dd>
+                    </div>
+                    <div class="flex justify-between pt-sm border-t border-outline-variant font-label-md text-label-md">
+                        <dt class="text-on-surface">Total Payable</dt>
+                        <dd class="text-primary" th:text="'₦' + ${#numbers.formatDecimal(exit.settlement.totalPayable, 1, 'COMMA', 2, 'POINT')}">₦0</dd>
+                    </div>
+                </dl>
+                <div class="mt-md flex items-center justify-between">
+                    <span class="px-2 py-1 rounded text-[10px] font-bold status-pill"
+                          th:classappend="${exit.settlement.paymentStatus == 'PAID' ? 'bg-secondary-container text-on-secondary-container' : 'bg-primary-fixed text-on-primary-fixed-variant'}"
+                          th:text="${exit.settlement.paymentStatus}">PENDING</span>
+                    <button th:if="${exit.status == 'SETTLED'}"
+                            type="button"
+                            th:attr="hx-post='/htmx/exit-management/' + ${exit.id} + '/mark-paid'"
+                            hx-target="#page-content" hx-swap="innerHTML"
+                            hx-confirm="Confirm payment has been made to this employee?"
+                            class="px-4 py-2 rounded-lg bg-secondary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                        Mark as Paid
+                    </button>
+                </div>
+            </div>
+
+            <!-- Clearance complete: show settlement form pre-populated with auto values -->
+            <div th:if="${exit.settlement == null and exit.status == 'CLEARANCE_COMPLETE'}">
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+                    Clearance is complete. Review and adjust the auto-calculated amounts below, then confirm.
+                </p>
+                <form th:attr="hx-post='/htmx/exit-management/' + ${exit.id} + '/settle'"
+                      hx-target="#page-content" hx-swap="innerHTML"
+                      class="space-y-sm">
+                    <label class="block">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Unpaid Salary (₦)</span>
+                        <input type="number" step="0.01" min="0" name="unpaidSalary"
+                               th:value="${autoSettlement != null ? autoSettlement.unpaidSalary : '0'}"
+                               class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                    </label>
+                    <label class="block">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Accrued Leave Payout (₦)</span>
+                        <input type="number" step="0.01" min="0" name="accruedLeave"
+                               th:value="${autoSettlement != null ? autoSettlement.accruedLeave : '0'}"
+                               class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                    </label>
+                    <label class="block">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Severance Pay (₦)</span>
+                        <input type="number" step="0.01" min="0" name="severancePay" value="0"
+                               class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                    </label>
+                    <label class="block">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Loan Deduction (₦)</span>
+                        <input type="number" step="0.01" min="0" name="loanDeduction"
+                               th:value="${autoSettlement != null ? autoSettlement.loanDeduction : '0'}"
+                               class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                    </label>
+                    <label class="block">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant">Other Deductions (₦)</span>
+                        <input type="number" step="0.01" min="0" name="otherDeductions" value="0"
+                               class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                    </label>
+                    <button type="submit"
+                            class="w-full mt-sm px-4 py-2.5 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                        Calculate &amp; Finalise Settlement
+                    </button>
+                </form>
+            </div>
+
+            <!-- Not yet at clearance-complete stage -->
+            <div th:if="${exit.settlement == null and exit.status != 'CLEARANCE_COMPLETE'}">
+                <p class="font-body-sm text-body-sm text-on-surface-variant">
+                    Settlement can only be calculated after all clearance items are marked cleared.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
