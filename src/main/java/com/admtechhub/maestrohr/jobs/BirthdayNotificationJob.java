@@ -3,6 +3,7 @@ package com.admtechhub.maestrohr.jobs;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.platform.JobSweepQueries;
 import com.admtechhub.maestrohr.platform.JobSweepQueries.BirthdayRow;
@@ -31,6 +32,7 @@ public class BirthdayNotificationJob {
     private final JobSweepQueries jobSweepQueries;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final EmployeeRepository employeeRepository;
 
     @Scheduled(cron = "0 0 8 * * *")
     public void notifyBirthdays() {
@@ -64,20 +66,27 @@ public class BirthdayNotificationJob {
 
     private int notifyTenant(UUID tenantId, List<BirthdayRow> employees) {
         List<String> hrEmails = userRepository.findActiveEmailsByTenantIdAndRole(tenantId, UserRole.HR_ADMIN);
-        if (hrEmails.isEmpty()) {
-            log.debug("Tenant {} has {} birthday(s) today but no active HR_ADMIN to notify", tenantId, employees.size());
-            return 0;
-        }
         int count = 0;
         for (BirthdayRow emp : employees) {
             String name = emp.firstName() + " " + emp.lastName();
             String title = "Birthday today: " + name;
             String message = name + "'s birthday is today!";
             String link = "/employees/" + emp.employeeId();
+
+            // Notify HR admins
             for (String email : hrEmails) {
                 notificationService.createInAppNotification(email, "EMPLOYEE_BIRTHDAY", title, message, link);
                 count++;
             }
+
+            // Send birthday wish directly to the employee
+            employeeRepository.findById(emp.employeeId()).ifPresent(employee -> {
+                String tenantName = employee.getTenant() != null ? employee.getTenant().getCompanyName() : "the team";
+                notificationService.sendBirthdayWish(employee, tenantName);
+            });
+        }
+        if (hrEmails.isEmpty()) {
+            log.debug("Tenant {} has {} birthday(s) today but no active HR_ADMIN to notify", tenantId, employees.size());
         }
         return count;
     }

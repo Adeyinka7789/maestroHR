@@ -13,8 +13,12 @@ import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -327,8 +331,36 @@ public class LeaveService {
     @Transactional(readOnly = true)
     public Page<LeaveRequestDTO> getAllLeaveRequests(Pageable pageable) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (hasRole(auth, "ROLE_EMPLOYEE")) {
+            Employee emp = employeeRepository.findByEmail(auth.getName())
+                    .orElseThrow(() -> new IllegalArgumentException("Employee not found for: " + auth.getName()));
+            return filterAndPage(leaveRequestRepository.findByEmployeeTenantId(tenantId, Pageable.unpaged()),
+                    r -> r.getEmployee().getId().equals(emp.getId()), pageable);
+        }
+
+        if (hasRole(auth, "ROLE_DEPT_MANAGER")) {
+            Employee manager = employeeRepository.findByEmail(auth.getName()).orElse(null);
+            if (manager != null && manager.getDepartment() != null) {
+                UUID deptId = manager.getDepartment().getId();
+                return filterAndPage(leaveRequestRepository.findByEmployeeTenantId(tenantId, Pageable.unpaged()),
+                        r -> r.getEmployee().getDepartment() != null
+                                && deptId.equals(r.getEmployee().getDepartment().getId()), pageable);
+            }
+        }
+
         Page<LeaveRequest> page = leaveRequestRepository.findByEmployeeTenantId(tenantId, pageable);
         return page.map(this::toDto);
+    }
+
+    private Page<LeaveRequestDTO> filterAndPage(Page<LeaveRequest> source,
+                                                java.util.function.Predicate<LeaveRequest> predicate,
+                                                Pageable pageable) {
+        List<LeaveRequestDTO> filtered = source.stream().filter(predicate).map(this::toDto).toList();
+        int start = (int) Math.min(pageable.getOffset(), filtered.size());
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
     }
 
     @Transactional(readOnly = true)
@@ -340,6 +372,14 @@ public class LeaveService {
 
     @Transactional(readOnly = true)
     public List<LeaveRequestDTO> getEmployeeLeaveRequests(UUID employeeId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (hasRole(auth, "ROLE_EMPLOYEE")) {
+            Employee self = employeeRepository.findByEmail(auth.getName())
+                    .orElseThrow(() -> new IllegalArgumentException("Employee not found for: " + auth.getName()));
+            if (!self.getId().equals(employeeId)) {
+                throw new AccessDeniedException("Access denied");
+            }
+        }
         List<LeaveRequest> requests = leaveRequestRepository.findByEmployeeId(employeeId, PageRequest.of(0, 5));
         return toDtoList(requests);
     }
@@ -404,6 +444,12 @@ public class LeaveService {
             date = date.plusDays(1);
         }
         return days;
+    }
+
+    private boolean hasRole(Authentication auth, String role) {
+        return auth != null && auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role::equals);
     }
 
     private String currentUserEmail() {

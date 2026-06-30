@@ -274,6 +274,40 @@ public class NotificationService {
                 "/reports/payslip?employeeId=" + employee.getId() + "&payrollRunId=" + entry.getPayrollRun().getId());
     }
 
+    /** Birthday SMS + email sent directly to the employee. */
+    public void sendBirthdayWish(Employee employee, String tenantName) {
+        if (employee.getPhone() != null && !employee.getPhone().isEmpty()) {
+            String sms = String.format(
+                    "Happy Birthday %s! 🎉 Wishing you a wonderful day from all of us at %s. - Team %s",
+                    safe(employee.getFirstName()), safe(tenantName), safe(tenantName));
+            NotificationEvent smsEvent = NotificationEvent.builder()
+                    .type("SMS").to(employee.getPhone()).smsMessage(sms).build();
+            if (!notificationProducer.publish(smsEvent)) {
+                termiiClient.sendSms(employee.getPhone(), sms);
+            }
+        }
+
+        if (employee.getEmail() != null && !employee.getEmail().isEmpty()) {
+            Map<String, Object> vars = Map.of(
+                    "firstName", safe(employee.getFirstName()),
+                    "tenantName", safe(tenantName)
+            );
+            NotificationEvent emailEvent = NotificationEvent.builder()
+                    .type("EMAIL")
+                    .to(employee.getEmail())
+                    .subject("Happy Birthday from " + tenantName + "! 🎂")
+                    .templateName("email/birthday-wish")
+                    .variables(vars)
+                    .build();
+            if (!notificationProducer.publish(emailEvent)) {
+                emailService.ifPresent(svc -> svc.sendTemplatedEmail(
+                        employee.getEmail(),
+                        "Happy Birthday from " + tenantName + "! 🎂",
+                        "email/birthday-wish", vars));
+            }
+        }
+    }
+
     /** Leave-approved email (in-app + SMS are handled by the caller). */
     public void sendLeaveApprovedEmail(Employee employee, String leaveType, String startDate,
                                        String endDate, int days) {

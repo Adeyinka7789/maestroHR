@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Happy Birthday!</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center; color: #fff; }
+        .header h1 { margin: 0; font-size: 2em; letter-spacing: 1px; }
+        .body { padding: 32px 40px; color: #333; font-size: 1em; line-height: 1.7; }
+        .body p { margin: 0 0 16px; }
+        .footer { background: #f8f8f8; padding: 20px 40px; text-align: center; color: #999; font-size: 0.82em; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🎂 Happy Birthday!</h1>
+    </div>
+    <div class="body">
+        <p>Dear <strong th:text="${firstName}">Team Member</strong>,</p>
+        <p>
+            Wishing you a very Happy Birthday! 🎉 On your special day, the entire team at
+            <strong th:text="${tenantName}">your company</strong> wants you to know how much
+            we appreciate you and all that you bring to the team.
+        </p>
+        <p>
+            May this new year of your life be filled with joy, great health, and wonderful moments.
+            You deserve all the best — today and every day!
+        </p>
+        <p>
+            With warm wishes,<br/>
+            <strong>Team <span th:text="${tenantName}">Company</span></strong>
+        </p>
+    </div>
+    <div class="footer">
+        <p>This message was sent by <span th:text="${tenantName}">your company</span> via MaestroHR.</p>
+    </div>
+</div>
+</body>
+</html>

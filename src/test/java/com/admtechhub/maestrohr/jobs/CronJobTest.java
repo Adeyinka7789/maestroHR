@@ -3,6 +3,7 @@ package com.admtechhub.maestrohr.jobs;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.notification.EmailService;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.platform.JobSweepQueries;
@@ -35,6 +36,7 @@ class CronJobTest {
     @Mock private UserRepository userRepository;
     @Mock private EmailService emailService;
     @Mock private NotificationService notificationService;
+    @Mock private EmployeeRepository employeeRepository;
 
     private TrialExpiryReminderJob trialExpiryJob;
     private BirthdayNotificationJob birthdayJob;
@@ -43,7 +45,7 @@ class CronJobTest {
     @BeforeEach
     void setUp() {
         trialExpiryJob = new TrialExpiryReminderJob(jobSweepQueries, userRepository, Optional.of(emailService));
-        birthdayJob = new BirthdayNotificationJob(jobSweepQueries, userRepository, notificationService);
+        birthdayJob = new BirthdayNotificationJob(jobSweepQueries, userRepository, notificationService, employeeRepository);
         payrollReminderJob = new PayrollReminderJob(jobSweepQueries, userRepository, notificationService, Optional.of(emailService));
     }
 
