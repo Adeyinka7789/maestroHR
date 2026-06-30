@@ -303,7 +303,7 @@ public class PaymentWebhookService {
                     "/payroll/" + entry.getPayrollRun().getId());
         }
 
-        log.error("transfer.failed processed: entry {} → FAILED, {} HR admin(s) notified", entry.getId(), hrEmails.size());
+        log.info("transfer.failed processed: entry {} → FAILED, {} HR admin(s) notified", entry.getId(), hrEmails.size());
     }
 
     /**
