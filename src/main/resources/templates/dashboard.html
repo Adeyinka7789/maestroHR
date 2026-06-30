@@ -30,13 +30,13 @@
             <a href="/htmx/employee-create" hx-get="/htmx/employee-create" hx-target="#page-content"
                hx-push-url="true" hx-swap="innerHTML"
                class="flex items-center gap-xs bg-white border border-primary text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-primary hover:text-white transition-all duration-300">
-                <span class="material-symbols-outlined text-[20px]">person_add</span>
+                <svg class="shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                 Add Employee
             </a>
             <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content"
                hx-push-url="true" hx-swap="innerHTML"
                class="flex items-center gap-xs bg-secondary text-white px-6 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
-                <span class="material-symbols-outlined text-[20px]">play_circle</span>
+                <svg class="shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
                 Run Payroll
             </a>
         </div>
@@ -52,7 +52,7 @@
         <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
             <div class="flex items-center justify-between mb-md">
                 <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
-                    <span class="material-symbols-outlined text-primary">groups</span>
+                    <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <span th:if="${view.newHiresThisMonth > 0}" class="text-secondary font-label-sm text-label-sm"
                       th:text="'+' + ${view.newHiresThisMonth} + ' this month'">+4 this month</span>
@@ -80,7 +80,7 @@
             </div>
             <a href="/htmx/payroll" hx-get="/htmx/payroll" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
                class="md:w-32 flex flex-col justify-center items-center bg-surface-container-low rounded-lg p-2 border border-outline-variant gap-1 hover:bg-surface-container transition-colors">
-                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 2 6 22 12 19 18 22 18 2"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
                 <p class="font-label-sm text-label-sm text-primary text-center">View Runs</p>
             </a>
         </div>
@@ -89,7 +89,7 @@
         <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
             <div class="flex items-center justify-between mb-md">
                 <div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center">
-                    <span class="material-symbols-outlined text-tertiary">beach_access</span>
+                    <svg class="text-tertiary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/></svg>
                 </div>
                 <span th:if="${view.pendingLeaveCount > 0}" class="text-on-surface-variant font-label-sm text-label-sm"
                       th:text="${view.pendingLeaveCount} + ' pending'">2 pending</span>
@@ -104,14 +104,14 @@
     <!-- Action Required -->
     <div class="mb-lg">
         <div class="flex items-center gap-sm mb-md">
-            <span class="material-symbols-outlined text-primary">notifications_active</span>
+            <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <h3 class="font-headline-sm text-headline-sm text-primary">Action Required</h3>
         </div>
 
         <!-- All clear -->
         <div th:if="${view.pendingLeaveCount == 0 and view.pendingPayrollApproval == 0}"
              class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm justify-center">
-            <span class="material-symbols-outlined text-secondary">task_alt</span>
+            <svg class="text-secondary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             <p class="font-body-md text-body-md text-on-surface-variant">You're all caught up — nothing needs attention right now.</p>
         </div>
 
@@ -125,14 +125,14 @@
                class="group bg-white border border-outline-variant rounded-xl p-md flex items-center justify-between hover:shadow-lg hover:border-primary transition-all">
                 <div class="flex items-center gap-md">
                     <div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center">
-                        <span class="material-symbols-outlined text-primary">event_busy</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/></svg>
                     </div>
                     <div>
                         <p class="font-headline-md text-headline-md text-on-surface" th:text="${view.pendingLeaveCount}">3</p>
                         <p class="font-label-sm text-label-sm text-on-surface-variant">Leave request(s) awaiting approval</p>
                     </div>
                 </div>
-                <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+                <svg class="text-on-surface-variant group-hover:text-primary transition-colors shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
             </a>
 
             <!-- Payroll runs pending approval -->
@@ -141,14 +141,14 @@
                class="group bg-white border border-outline-variant rounded-xl p-md flex items-center justify-between hover:shadow-lg hover:border-primary transition-all">
                 <div class="flex items-center gap-md">
                     <div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center">
-                        <span class="material-symbols-outlined text-primary">fact_check</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/><path d="m9 12 2 2 4-4"/></svg>
                     </div>
                     <div>
                         <p class="font-headline-md text-headline-md text-on-surface" th:text="${view.pendingPayrollApproval}">1</p>
                         <p class="font-label-sm text-label-sm text-on-surface-variant">Payroll run(s) pending approval</p>
                     </div>
                 </div>
-                <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+                <svg class="text-on-surface-variant group-hover:text-primary transition-colors shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
             </a>
         </div>
     </div>
@@ -159,7 +159,7 @@
         <!-- This month at a glance -->
         <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-md">
             <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                <span class="material-symbols-outlined text-primary">insights</span>
+                <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 <h3 class="font-headline-sm text-headline-sm text-primary">This Month at a Glance</h3>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-md">
@@ -167,7 +167,7 @@
                 <!-- Attendance today -->
                 <div class="bg-surface-container-low rounded-lg p-md flex flex-col gap-xs">
                     <div class="flex items-center gap-xs text-on-surface-variant">
-                        <span class="material-symbols-outlined text-[20px]">how_to_reg</span>
+                        <svg class="shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
                         <p class="font-label-sm text-label-sm uppercase tracking-wider">Attendance Today</p>
                     </div>
                     <div th:if="${view.attendanceToday.hasRecords}">
@@ -184,7 +184,7 @@
                 <!-- Leave taken this month -->
                 <div class="bg-surface-container-low rounded-lg p-md flex flex-col gap-xs">
                     <div class="flex items-center gap-xs text-on-surface-variant">
-                        <span class="material-symbols-outlined text-[20px]">beach_access</span>
+                        <svg class="shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/></svg>
                         <p class="font-label-sm text-label-sm uppercase tracking-wider">Leave Taken</p>
                     </div>
                     <div>
@@ -196,7 +196,7 @@
                 <!-- New hires this month -->
                 <div class="bg-surface-container-low rounded-lg p-md flex flex-col gap-xs">
                     <div class="flex items-center gap-xs text-on-surface-variant">
-                        <span class="material-symbols-outlined text-[20px]">person_add</span>
+                        <svg class="shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                         <p class="font-label-sm text-label-sm uppercase tracking-wider">New Hires</p>
                     </div>
                     <div>
@@ -213,7 +213,7 @@
             <!-- Birthdays -->
             <div class="bg-white border border-outline-variant rounded-xl p-md flex-1">
                 <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                    <span class="material-symbols-outlined text-primary">cake</span>
+                    <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><line x1="2" y1="21" x2="22" y2="21"/><line x1="7" y1="11" x2="7" y2="8"/><line x1="12" y1="11" x2="12" y2="7"/><line x1="17" y1="11" x2="17" y2="8"/></svg>
                     <h4 class="font-headline-sm text-headline-sm text-on-surface">Upcoming Birthdays</h4>
                 </div>
                 <div class="space-y-md">
@@ -239,7 +239,7 @@
             <!-- Work anniversaries -->
             <div class="bg-white border border-outline-variant rounded-xl p-md flex-1">
                 <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                    <span class="material-symbols-outlined text-primary">military_tech</span>
+                    <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
                     <h4 class="font-headline-sm text-headline-sm text-on-surface">Work Anniversaries</h4>
                 </div>
                 <div class="space-y-md">
@@ -269,7 +269,7 @@
         <!-- No employee profile fallback -->
         <div th:unless="${view.employee.hasProfile}"
              class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm justify-center">
-            <span class="material-symbols-outlined text-on-surface-variant">badge</span>
+            <svg class="text-on-surface-variant shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><circle cx="9" cy="10" r="2"/><path d="M6 17c0-2 1.3-3 3-3h0c1.7 0 3 1 3 3"/><line x1="15" y1="10" x2="19" y2="10"/><line x1="15" y1="14" x2="19" y2="14"/></svg>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Your account doesn't have an associated employee profile yet.
             </p>
@@ -283,7 +283,7 @@
                 <div class="bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg transition-shadow">
                     <div class="flex items-center justify-between mb-md">
                         <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary">how_to_reg</span>
+                            <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
                         </div>
                         <span class="status-pill px-2 py-0.5 rounded text-[10px] font-bold"
                               th:classappend="${view.employee.attendanceStatusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
@@ -298,7 +298,7 @@
                         <a href="/htmx/attendance/me" hx-get="/htmx/attendance/me" hx-target="#page-content"
                            hx-push-url="true" hx-swap="innerHTML"
                            class="inline-flex items-center gap-xs text-primary font-label-sm text-label-sm mt-sm hover:underline">
-                            Check in / out <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                            Check in / out <svg class="shrink-0 inline-block" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                         </a>
                     </div>
                 </div>
@@ -323,7 +323,7 @@
                     </div>
                     <a href="/htmx/payslips" hx-get="/htmx/payslips" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
                        class="md:w-32 flex flex-col justify-center items-center bg-surface-container-low rounded-lg p-2 border border-outline-variant gap-1 hover:bg-surface-container transition-colors">
-                        <span class="material-symbols-outlined text-primary">receipt_long</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 2 6 22 12 19 18 22 18 2"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
                         <p class="font-label-sm text-label-sm text-primary text-center">My Payslips</p>
                     </a>
                 </div>
@@ -335,7 +335,7 @@
                 <!-- Leave balances -->
                 <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-md">
                     <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                        <span class="material-symbols-outlined text-primary">event_available</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>
                         <h3 class="font-headline-sm text-headline-sm text-primary">My Leave Balances</h3>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
@@ -358,7 +358,7 @@
                 <!-- My pending leave requests -->
                 <div class="bg-white border border-outline-variant rounded-xl p-md">
                     <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                        <span class="material-symbols-outlined text-primary">pending_actions</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         <h3 class="font-headline-sm text-headline-sm text-primary">My Pending Requests</h3>
                     </div>
                     <div class="space-y-md">
@@ -376,7 +376,7 @@
                     </div>
                     <a href="/htmx/leave" hx-get="/htmx/leave" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
                        class="inline-flex items-center gap-xs text-primary font-label-sm text-label-sm mt-md hover:underline">
-                        Go to leave <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                        Go to leave <svg class="shrink-0 inline-block" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                     </a>
                 </div>
             </div>
@@ -386,7 +386,7 @@
                 <!-- Birthdays -->
                 <div class="bg-white border border-outline-variant rounded-xl p-md">
                     <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                        <span class="material-symbols-outlined text-primary">cake</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><line x1="2" y1="21" x2="22" y2="21"/><line x1="7" y1="11" x2="7" y2="8"/><line x1="12" y1="11" x2="12" y2="7"/><line x1="17" y1="11" x2="17" y2="8"/></svg>
                         <h4 class="font-headline-sm text-headline-sm text-on-surface">Upcoming Birthdays</h4>
                     </div>
                     <div class="space-y-md">
@@ -408,7 +408,7 @@
                 <!-- Anniversaries -->
                 <div class="bg-white border border-outline-variant rounded-xl p-md">
                     <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                        <span class="material-symbols-outlined text-primary">military_tech</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
                         <h4 class="font-headline-sm text-headline-sm text-on-surface">Work Anniversaries</h4>
                     </div>
                     <div class="space-y-md">
@@ -440,9 +440,9 @@
                class="group bg-white border border-outline-variant p-md rounded-xl flex flex-col justify-between hover:shadow-lg hover:border-primary transition-all">
                 <div class="flex items-center justify-between mb-md">
                     <div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
-                        <span class="material-symbols-outlined text-primary">fact_check</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1" ry="1"/><path d="m9 12 2 2 4-4"/></svg>
                     </div>
-                    <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">chevron_right</span>
+                    <svg class="text-on-surface-variant group-hover:text-primary transition-colors shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
                 <div>
                     <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Awaiting Approval</p>
@@ -454,7 +454,7 @@
             <!-- Current payroll cost (spans 2) -->
             <div class="bg-white border border-outline-variant p-md rounded-xl md:col-span-2 flex flex-col justify-between hover:shadow-lg transition-shadow">
                 <div class="flex items-center gap-sm mb-xs">
-                    <span class="material-symbols-outlined text-primary">payments</span>
+                    <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                     <p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Current Payroll Cost</p>
                 </div>
                 <div>
@@ -469,7 +469,7 @@
         <!-- Recent invoices -->
         <div class="bg-white border border-outline-variant rounded-xl p-md">
             <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 2 6 22 12 19 18 22 18 2"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
                 <h3 class="font-headline-sm text-headline-sm text-primary">Recent Invoices</h3>
             </div>
             <div class="overflow-x-auto">
@@ -508,7 +508,7 @@
         <!-- No department fallback -->
         <div th:unless="${view.deptManager.hasDepartment}"
              class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm justify-center">
-            <span class="material-symbols-outlined text-on-surface-variant">domain</span>
+            <svg class="text-on-surface-variant shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M8 9V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Your account isn't assigned to a department yet.
             </p>
@@ -516,7 +516,7 @@
 
         <div th:if="${view.deptManager.hasDepartment}">
             <div class="flex items-center gap-sm mb-md">
-                <span class="material-symbols-outlined text-primary">groups</span>
+                <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <h3 class="font-headline-sm text-headline-sm text-primary" th:text="${view.deptManager.departmentName}">Engineering</h3>
             </div>
 
@@ -546,7 +546,7 @@
                 <!-- Department attendance today -->
                 <div class="bg-white border border-outline-variant rounded-xl p-md">
                     <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                        <span class="material-symbols-outlined text-primary">how_to_reg</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
                         <h4 class="font-headline-sm text-headline-sm text-on-surface">Attendance Today</h4>
                     </div>
                     <div th:if="${view.deptManager.attendanceToday.hasRecords}">
@@ -563,7 +563,7 @@
                 <!-- Department payroll cost -->
                 <div class="bg-white border border-outline-variant rounded-xl p-md">
                     <div class="flex items-center gap-sm mb-md border-b border-outline-variant pb-sm">
-                        <span class="material-symbols-outlined text-primary">payments</span>
+                        <svg class="text-primary shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                         <h4 class="font-headline-sm text-headline-sm text-on-surface">Monthly Payroll Cost</h4>
                     </div>
                     <h2 class="font-headline-md text-headline-md text-on-surface" th:text="${view.deptManager.payrollCostFormatted}">₦8,400,000</h2>
