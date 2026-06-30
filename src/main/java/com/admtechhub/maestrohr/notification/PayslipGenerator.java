@@ -73,6 +73,24 @@ public class PayslipGenerator {
             context.setVariable("otherDeductions", otherDeductions / 100.0);
             context.setVariable("lateDaysInPeriod", lateDaysInPeriod);
 
+            boolean isProrated = Boolean.TRUE.equals(entry.getIsProrated());
+            context.setVariable("isProrated", isProrated);
+            if (isProrated) {
+                int proratedDays = entry.getDaysWorked() != null ? entry.getDaysWorked() : 0;
+                int totalDays = entry.getWorkingDays() != null ? entry.getWorkingDays() : 0;
+                String proratedReason;
+                if (employee.getTerminationDate() != null) {
+                    proratedReason = "Exit date: " + employee.getTerminationDate()
+                            .format(DateTimeFormatter.ofPattern("dd/MM"));
+                } else {
+                    proratedReason = "Hire date: " + employee.getEmploymentStartDate()
+                            .format(DateTimeFormatter.ofPattern("dd/MM"));
+                }
+                context.setVariable("proratedDaysWorked", proratedDays);
+                context.setVariable("proratedTotalDays", totalDays);
+                context.setVariable("proratedReason", proratedReason);
+            }
+
             long totalDeductions = payeTax + pensionEmployee + nhfDeduction
                     + unpaidLeaveDeduction + attendanceDeduction + loanDeduction + otherDeductions;
             context.setVariable("totalDeductions", totalDeductions / 100.0);

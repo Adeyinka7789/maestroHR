@@ -140,6 +140,8 @@
     </table>
 
     <div class="footer">
+        <p th:if="${isProrated}" style="color:#e67e22; font-weight:bold;"
+           th:text="'Prorated for ' + ${proratedDaysWorked} + ' of ' + ${proratedTotalDays} + ' working days (' + ${proratedReason} + ')'"></p>
         <p th:if="${lateDaysInPeriod != 0}" th:text="'Late records in period: ' + ${lateDaysInPeriod} + ' (informational, not deducted)'">Late records</p>
         <p>This is a computer-generated document. No signature is required.</p>
         <p>For inquiries, please contact HR department.</p>

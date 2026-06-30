@@ -112,16 +112,18 @@ public class PayrollRunService {
             payrollEntryRepository.deleteAll(existingEntries);
         }
 
-        List<Employee> activeEmployees = employeeRepository.findByStatus(EmployeeStatus.ACTIVE);
-
-        if (activeEmployees.isEmpty()) {
-            throw new IllegalStateException("No active employees found for payroll");
-        }
-
         int workingDays = getWorkingDays(payrollRun.getPayrollMonth(), payrollRun.getPayrollYear());
 
         LocalDate periodStart = LocalDate.of(payrollRun.getPayrollYear(), payrollRun.getPayrollMonth(), 1);
         LocalDate periodEnd   = periodStart.plusMonths(1).minusDays(1);
+
+        // Include employees terminated mid-period so they receive a prorated final pay.
+        List<Employee> payrollEmployees = employeeRepository.findActiveOrTerminatedDuringPeriod(
+                EmployeeStatus.ACTIVE, EmployeeStatus.TERMINATED, periodStart, periodEnd);
+
+        if (payrollEmployees.isEmpty()) {
+            throw new IllegalStateException("No active employees found for payroll");
+        }
 
         List<PayrollEntry> entries = new ArrayList<>();
         long totalGross = 0;
@@ -131,8 +133,14 @@ public class PayrollRunService {
         long totalPensionEmployer = 0;
         long totalNhf = 0;
 
-        for (Employee employee : activeEmployees) {
-            int daysWorked = workingDays;
+        for (Employee employee : payrollEmployees) {
+            // Prorate for mid-month joiners (employmentStartDate after period start)
+            // and mid-month leavers (terminationDate before period end).
+            LocalDate effectiveStart = employee.getEmploymentStartDate().isAfter(periodStart)
+                    ? employee.getEmploymentStartDate() : periodStart;
+            LocalDate effectiveEnd = (employee.getTerminationDate() != null && employee.getTerminationDate().isBefore(periodEnd))
+                    ? employee.getTerminationDate() : periodEnd;
+            int daysWorked = effectiveEnd.isBefore(effectiveStart) ? 0 : countWorkingDays(effectiveStart, effectiveEnd);
 
             int unpaidLeaveDays = leaveService.getUnpaidLeaveDays(employee.getId(), periodStart, periodEnd);
             int absentDays      = attendanceService.getAbsentDays(employee.getId(), periodStart, periodEnd);
@@ -422,14 +430,17 @@ public class PayrollRunService {
     private int getWorkingDays(int month, int year) {
         LocalDate firstDay = LocalDate.of(year, month, 1);
         LocalDate lastDay = firstDay.plusMonths(1).minusDays(1);
+        return countWorkingDays(firstDay, lastDay);
+    }
 
-        int workingDays = 0;
-        for (LocalDate date = firstDay; !date.isAfter(lastDay); date = date.plusDays(1)) {
+    private int countWorkingDays(LocalDate from, LocalDate to) {
+        int count = 0;
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             if (date.getDayOfWeek().getValue() != 7) {
-                workingDays++;
+                count++;
             }
         }
-        return workingDays;
+        return count;
     }
 
     private PayrollRunResponse toResponse(PayrollRun payrollRun) {

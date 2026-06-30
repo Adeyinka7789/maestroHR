@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,4 +86,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
                                 @Param("departmentId") UUID departmentId,
                                 @Param("status") EmployeeStatus status,
                                 Pageable pageable);
+
+    // For payroll computation: active employees plus anyone terminated within the period
+    // (so mid-month leavers receive a prorated final pay rather than nothing).
+    // Tenant scoping is automatic via @SQLRestriction on Employee.
+    @Query("SELECT e FROM Employee e WHERE e.status = :active " +
+           "OR (e.status = :terminated AND e.terminationDate >= :periodStart AND e.terminationDate <= :periodEnd)")
+    List<Employee> findActiveOrTerminatedDuringPeriod(
+            @Param("active") EmployeeStatus active,
+            @Param("terminated") EmployeeStatus terminated,
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd);
 }
