@@ -162,6 +162,7 @@ public class PayrollRunService {
                     .unpaidLeaveDeduction(result.getUnpaidLeaveDeduction())
                     .attendanceDeduction(result.getAttendanceDeduction())
                     .loanDeduction(result.getLoanDeduction())
+                    .loanDeductionCapped(result.isLoanDeductionCapped())
                     .lateDaysInPeriod(lateDays)
                     .netSalary(result.getNetSalary())
                     .daysWorked(result.getDaysWorked())

@@ -2,10 +2,13 @@ package com.admtechhub.maestrohr.payroll;
 
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
+import com.admtechhub.maestrohr.loan.LoanPolicy;
+import com.admtechhub.maestrohr.loan.LoanPolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -17,6 +20,7 @@ public class PayrollEngine {
     private final NHFCalculator nhfCalculator;
     private final NSITFCalculator nsitfCalculator;
     private final PAYECalculator payeCalculator;
+    private final LoanPolicyService loanPolicyService;
 
     /**
      * Calculate complete payroll for a single employee.
@@ -27,7 +31,8 @@ public class PayrollEngine {
      * @param unpaidLeaveDays Approved unpaid leave days in the period — deducted post-statutory
      * @param absentDays      ABSENT attendance records in the period — deducted post-statutory
      * @param loanDeduction   Active-loan repayment for the period (kobo) — deducted post-statutory.
-     *                        Calculated by LoanService and passed in; the engine only nets it out.
+     *                        Calculated by LoanService and passed in; the engine applies the net-floor
+     *                        cap and flags the result if the amount was reduced.
      * @return Complete PayrollResult including separate deduction line items
      */
     public PayrollResult calculateEmployeePayroll(Employee employee, int daysWorked, int workingDays,
@@ -75,19 +80,39 @@ public class PayrollEngine {
         // Step 6: Calculate post-statutory deductions (unpaid leave + unexcused absence).
         // Daily rate uses integer division — no floating point; small rounding difference is
         // acceptable and consistent with how proration is applied elsewhere in this engine.
-        Long dailyRateKobo       = grossSalary / workingDays;
+        Long dailyRateKobo        = grossSalary / workingDays;
         Long unpaidLeaveDeduction = dailyRateKobo * unpaidLeaveDays;
         Long attendanceDeduction  = dailyRateKobo * absentDays;
 
-        // Step 7: Calculate Net Salary. Loan repayment is post-tax (Nigerian loan
+        // Step 7: Net-floor protection — cap loan deduction so the employee's net salary
+        // stays >= max(policy.netFloorPct% of gross, Nigerian minimum wage of ₦70,000).
+        Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeResult.getMonthlyPAYE();
+        long effectiveLoanDeduction = loanDeduction;
+        boolean loanDeductionCapped = false;
+
+        Optional<LoanPolicy> policyOpt = loanPolicyService.getPolicyForEmployee(employee);
+        if (policyOpt.isPresent()) {
+            LoanPolicy policy = policyOpt.get();
+            long policyFloor = (long) (grossSalary * policy.getNetFloorPct().doubleValue() / 100.0);
+            long minNet = Math.max(policyFloor, 7_000_000L); // NMW = ₦70,000 = 7,000,000 kobo
+            long afterStatutory = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction;
+            if (afterStatutory - effectiveLoanDeduction < minNet) {
+                effectiveLoanDeduction = Math.max(0L, afterStatutory - minNet);
+                loanDeductionCapped = true;
+                log.warn("Loan deduction capped for {}: requested {} kobo → {} kobo (net floor {} kobo)",
+                        employee.getFullName(), loanDeduction, effectiveLoanDeduction, minNet);
+            }
+        }
+
+        // Step 8: Calculate Net Salary. Loan repayment is post-tax (Nigerian loan
         // repayments don't reduce taxable income), so it nets out alongside the other
         // post-statutory deductions.
-        Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeResult.getMonthlyPAYE();
-        Long netSalary = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction - loanDeduction;
+        Long netSalary = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction - effectiveLoanDeduction;
 
-        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}, Loan={}",
+        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}, Loan={} (capped={})",
                 employee.getFullName(), grossSalary, netSalary, payeResult.getMonthlyPAYE(),
-                pensionResult.getEmployeeContribution(), nhfDeduction, unpaidLeaveDeduction, attendanceDeduction, loanDeduction);
+                pensionResult.getEmployeeContribution(), nhfDeduction, unpaidLeaveDeduction, attendanceDeduction,
+                effectiveLoanDeduction, loanDeductionCapped);
 
         return PayrollResult.builder()
                 .employeeId(employee.getId())
@@ -106,7 +131,8 @@ public class PayrollEngine {
                 .otherDeductions(0L)
                 .unpaidLeaveDeduction(unpaidLeaveDeduction)
                 .attendanceDeduction(attendanceDeduction)
-                .loanDeduction(loanDeduction)
+                .loanDeduction(effectiveLoanDeduction)
+                .loanDeductionCapped(loanDeductionCapped)
                 .netSalary(netSalary)
                 .daysWorked(daysWorked)
                 .workingDays(workingDays)
@@ -135,6 +161,8 @@ public class PayrollEngine {
         private Long unpaidLeaveDeduction;
         private Long attendanceDeduction;
         private Long loanDeduction;
+        /** True when the loan deduction was reduced to protect the employee's net salary floor. */
+        private boolean loanDeductionCapped;
         private Long netSalary;
         private Integer daysWorked;
         private Integer workingDays;

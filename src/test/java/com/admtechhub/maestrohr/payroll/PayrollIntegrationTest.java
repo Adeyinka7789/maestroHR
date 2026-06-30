@@ -2,12 +2,15 @@ package com.admtechhub.maestrohr.payroll;
 
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
+import com.admtechhub.maestrohr.loan.LoanPolicyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,10 +27,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PayrollIntegrationTest {
 
-    @Mock private PensionCalculator pensionCalculator;
-    @Mock private NHFCalculator     nhfCalculator;
-    @Mock private NSITFCalculator   nsitfCalculator;
-    @Mock private PAYECalculator    payeCalculator;
+    @Mock private PensionCalculator  pensionCalculator;
+    @Mock private NHFCalculator      nhfCalculator;
+    @Mock private NSITFCalculator    nsitfCalculator;
+    @Mock private PAYECalculator     payeCalculator;
+    @Mock private LoanPolicyService  loanPolicyService;
 
     @InjectMocks private PayrollEngine payrollEngine;
 
@@ -91,6 +95,8 @@ class PayrollIntegrationTest {
                         .build());
 
         when(nsitfCalculator.calculateEmployerContribution(GROSS)).thenReturn(NSITF_ER);
+        // No policy configured — net-floor cap is inactive for these arithmetic tests.
+        when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
     }
 
     // ── Test 1 ────────────────────────────────────────────────────────────────

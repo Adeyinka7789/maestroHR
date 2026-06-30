@@ -82,6 +82,11 @@ public class PayrollEntry extends BaseEntity {
     @Builder.Default
     private Long loanDeduction = 0L;
 
+    /** TRUE when the loan deduction was reduced by the net-floor protection in PayrollEngine. */
+    @Column(name = "loan_deduction_capped", nullable = false)
+    @Builder.Default
+    private Boolean loanDeductionCapped = false;
+
     /** LATE records in the period — informational, not deducted automatically. */
     @Column(name = "late_days_in_period", nullable = false)
     @Builder.Default

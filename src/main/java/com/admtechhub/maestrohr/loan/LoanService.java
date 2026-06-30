@@ -10,7 +10,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,6 +44,7 @@ public class LoanService {
     private final EmployeeLoanRepository loanRepository;
     private final LoanRepaymentRepository repaymentRepository;
     private final EmployeeRepository employeeRepository;
+    private final LoanPolicyService loanPolicyService;
 
     // ── Commands ─────────────────────────────────────────────────────────────
 
@@ -71,10 +74,22 @@ public class LoanService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + employeeId));
 
+        // Policy validation — throws IllegalArgumentException on violation
+        loanPolicyService.validateLoanRequest(employee, loanAmountKobo, repaymentMonths);
+
         long installment = loanAmountKobo / repaymentMonths;
         if (installment <= 0) {
             // More months than kobo — nonsensical schedule; one would never deduct anything.
             throw new IllegalArgumentException("Monthly installment rounds to zero; reduce the repayment months.");
+        }
+
+        // Snapshot policy fields onto the loan for historical accuracy
+        BigDecimal interestRatePct = BigDecimal.ZERO;
+        UUID loanPolicyId = null;
+        var policyOpt = loanPolicyService.getPolicyForEmployee(employee);
+        if (policyOpt.isPresent()) {
+            interestRatePct = policyOpt.get().getInterestRatePct();
+            loanPolicyId = policyOpt.get().getId();
         }
 
         EmployeeLoan loan = EmployeeLoan.builder()
@@ -89,6 +104,8 @@ public class LoanService {
                 .startDate(startDate)
                 .description(description)
                 .createdBy(currentUserEmail())
+                .interestRatePct(interestRatePct)
+                .loanPolicyId(loanPolicyId)
                 .build();
 
         EmployeeLoan saved = loanRepository.save(loan);
@@ -160,6 +177,38 @@ public class LoanService {
         return loanRepository.save(loan);
     }
 
+    /**
+     * Write off the remaining balance of any non-COMPLETED, non-CANCELLED loan.
+     * Sets {@code remainingBalance = 0}, flips status to COMPLETED, records the waiver fields,
+     * and writes a {@link LoanRepayment} ledger row with {@link RepaymentType#WAIVER} for audit.
+     * Only FINANCE_OFFICER / HR_ADMIN callers should invoke this; the controller enforces the role.
+     */
+    @Transactional
+    public EmployeeLoan waiveLoan(UUID loanId, String reason, String waivedByEmail) {
+        EmployeeLoan loan = requireLoan(loanId);
+        if (loan.getStatus() == LoanStatus.COMPLETED || loan.getStatus() == LoanStatus.CANCELLED) {
+            throw new IllegalStateException("Loan is already " + loan.getStatus() + " and cannot be waived.");
+        }
+        long waivedAmount = loan.getRemainingBalance() != null ? loan.getRemainingBalance() : 0L;
+
+        repaymentRepository.save(LoanRepayment.builder()
+                .tenant(loan.getTenant())
+                .loan(loan)
+                .payrollRun(null)
+                .amount(waivedAmount)
+                .repaymentType(RepaymentType.WAIVER)
+                .build());
+
+        loan.setRemainingBalance(0L);
+        loan.setStatus(LoanStatus.COMPLETED);
+        loan.setWaiverReason(reason != null && !reason.isBlank() ? reason.trim() : "No reason provided");
+        loan.setWaivedAt(OffsetDateTime.now());
+        loan.setWaivedBy(waivedByEmail);
+        EmployeeLoan saved = loanRepository.save(loan);
+        log.info("Loan {} waived by {}; amount cleared = {} kobo", loanId, waivedByEmail, waivedAmount);
+        return saved;
+    }
+
     // ── Queries ──────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -215,6 +264,11 @@ public class LoanService {
             if (employee == null) {
                 continue;
             }
+            // When the net-floor cap was applied, the stored amount is intentionally lower than
+            // what uncapped installments would sum to — skip the check in that case.
+            if (Boolean.TRUE.equals(entry.getLoanDeductionCapped())) {
+                continue;
+            }
             long stored = entry.getLoanDeduction() != null ? entry.getLoanDeduction() : 0L;
             long current = computeLoanDeductionForEmployee(employee.getId());
             if (stored != current) {
@@ -242,11 +296,22 @@ public class LoanService {
             List<EmployeeLoan> activeLoans =
                     loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE);
 
+            // When the net-floor cap was applied at compute time, entry.loanDeduction is the
+            // capped budget. Apply loans in creation order up to that budget so the ledger
+            // matches the payslip deduction exactly.
+            long budget = (entry.getLoanDeduction() != null) ? entry.getLoanDeduction() : Long.MAX_VALUE;
+            long budgetUsed = 0L;
+
             for (EmployeeLoan loan : activeLoans) {
+                if (budgetUsed >= budget) {
+                    break; // net-floor cap exhausted — remaining loans deferred to next run
+                }
                 if (repaymentRepository.existsByLoanIdAndPayrollRunId(loan.getId(), run.getId())) {
+                    budgetUsed += installmentFor(loan);
                     continue; // already applied for this run — idempotent skip
                 }
-                long amount = installmentFor(loan);
+                long rawAmount = installmentFor(loan);
+                long amount = Math.min(rawAmount, budget - budgetUsed);
                 if (amount <= 0) {
                     continue;
                 }
@@ -256,6 +321,7 @@ public class LoanService {
                         .loan(loan)
                         .payrollRun(run)
                         .amount(amount)
+                        .repaymentType(RepaymentType.STANDARD)
                         .build());
 
                 loan.setRemainingBalance(loan.getRemainingBalance() - amount);
@@ -265,6 +331,7 @@ public class LoanService {
                     loan.setStatus(LoanStatus.COMPLETED);
                 }
                 loanRepository.save(loan);
+                budgetUsed += amount;
 
                 log.info("Applied loan repayment: loan={} run={} amount={} remaining={} status={}",
                         loan.getId(), run.getId(), amount, loan.getRemainingBalance(), loan.getStatus());

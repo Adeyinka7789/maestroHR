@@ -2,10 +2,16 @@ package com.admtechhub.maestrohr.payroll;
 
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
+import com.admtechhub.maestrohr.loan.LoanPolicyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for PayrollEngine with REAL sub-calculators — no mocks.
@@ -45,11 +51,14 @@ class PayrollEngineTest {
 
     @BeforeEach
     void setUp() {
+        LoanPolicyService loanPolicyService = mock(LoanPolicyService.class);
+        when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
         engine = new PayrollEngine(
                 new PensionCalculator(),
                 new NHFCalculator(),
                 new NSITFCalculator(),
-                new PAYECalculator());
+                new PAYECalculator(),
+                loanPolicyService);
     }
 
     private Employee standardEmployee() {

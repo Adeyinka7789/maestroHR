@@ -12,7 +12,9 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * An employee loan or salary advance, repaid via a fixed monthly installment deducted
@@ -92,4 +94,24 @@ public class EmployeeLoan extends BaseEntity {
     /** Reason captured when the request is rejected. */
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
+
+    /** Interest rate from the policy at the time the loan was approved; 0.0 = interest-free. */
+    @Column(name = "interest_rate_pct", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal interestRatePct = BigDecimal.ZERO;
+
+    /** Snapshot of the policy that governed this loan at application time; may be null for legacy loans. */
+    @Column(name = "loan_policy_id")
+    private UUID loanPolicyId;
+
+    /** Free-text reason recorded when an HR/Finance user writes off the remaining balance. */
+    @Column(name = "waiver_reason", length = 500)
+    private String waiverReason;
+
+    @Column(name = "waived_at")
+    private java.time.OffsetDateTime waivedAt;
+
+    /** Email of the HR/Finance user who granted the waiver. */
+    @Column(name = "waived_by")
+    private String waivedBy;
 }

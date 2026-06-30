@@ -36,8 +36,15 @@ class LoanServiceTest {
     @Mock private EmployeeLoanRepository loanRepository;
     @Mock private LoanRepaymentRepository repaymentRepository;
     @Mock private EmployeeRepository employeeRepository;
+    @Mock private LoanPolicyService loanPolicyService;
 
     @InjectMocks private LoanService loanService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        // Policy service has no active policy by default — applyForLoan tests focus on installment maths.
+        lenient().when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
+    }
 
     private EmployeeLoan loan(long installment, long remaining, int monthsPaid, int repaymentMonths, LoanStatus status) {
         return EmployeeLoan.builder()

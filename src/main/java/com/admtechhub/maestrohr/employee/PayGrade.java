@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.employee;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
+import com.admtechhub.maestrohr.loan.LoanPolicy;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -51,6 +52,12 @@ public class PayGrade extends BaseEntity {
     // (see @SQLRestriction) until the cleanup job purges it after the 90-day window.
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
+
+    /** Optional policy link; null means the tenant-default active policy is used for validation. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "loan_policy_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "tenant", "deletedAt"})
+    private LoanPolicy loanPolicy;
 
     public Long getGrossSalary() {
         return basicSalary + housingAllowance + transportAllowance + otherAllowances;

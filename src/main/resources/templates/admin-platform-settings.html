@@ -173,7 +173,60 @@
             </div>
         </div>
 
-        <!-- ── 5. Security ─────────────────────────────────────────────── -->
+        <!-- ── 5. Loan Ceilings ───────────────────────────────────────── -->
+        <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
+                <div class="flex items-center gap-xs">
+                    <span class="material-symbols-outlined text-primary text-[20px]">account_balance</span>
+                    <h2 class="font-title-md text-title-md text-on-surface">Loan Ceilings</h2>
+                </div>
+            </div>
+            <div class="p-md">
+                <p class="font-body-sm text-body-sm text-on-surface-variant mb-md">
+                    Hard upper bounds that apply on top of any per-policy limits. A loan request exceeding a ceiling is
+                    rejected even if the employee's linked policy would otherwise allow it.
+                </p>
+                <form onsubmit="savePlatformCard(event, ['loan_max_multiplier_ceiling','loan_min_net_floor_pct','loan_max_tenor_months_ceiling','loan_max_deduction_pct_ceiling'])">
+                    <div class="grid grid-cols-2 gap-md mb-md">
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Gross Multiplier Ceiling</label>
+                            <input type="number" name="loan_max_multiplier_ceiling" min="1" max="12" step="0.5"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['loan_max_multiplier_ceiling']}">
+                            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Maximum number of gross salary multiples any policy may grant. Platform default: 6×.</p>
+                        </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Min Net Floor % Ceiling</label>
+                            <input type="number" name="loan_min_net_floor_pct" min="0" max="90" step="1"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['loan_min_net_floor_pct']}">
+                            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Minimum net-salary floor % a policy must maintain. Platform default: 33%.</p>
+                        </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Tenor Ceiling (months)</label>
+                            <input type="number" name="loan_max_tenor_months_ceiling" min="1" max="60" step="1"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['loan_max_tenor_months_ceiling']}">
+                            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">No loan may have a repayment tenor longer than this. Platform default: 36 months.</p>
+                        </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Deduction % Ceiling</label>
+                            <input type="number" name="loan_max_deduction_pct_ceiling" min="0" max="90" step="1"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['loan_max_deduction_pct_ceiling']}">
+                            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Maximum monthly deduction as a percentage of gross salary. Platform default: 50%.</p>
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                            <span class="material-symbols-outlined text-[18px]">save</span> Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── 6. Security ─────────────────────────────────────────────── -->
         <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
             <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant">
                 <div class="flex items-center gap-xs">

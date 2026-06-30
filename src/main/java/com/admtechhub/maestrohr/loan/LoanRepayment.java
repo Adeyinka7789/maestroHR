@@ -13,13 +13,10 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
 /**
- * Append-only ledger of loan repayments applied during payroll approval. One row per
- * (loan, payroll run) — the {@code uk_loan_repayment_per_run} unique constraint
- * (V30) makes the "apply" phase idempotent: a re-approval / retry hits the constraint
- * instead of decrementing a loan balance twice.
- *
- * <p>Beyond idempotency it is the audit trail answering "why did this loan go down, and
- * in which payroll run was this amount taken".
+ * Append-only ledger of loan repayments. One STANDARD row per (loan, payroll run) —
+ * the {@code uk_loan_repayment_per_run} unique constraint (V30) makes the apply phase
+ * idempotent. WAIVER rows have {@code payrollRun = null} and are created by
+ * {@link LoanService#waiveLoan} when HR/Finance writes off a remaining balance.
  */
 @Entity
 @Table(name = "loan_repayments")
@@ -42,12 +39,18 @@ public class LoanRepayment extends BaseEntity {
     @JsonIgnoreProperties({"tenant", "employee"})
     private EmployeeLoan loan;
 
+    /** Null for WAIVER rows — waivers have no associated payroll run. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payroll_run_id", nullable = false)
+    @JoinColumn(name = "payroll_run_id", nullable = true)
     @JsonIgnoreProperties({"entries", "tenant", "initiatedBy", "approvedBy"})
     private PayrollRun payrollRun;
 
-    /** Amount applied to the loan in this run, in kobo. */
+    /** Amount applied to the loan in this row, in kobo. */
     @Column(name = "amount", nullable = false)
     private Long amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "repayment_type", nullable = false, length = 20)
+    @Builder.Default
+    private RepaymentType repaymentType = RepaymentType.STANDARD;
 }

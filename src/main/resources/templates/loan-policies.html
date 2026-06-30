@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* loan-policies.html — HTMX fragment for Loan Policies management.
+        Rendered by LoanPolicyController as "loan-policies :: content".
+        SYSTEM_ADMIN / HR_ADMIN only — employees never see this page. */-->
+
+<div th:fragment="content" class="p-lg flex flex-col gap-lg">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Loan Policies</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">
+                Define eligibility rules and limits for employee loan requests. Each pay grade can be linked to a
+                specific policy; employees with no grade-level policy fall back to the first active policy.
+            </p>
+        </div>
+        <button onclick="document.getElementById('add-policy-modal').classList.remove('hidden')"
+                class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+            <span class="material-symbols-outlined text-[18px]">add</span> Add Policy
+        </button>
+    </div>
+
+    <!-- Flash messages -->
+    <div th:if="${success}"
+         class="p-sm rounded-lg font-label-md text-label-md bg-secondary-container text-on-secondary-container"
+         th:text="${success}"></div>
+    <div th:if="${formError}"
+         class="p-sm rounded-lg font-label-md text-label-md bg-error-container text-on-error-container"
+         th:text="${formError}"></div>
+
+    <!-- Policies table -->
+    <div class="bg-surface-container rounded-xl border border-outline-variant overflow-hidden">
+        <div th:if="${policies.isEmpty()}"
+             class="p-xl text-center font-body-sm text-body-sm text-on-surface-variant">
+            No loan policies configured yet. Click "Add Policy" to create the first one.
+        </div>
+
+        <table th:unless="${policies.isEmpty()}" class="w-full text-left border-collapse">
+            <thead class="bg-surface-container-high">
+            <tr>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Name</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Max Amount</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Max Gross ×</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Max Tenor</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Interest %</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Net Floor %</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Eligible After</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${policies}" class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                <td class="px-md py-sm">
+                    <p class="font-label-md text-label-md text-on-surface" th:text="${p.name}">Standard</p>
+                    <p th:if="${p.description != null and !p.description.isEmpty()}"
+                       class="font-body-sm text-body-sm text-on-surface-variant truncate max-w-[200px]"
+                       th:text="${p.description}">...</p>
+                </td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                    th:text="${'₦' + #numbers.formatDecimal(p.maxAmountKobo / 100.0, 1, 'COMMA', 2, 'POINT')}">₦500,000.00</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                    th:text="${p.maxMultiplierOfGross + '×'}">3.0×</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                    th:text="${p.maxTenorMonths + ' mo'}">12 mo</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                    th:text="${p.interestRatePct + '%'}">0.0%</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                    th:text="${p.netFloorPct + '%'}">50.0%</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                    th:text="${p.eligibleAfterMonths + ' mo'}">6 mo</td>
+                <td class="px-md py-sm">
+                    <span th:if="${p.isActive}"
+                          class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-secondary-container text-on-secondary-container">Active</span>
+                    <span th:unless="${p.isActive}"
+                          class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-surface-container text-on-surface-variant">Inactive</span>
+                </td>
+                <td class="px-md py-sm">
+                    <div class="flex items-center gap-xs">
+                        <button class="text-primary font-label-sm text-label-sm hover:underline"
+                                hx-get="${'/htmx/loan-policies/' + p.id + '/edit'}"
+                                th:hx-get="${'/htmx/loan-policies/' + p.id + '/edit'}"
+                                hx-target="#edit-policy-container"
+                                hx-swap="innerHTML">Edit</button>
+                        <form th:action="${'/htmx/loan-policies/' + p.id + '/delete'}" method="post"
+                              onsubmit="return confirm('Delete this policy? Existing loans using it will retain their snapshot.')">
+                            <button type="submit"
+                                    class="text-error font-label-sm text-label-sm hover:underline">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Edit modal container (populated by HTMX) -->
+    <div id="edit-policy-container"></div>
+
+    <!-- Add Policy modal -->
+    <div id="add-policy-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-lg">
+        <div class="bg-surface rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-lg border-b border-outline-variant">
+                <h2 class="font-headline-sm text-headline-sm text-on-surface">Add Loan Policy</h2>
+                <button onclick="document.getElementById('add-policy-modal').classList.add('hidden')"
+                        class="text-on-surface-variant hover:text-on-surface">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form action="/htmx/loan-policies/create" method="post"
+                  hx-post="/htmx/loan-policies/create" hx-target="#page-content" hx-swap="innerHTML">
+                <div class="p-lg grid grid-cols-2 gap-md">
+                    <div class="col-span-2">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Policy Name *</label>
+                        <input type="text" name="name" required maxlength="100"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="e.g. Standard Staff Loan">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Description</label>
+                        <input type="text" name="description" maxlength="500"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Min Amount (₦) *</label>
+                        <input type="number" name="minAmountKobo" min="0" step="10000" value="0"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="in kobo (e.g. 5000000 = ₦50,000)">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Amount (₦, kobo) *</label>
+                        <input type="number" name="maxAmountKobo" min="1" step="10000" required
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                               placeholder="e.g. 50000000 = ₦500,000">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Gross Multiplier *</label>
+                        <input type="number" name="maxMultiplierOfGross" min="0.5" max="6" step="0.5" value="3.0"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Tenor (months) *</label>
+                        <input type="number" name="maxTenorMonths" min="1" max="36" value="12"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Interest Rate % (0 = interest-free)</label>
+                        <input type="number" name="interestRatePct" min="0" max="50" step="0.5" value="0.0"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Deduction % of Gross</label>
+                        <input type="number" name="maxDeductionPct" min="0" max="50" step="1" value="33.0"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Net Floor % (min net after deductions)</label>
+                        <input type="number" name="netFloorPct" min="33" max="90" step="1" value="50.0"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Eligible After (months employed)</label>
+                        <input type="number" name="eligibleAfterMonths" min="0" max="60" value="6"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Cooling Period (days between loans)</label>
+                        <input type="number" name="coolingPeriodDays" min="0" max="365" value="30"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Loans per Year</label>
+                        <input type="number" name="maxLoansPerYear" min="1" max="12" value="2"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Approval Threshold (₦, kobo)</label>
+                        <input type="number" name="approvalThresholdKobo" min="0" step="100000" value="10000000"
+                               class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                    </div>
+                    <div class="flex items-center gap-sm mt-xs">
+                        <input type="checkbox" name="probationEligible" id="probation-add" value="true"
+                               class="w-4 h-4 accent-primary">
+                        <label for="probation-add" class="font-label-sm text-label-sm text-on-surface-variant">Allow probationary employees</label>
+                    </div>
+                    <div class="flex items-center gap-sm mt-xs">
+                        <input type="checkbox" name="isActive" id="active-add" value="true" checked
+                               class="w-4 h-4 accent-primary">
+                        <label for="active-add" class="font-label-sm text-label-sm text-on-surface-variant">Active</label>
+                    </div>
+                </div>
+                <div class="px-lg pb-lg flex justify-end gap-sm">
+                    <button type="button" onclick="document.getElementById('add-policy-modal').classList.add('hidden')"
+                            class="px-md py-xs rounded-lg border border-outline-variant font-label-md text-label-md text-on-surface hover:bg-surface-container transition-all">Cancel</button>
+                    <button type="submit"
+                            class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                        <span class="material-symbols-outlined text-[18px]">save</span> Create Policy
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit modal (injected by HTMX into #edit-policy-container) -->
+<div th:fragment="editModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-lg">
+    <div class="bg-surface rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-lg border-b border-outline-variant">
+            <h2 class="font-headline-sm text-headline-sm text-on-surface">Edit Loan Policy</h2>
+            <button onclick="document.getElementById('edit-policy-container').innerHTML=''"
+                    class="text-on-surface-variant hover:text-on-surface">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form th:action="${'/htmx/loan-policies/' + policy.id + '/update'}" method="post"
+              th:hx-post="${'/htmx/loan-policies/' + policy.id + '/update'}"
+              hx-target="#page-content" hx-swap="innerHTML">
+            <div class="p-lg grid grid-cols-2 gap-md">
+                <div class="col-span-2">
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Policy Name *</label>
+                    <input type="text" name="name" required maxlength="100" th:value="${policy.name}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div class="col-span-2">
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Description</label>
+                    <input type="text" name="description" maxlength="500" th:value="${policy.description}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Min Amount (kobo)</label>
+                    <input type="number" name="minAmountKobo" min="0" th:value="${policy.minAmountKobo}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Amount (kobo) *</label>
+                    <input type="number" name="maxAmountKobo" min="1" required th:value="${policy.maxAmountKobo}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Gross Multiplier</label>
+                    <input type="number" name="maxMultiplierOfGross" min="0.5" max="6" step="0.5" th:value="${policy.maxMultiplierOfGross}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Tenor (months)</label>
+                    <input type="number" name="maxTenorMonths" min="1" max="36" th:value="${policy.maxTenorMonths}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Interest Rate %</label>
+                    <input type="number" name="interestRatePct" min="0" max="50" step="0.5" th:value="${policy.interestRatePct}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Deduction % of Gross</label>
+                    <input type="number" name="maxDeductionPct" min="0" max="50" step="1" th:value="${policy.maxDeductionPct}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Net Floor %</label>
+                    <input type="number" name="netFloorPct" min="33" max="90" step="1" th:value="${policy.netFloorPct}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Eligible After (months)</label>
+                    <input type="number" name="eligibleAfterMonths" min="0" max="60" th:value="${policy.eligibleAfterMonths}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Cooling Period (days)</label>
+                    <input type="number" name="coolingPeriodDays" min="0" max="365" th:value="${policy.coolingPeriodDays}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Max Loans per Year</label>
+                    <input type="number" name="maxLoansPerYear" min="1" max="12" th:value="${policy.maxLoansPerYear}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">Approval Threshold (kobo)</label>
+                    <input type="number" name="approvalThresholdKobo" min="0" step="100000" th:value="${policy.approvalThresholdKobo}"
+                           class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary">
+                </div>
+                <div class="flex items-center gap-sm mt-xs">
+                    <input type="checkbox" name="probationEligible" id="probation-edit" value="true"
+                           th:checked="${policy.probationEligible}" class="w-4 h-4 accent-primary">
+                    <label for="probation-edit" class="font-label-sm text-label-sm text-on-surface-variant">Allow probationary employees</label>
+                </div>
+                <div class="flex items-center gap-sm mt-xs">
+                    <input type="checkbox" name="isActive" id="active-edit" value="true"
+                           th:checked="${policy.isActive}" class="w-4 h-4 accent-primary">
+                    <label for="active-edit" class="font-label-sm text-label-sm text-on-surface-variant">Active</label>
+                </div>
+            </div>
+            <div class="px-lg pb-lg flex justify-end gap-sm">
+                <button type="button" onclick="document.getElementById('edit-policy-container').innerHTML=''"
+                        class="px-md py-xs rounded-lg border border-outline-variant font-label-md text-label-md text-on-surface hover:bg-surface-container transition-all">Cancel</button>
+                <button type="submit"
+                        class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                    <span class="material-symbols-outlined text-[18px]">save</span> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>
