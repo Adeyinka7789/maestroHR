@@ -45,35 +45,6 @@ public class DepartmentService {
     }
 
     @Transactional(readOnly = true)
-    public List<Department> findAll() {
-        try {
-            String tenantIdStr = TenantContext.getCurrentTenant();
-            System.out.println("Tenant ID from context: " + tenantIdStr);
-
-            UUID tenantId = UUID.fromString(tenantIdStr);
-            System.out.println("Looking for departments with tenantId: " + tenantId);
-
-            List<Department> departments = departmentRepository.findAllByTenantId(tenantId);
-            System.out.println("Found " + departments.size() + " departments");
-
-            // Initialize the tenant for each department to avoid lazy loading issues
-            departments.forEach(dept -> {
-                if (dept.getTenant() != null) {
-                    // Force initialization of the tenant proxy
-                    dept.getTenant().getId();
-                    dept.getTenant().getCompanyName();
-                }
-            });
-
-            return departments;
-        } catch (Exception e) {
-            System.out.println("Error in findAll: " + e.getMessage());
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    @Transactional(readOnly = true)
     public Department findById(UUID id) {
         return departmentRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -114,12 +85,6 @@ public class DepartmentService {
         department.setDeletedAt(OffsetDateTime.now());
         departmentRepository.save(department);
         log.info("Soft-deleted department: {}", id);
-    }
-
-    @Transactional(readOnly = true)
-    public List<DepartmentDTO> findAllEmployeeCount(){
-        UUID tenantID = UUID.fromString(TenantContext.getCurrentTenant());
-        return departmentRepository.findAllWithEmployeeCountByTenantId(tenantID);
     }
 
     @Transactional(readOnly = true)

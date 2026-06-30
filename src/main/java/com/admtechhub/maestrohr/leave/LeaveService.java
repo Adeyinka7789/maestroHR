@@ -328,6 +328,7 @@ public class LeaveService {
         return types.stream().map(this::toDto).toList();
     }
 
+    // REST API only - web UI uses LeaveListService.buildList()/assemble() instead. Keep both in sync if filtering logic changes.
     @Transactional(readOnly = true)
     public Page<LeaveRequestDTO> getAllLeaveRequests(Pageable pageable) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
