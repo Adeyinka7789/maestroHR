@@ -10,7 +10,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -45,10 +47,16 @@ public class AuditTrailInterceptor implements HandlerInterceptor {
             }
         }
 
-        String entityId = request.getParameter("employeeId");
-        if (entityId == null) {
-            entityId = request.getParameter("payrollRunId");
+        String entityId = null;
+        Object uriVars = request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        if (uriVars instanceof Map<?, ?> vars) {
+            Object idVar = vars.get("id");
+            if (idVar == null) idVar = vars.get("employeeId");
+            if (idVar == null) idVar = vars.get("payrollRunId");
+            if (idVar != null) entityId = idVar.toString();
         }
+        if (entityId == null) entityId = request.getParameter("employeeId");
+        if (entityId == null) entityId = request.getParameter("payrollRunId");
 
         long durationMs = 0L;
         Object start = request.getAttribute("auditStartNanos");

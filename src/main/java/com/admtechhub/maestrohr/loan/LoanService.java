@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.loan;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
@@ -45,6 +46,7 @@ public class LoanService {
     private final LoanRepaymentRepository repaymentRepository;
     private final EmployeeRepository employeeRepository;
     private final LoanPolicyService loanPolicyService;
+    private final AuditTrailService auditTrailService;
 
     // ── Commands ─────────────────────────────────────────────────────────────
 
@@ -125,8 +127,12 @@ public class LoanService {
         loan.setDecidedBy(currentUserEmail());
         loan.setDecidedAt(java.time.OffsetDateTime.now());
         loan.setRejectionReason(null);
+        EmployeeLoan saved = loanRepository.save(loan);
+        auditTrailService.record(loan.getEmployee().getTenant().getId(), currentUserEmail(), "LOAN_APPROVED",
+                "LOAN", loanId.toString(), "/api/loans/" + loanId + "/approve", "POST",
+                null, 200, "Loan approved for " + loan.getEmployee().getFullName());
         log.info("Loan {} approved by {}", loanId, loan.getDecidedBy());
-        return loanRepository.save(loan);
+        return saved;
     }
 
     /** Reject a PENDING loan request → REJECTED, recording the reason. Terminal. */
@@ -140,8 +146,12 @@ public class LoanService {
         loan.setDecidedBy(currentUserEmail());
         loan.setDecidedAt(java.time.OffsetDateTime.now());
         loan.setRejectionReason(reason != null && !reason.isBlank() ? reason.trim() : "No reason provided");
+        EmployeeLoan saved = loanRepository.save(loan);
+        auditTrailService.record(loan.getEmployee().getTenant().getId(), currentUserEmail(), "LOAN_REJECTED",
+                "LOAN", loanId.toString(), "/api/loans/" + loanId + "/reject", "POST",
+                null, 200, "Loan rejected. Reason: " + loan.getRejectionReason());
         log.info("Loan {} rejected by {}", loanId, loan.getDecidedBy());
-        return loanRepository.save(loan);
+        return saved;
     }
 
     /** Pause an ACTIVE loan so it is skipped on future runs. */

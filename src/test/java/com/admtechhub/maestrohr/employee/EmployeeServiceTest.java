@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.employee;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
@@ -47,6 +48,7 @@ class EmployeeServiceTest {
     @Mock LeaveRequestRepository leaveRequestRepository;
     @Mock AttendanceRepository   attendanceRepository;
     @Mock OnboardingService      onboardingService;
+    @Mock AuditTrailService      auditTrailService;
 
     @InjectMocks EmployeeService employeeService;
 
@@ -135,6 +137,9 @@ class EmployeeServiceTest {
     @Test
     void terminateEmployee_setsStatusTerminated() {
         Employee e = active();
+        Tenant mockTenant = new Tenant();
+        mockTenant.setId(UUID.randomUUID());
+        e.setTenant(mockTenant);
         when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(e));
         when(employeeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

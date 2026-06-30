@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.leave;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,7 @@ public class LeaveService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final TermiiClient termiiClient;
+    private final AuditTrailService auditTrailService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
 
@@ -223,6 +226,11 @@ public class LeaveService {
 
         LeaveRequest updated = leaveRequestRepository.save(request);
 
+        auditTrailService.record(request.getEmployee().getTenant().getId(), currentUserEmail(), "LEAVE_APPROVED",
+                "LEAVE_REQUEST", requestId.toString(), "/api/leave/" + requestId + "/approve", "POST",
+                null, 200, "Leave approved for " + request.getEmployee().getFullName()
+                        + " (" + request.getDaysRequested() + " days)");
+
         // In-app notification
         notificationService.createInAppNotification(
                 request.getEmployee().getEmail(),
@@ -273,6 +281,11 @@ public class LeaveService {
         request.setRejectionReason(reason);
 
         LeaveRequest updated = leaveRequestRepository.save(request);
+
+        auditTrailService.record(request.getEmployee().getTenant().getId(), currentUserEmail(), "LEAVE_REJECTED",
+                "LEAVE_REQUEST", requestId.toString(), "/api/leave/" + requestId + "/reject", "POST",
+                null, 200, "Leave rejected for " + request.getEmployee().getFullName()
+                        + ". Reason: " + reason);
 
         // In-app notification
         notificationService.createInAppNotification(
@@ -391,5 +404,10 @@ public class LeaveService {
             date = date.plusDays(1);
         }
         return days;
+    }
+
+    private String currentUserEmail() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : "system";
     }
 }

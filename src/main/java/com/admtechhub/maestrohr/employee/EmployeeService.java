@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
 import com.admtechhub.maestrohr.document.OnboardingService;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
@@ -59,6 +60,7 @@ public class EmployeeService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final AttendanceRepository attendanceRepository;
     private final OnboardingService onboardingService;
+    private final AuditTrailService auditTrailService;
 
     private static final String EMPLOYEE_NUMBER_PREFIX = "EMP";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -246,6 +248,9 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
 
+        UserRole oldRole = employee.getUser() != null ? employee.getUser().getRole() : null;
+        UUID oldPayGradeId = employee.getPayGrade() != null ? employee.getPayGrade().getId() : null;
+
         Department department = departmentRepository.findById(request.getDepartmentId())
                 .orElseThrow(() -> new IllegalArgumentException("Department not found: " + request.getDepartmentId()));
 
@@ -311,6 +316,20 @@ public class EmployeeService {
         Employee updatedEmployee = employeeRepository.save(employee);
         log.info("Updated employee: {}", id);
 
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            UserRole newRole = UserRole.valueOf(request.getRole().toUpperCase());
+            if (oldRole != newRole) {
+                auditTrailService.record(tenantId, currentUserEmail(), "ROLE_CHANGED",
+                        "EMPLOYEE", id.toString(), "/api/employees/" + id, "PUT",
+                        null, 200, "Role changed from " + oldRole + " to " + newRole);
+            }
+        }
+        if (oldPayGradeId != null && !request.getPayGradeId().equals(oldPayGradeId)) {
+            auditTrailService.record(tenantId, currentUserEmail(), "SALARY_CHANGED",
+                    "EMPLOYEE", id.toString(), "/api/employees/" + id, "PUT",
+                    null, 200, "Pay grade changed from " + oldPayGradeId + " to " + request.getPayGradeId());
+        }
+
         return toDetailsDto(updatedEmployee);
     }
 
@@ -332,6 +351,9 @@ public class EmployeeService {
         }
 
         employeeRepository.save(employee);
+        auditTrailService.record(employee.getTenant().getId(), currentUserEmail(), "EMPLOYEE_TERMINATED",
+                "EMPLOYEE", id.toString(), "/api/employees/" + id + "/terminate", "POST",
+                null, 200, "Terminated on " + terminationDate);
         log.info("Terminated employee: {} on {}", id, terminationDate);
     }
 
@@ -553,6 +575,11 @@ public class EmployeeService {
 
     private EmployeeSummaryDTO toSummaryDto(Employee employee) {
         return new EmployeeSummaryDTO(employee);
+    }
+
+    private String currentUserEmail() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : "system";
     }
 
     private boolean currentUserIsSuperAdmin() {

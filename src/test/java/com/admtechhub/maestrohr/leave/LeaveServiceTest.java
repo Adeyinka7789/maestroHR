@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.leave;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
@@ -38,6 +39,7 @@ class LeaveServiceTest {
     @Mock private UserRepository         userRepository;
     @Mock private NotificationService    notificationService;
     @Mock private TermiiClient           termiiClient;
+    @Mock private AuditTrailService      auditTrailService;
 
     @InjectMocks private LeaveService leaveService;
 

@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
@@ -43,6 +44,7 @@ public class UsersController {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
+    private final AuditTrailService auditTrailService;
 
     record UserRow(UUID id, String email, UserRole role, String roleDisplay,
                    String roleBadgeStyle, boolean active, String lastLogin, boolean self) {}
@@ -114,6 +116,9 @@ public class UsersController {
                 return "This user's role cannot be changed.";
             user.setRole(role);
             userRepository.save(user);
+            auditTrailService.record(currentTenantId(), auth.getName(), "ROLE_CHANGED",
+                    "USER", id.toString(), "/htmx/users/" + id + "/role", "POST",
+                    null, 200, "Role changed to " + role.name() + " for " + user.getEmail());
             return null;
         }, "Role updated.");
     }
