@@ -95,6 +95,12 @@ spring:
     admin:
       fail-fast: true                  # fail startup if broker is unreachable
       auto-create: false                # don't try to create topics on startup locally
+    listener:
+      ack-mode: manual
+      retry:
+        max-attempts: 3
+        backoff:
+          interval: 1000
 
 management:
   endpoints:
@@ -180,4 +186,3 @@ sentry:
 web:
   resources:
     static-locations: classpath:/static/, file:uploads/
-
