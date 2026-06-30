@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.Department;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
@@ -63,7 +64,13 @@ public class LeaveListService {
     @Transactional(readOnly = true)
     public LeaveListView buildList(String search, LeaveStatus status) {
         UUID tenantId = currentTenantId();
-        return assemble(tenantId, search, status, List.of(), List.of(), null, false);
+        boolean employeeRole = isEmployeeRole();
+        UUID currentEmployeeId = null;
+        if (employeeRole) {
+            EmployeeDetailsDTO self = currentEmployeeOrNull();
+            currentEmployeeId = self != null ? self.getId() : null;
+        }
+        return assemble(tenantId, search, status, List.of(), List.of(), currentEmployeeId, employeeRole);
     }
 
     /**
@@ -101,14 +108,37 @@ public class LeaveListService {
 
         List<LeaveRequest> results =
                 leaveRequestRepository.findFiltered(tenantId, status, normalizedSearch);
+
+        boolean isDeptMgr = isDeptManagerRole();
+        UUID deptId = isDeptMgr ? currentManagerDepartmentId() : null;
+
+        if (isEmployeeRole && currentEmployeeId != null) {
+            UUID empId = currentEmployeeId;
+            results = results.stream()
+                    .filter(r -> r.getEmployee().getId().equals(empId))
+                    .toList();
+        } else if (isDeptMgr && deptId != null) {
+            UUID finalDeptId = deptId;
+            results = results.stream()
+                    .filter(r -> r.getEmployee().getDepartment() != null
+                            && finalDeptId.equals(r.getEmployee().getDepartment().getId()))
+                    .toList();
+        }
+
         List<LeaveListView.Row> rows = results.stream().map(this::toRow).toList();
+
+        boolean isRestricted = (isEmployeeRole && currentEmployeeId != null)
+                || (isDeptMgr && deptId != null);
+        List<LeaveListView.StatusChip> chips = isRestricted
+                ? buildChipsFromList(tenantId, status, isEmployeeRole, currentEmployeeId, deptId)
+                : buildChips(tenantId, status);
 
         return new LeaveListView(
                 rows,
                 rows.size(),
                 normalizedSearch,
                 status == null ? null : status.name(),
-                buildChips(tenantId, status),
+                chips,
                 employees,
                 leaveTypes,
                 currentEmployeeId,
@@ -160,6 +190,21 @@ public class LeaveListService {
                         || "ROLE_SUPER_ADMIN".equals(a));
     }
 
+    private boolean isDeptManagerRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_DEPT_MANAGER".equals(a.getAuthority()));
+    }
+
+    private UUID currentManagerDepartmentId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return null;
+        return employeeRepository.findByEmail(auth.getName())
+                .map(Employee::getDepartment)
+                .map(Department::getId)
+                .orElse(null);
+    }
+
     /** Resolve the authenticated user's own Employee record, or null for admin/owner accounts with no profile. */
     private EmployeeDetailsDTO currentEmployeeOrNull() {
         try {
@@ -183,6 +228,43 @@ public class LeaveListService {
             total += c; // total includes CANCELLED, which has no chip of its own
         }
 
+        List<LeaveListView.StatusChip> chips = new ArrayList<>(CHIP_STATUSES.size() + 1);
+        chips.add(new LeaveListView.StatusChip("", "All", total, active == null));
+        for (LeaveStatus s : CHIP_STATUSES) {
+            chips.add(new LeaveListView.StatusChip(
+                    s.name(), humanize(s.name()), counts.getOrDefault(s, 0L), s == active));
+        }
+        return chips;
+    }
+
+    /**
+     * Chip counts scoped to a single employee or department: fetches all statuses (no status
+     * filter) so each chip shows the true total for that scope, regardless of which chip is active.
+     */
+    private List<LeaveListView.StatusChip> buildChipsFromList(UUID tenantId, LeaveStatus active,
+                                                              boolean isEmployeeRole, UUID currentEmployeeId,
+                                                              UUID deptId) {
+        List<LeaveRequest> allForScope = leaveRequestRepository.findFiltered(tenantId, null, null);
+        if (isEmployeeRole && currentEmployeeId != null) {
+            UUID empId = currentEmployeeId;
+            allForScope = allForScope.stream()
+                    .filter(r -> r.getEmployee().getId().equals(empId))
+                    .toList();
+        } else if (deptId != null) {
+            UUID finalDeptId = deptId;
+            allForScope = allForScope.stream()
+                    .filter(r -> r.getEmployee().getDepartment() != null
+                            && finalDeptId.equals(r.getEmployee().getDepartment().getId()))
+                    .toList();
+        }
+        Map<LeaveStatus, Long> counts = new EnumMap<>(LeaveStatus.class);
+        long total = 0;
+        for (LeaveRequest r : allForScope) {
+            if (r.getStatus() != null) {
+                counts.merge(r.getStatus(), 1L, Long::sum);
+            }
+            total++;
+        }
         List<LeaveListView.StatusChip> chips = new ArrayList<>(CHIP_STATUSES.size() + 1);
         chips.add(new LeaveListView.StatusChip("", "All", total, active == null));
         for (LeaveStatus s : CHIP_STATUSES) {
