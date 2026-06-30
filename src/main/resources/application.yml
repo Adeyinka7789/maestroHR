@@ -182,6 +182,10 @@ sentry:
   send-default-pii: true
   traces-sample-rate: 1.0
   exception-resolver-order: -2147483648
+  ignored-exceptions-for-type:
+    - org.springframework.web.HttpRequestMethodNotSupportedException
+    - org.springframework.web.servlet.NoHandlerFoundException
+    - org.springframework.security.access.AccessDeniedException
 
 web:
   resources:

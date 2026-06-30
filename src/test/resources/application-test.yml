@@ -26,3 +26,8 @@ spring:
       fail-fast: false
     listener:
       auto-startup: false
+
+sentry:
+  dsn: ""
+  enabled: false
+  traces-sample-rate: 0.0

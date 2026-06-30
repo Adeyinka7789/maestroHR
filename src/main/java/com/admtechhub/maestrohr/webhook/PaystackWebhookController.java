@@ -42,7 +42,7 @@ public class PaystackWebhookController {
         // Verify the HMAC signature against the RAW request body before trusting anything.
         // A forged webhook could otherwise activate subscriptions for free.
         if (verifySignatureEnabled && !verifySignature(payload, signature)) {
-            log.error("Invalid webhook signature");
+            log.warn("Invalid webhook signature — request rejected from IP: {}", request.getRemoteAddr());
             return ResponseEntity.status(401).body("Invalid signature");
         }
 
