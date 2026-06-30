@@ -39,7 +39,7 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.pathname.startsWith('/htmx/')) {
-    event.respondWith(networkFirstWithOfflineFallback(event.request));
+    event.respondWith(networkFirstWithTimeout(event.request));
     return;
   }
 
@@ -79,24 +79,31 @@ async function cacheFirst(request) {
   }
 }
 
-async function networkFirstWithOfflineFallback(request) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
+async function networkFirstWithTimeout(request) {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const response = await fetch(request, { signal: controller.signal });
-    clearTimeout(timer);
+    clearTimeout(timeout);
     if (response.ok) {
-      caches.open(CACHE_NAME).then(c => c.put(request, response.clone()));
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
     }
     return response;
-  } catch {
-    clearTimeout(timer);
+  } catch (error) {
+    // Only show offline page if genuinely offline
+    if (!navigator.onLine) {
+      const cached = await caches.match(request);
+      if (cached) notifyClients({ type: 'SERVING_FROM_CACHE', url: request.url });
+      return cached || caches.match('/offline.html');
+    }
+    // Online but request failed (timeout, server error) - try cache, else rethrow
     const cached = await caches.match(request);
     if (cached) {
       notifyClients({ type: 'SERVING_FROM_CACHE', url: request.url });
       return cached;
     }
-    return caches.match('/offline.html');
+    throw error;
   }
 }
 
