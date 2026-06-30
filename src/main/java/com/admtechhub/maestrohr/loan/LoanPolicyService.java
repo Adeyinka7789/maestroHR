@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.loan;
 
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
@@ -24,6 +25,7 @@ public class LoanPolicyService {
 
     private final LoanPolicyRepository policyRepository;
     private final EmployeeLoanRepository loanRepository;
+    private final EmployeeRepository employeeRepository;
     private final TenantRepository tenantRepository;
     private final PlatformSettingsService platformSettingsService;
 
@@ -225,6 +227,105 @@ public class LoanPolicyService {
                         "Repayment tenor exceeds the platform ceiling of " + ceilTenor + " months.");
             }
         }
+    }
+
+    // ── Eligibility check ────────────────────────────────────────────────────
+
+    /**
+     * Returns a structured eligibility response for the given employee without throwing.
+     * Mirrors the checks in {@link #validateLoanRequest} and exposes policy limits so
+     * the UI can render the eligibility card and constrain the application form fields.
+     */
+    @Transactional(readOnly = true)
+    public LoanEligibilityResponse checkEligibility(UUID employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new IllegalStateException("Employee not found: " + employeeId));
+        Optional<LoanPolicy> policyOpt = getPolicyForEmployee(employee);
+        if (policyOpt.isEmpty()) {
+            return LoanEligibilityResponse.noPolicyDefaults();
+        }
+        LoanPolicy p = policyOpt.get();
+
+        long maxAmountKobo = p.getMaxAmountKobo();
+        if (employee.getPayGrade() != null && p.getMaxMultiplierOfGross() != null) {
+            long gross = employee.getPayGrade().getGrossSalary();
+            long grossCap = BigDecimal.valueOf(gross).multiply(p.getMaxMultiplierOfGross()).longValue();
+            maxAmountKobo = Math.min(maxAmountKobo, grossCap);
+        }
+        long maxAmountNaira = maxAmountKobo / 100;
+
+        int maxTenor = p.getMaxTenorMonths() != null ? p.getMaxTenorMonths() : 12;
+        double interestRate = p.getInterestRatePct() != null ? p.getInterestRatePct().doubleValue() : 0.0;
+        int maxLoansPerYear = p.getMaxLoansPerYear() != null ? p.getMaxLoansPerYear() : 2;
+        int coolingDays = p.getCoolingPeriodDays() != null ? p.getCoolingPeriodDays() : 0;
+
+        long activeCount = loanRepository
+                .findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE).size();
+        int currentYear = LocalDate.now().getYear();
+        long loansThisYear = loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId()).stream()
+                .filter(l -> l.getStatus() != LoanStatus.REJECTED)
+                .filter(l -> l.getCreatedAt() != null && l.getCreatedAt().getYear() == currentYear)
+                .count();
+
+        // 1. Tenure eligibility
+        if (p.getEligibleAfterMonths() != null && employee.getEmploymentStartDate() != null) {
+            LocalDate eligibleFrom = employee.getEmploymentStartDate().plusMonths(p.getEligibleAfterMonths());
+            if (LocalDate.now().isBefore(eligibleFrom)) {
+                return new LoanEligibilityResponse(false,
+                        "Not yet eligible. Loan eligibility begins on " + eligibleFrom + ".",
+                        maxAmountNaira, maxTenor, interestRate, activeCount, maxLoansPerYear,
+                        loansThisYear, coolingDays, null, p.getName());
+            }
+        }
+
+        // 2. Probation
+        if (!Boolean.TRUE.equals(p.getProbationEligible())) {
+            LocalDate probEnd = employee.getProbationEndDate();
+            if (probEnd != null && LocalDate.now().isBefore(probEnd)) {
+                return new LoanEligibilityResponse(false,
+                        "You are on probation until " + probEnd + " and are not eligible for loans under this policy.",
+                        maxAmountNaira, maxTenor, interestRate, activeCount, maxLoansPerYear,
+                        loansThisYear, coolingDays, null, p.getName());
+            }
+        }
+
+        // 3. Active loan
+        if (activeCount > 0) {
+            return new LoanEligibilityResponse(false,
+                    "You already have an active loan. It must be completed or waived before a new application.",
+                    maxAmountNaira, maxTenor, interestRate, activeCount, maxLoansPerYear,
+                    loansThisYear, coolingDays, null, p.getName());
+        }
+
+        // 4. Cooling period
+        LocalDate cooldownEnds = null;
+        if (coolingDays > 0) {
+            Optional<EmployeeLoan> lastClosed = loanRepository
+                    .findByEmployeeIdOrderByCreatedAtDesc(employee.getId()).stream()
+                    .filter(l -> l.getStatus() == LoanStatus.COMPLETED || l.getStatus() == LoanStatus.CANCELLED)
+                    .findFirst();
+            if (lastClosed.isPresent() && lastClosed.get().getUpdatedAt() != null) {
+                cooldownEnds = lastClosed.get().getUpdatedAt().toLocalDate().plusDays(coolingDays);
+                if (LocalDate.now().isBefore(cooldownEnds)) {
+                    return new LoanEligibilityResponse(false,
+                            "A cooling period is in effect. Next eligible date: " + cooldownEnds + ".",
+                            maxAmountNaira, maxTenor, interestRate, activeCount, maxLoansPerYear,
+                            loansThisYear, coolingDays, cooldownEnds, p.getName());
+                }
+            }
+        }
+
+        // 5. Annual loan count
+        if (loansThisYear >= maxLoansPerYear) {
+            return new LoanEligibilityResponse(false,
+                    "Annual loan limit of " + maxLoansPerYear + " reached for " + currentYear + ".",
+                    maxAmountNaira, maxTenor, interestRate, activeCount, maxLoansPerYear,
+                    loansThisYear, coolingDays, null, p.getName());
+        }
+
+        return new LoanEligibilityResponse(true, null,
+                maxAmountNaira, maxTenor, interestRate, activeCount, maxLoansPerYear,
+                loansThisYear, coolingDays, null, p.getName());
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

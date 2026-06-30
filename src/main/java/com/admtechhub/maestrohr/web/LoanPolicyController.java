@@ -27,6 +27,9 @@ public class LoanPolicyController {
     public String listPolicies(
             @RequestHeader(value = "HX-Request", required = false) String htmx,
             Model model) {
+        if (htmx == null) {
+            return "forward:/layout.html";
+        }
         List<LoanPolicy> policies = loanPolicyService.getPoliciesForTenant();
         model.addAttribute("policies", policies);
         return "loan-policies :: content";
