@@ -54,10 +54,11 @@ public record AttendanceCalendarView(
         Integer presentRate         // round(presentDays / recordedDays * 100), or null when recordedDays == 0
 ) {
 
-    /** One option in the employee picker — the employee id and a display label (name + number). */
+    /** One option in the employee picker — the employee id, a display label (name + number), and their department name. */
     public record EmployeeOption(
             UUID id,
-            String label
+            String label,
+            String department
     ) {}
 
     /**

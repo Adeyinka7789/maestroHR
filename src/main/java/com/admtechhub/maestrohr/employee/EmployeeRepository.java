@@ -61,7 +61,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     @Query("SELECT COUNT(e) FROM Employee e WHERE e.tenant.id = :tenantId AND e.status = :status")
     long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") EmployeeStatus status);
 
-    @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId")
+    @Query(value = "SELECT e FROM Employee e LEFT JOIN FETCH e.department WHERE e.tenant.id = :tenantId",
+           countQuery = "SELECT COUNT(e) FROM Employee e WHERE e.tenant.id = :tenantId")
     Page<Employee> findAllByTenantId(@Param("tenantId") UUID tenantId, Pageable pageable);
 
     @Query("SELECT e FROM Employee e WHERE e.tenant.id = :tenantId AND e.id = :id")

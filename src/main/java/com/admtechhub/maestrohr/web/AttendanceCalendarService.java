@@ -137,7 +137,9 @@ public class AttendanceCalendarService {
     private List<AttendanceCalendarView.EmployeeOption> loadEmployees(UUID tenantId) {
         return employeeRepository
                 .findAllByTenantId(tenantId, PageRequest.of(0, MAX_EMPLOYEES, Sort.by("firstName", "lastName")))
-                .map(e -> new AttendanceCalendarView.EmployeeOption(e.getId(), optionLabel(e)))
+                .map(e -> new AttendanceCalendarView.EmployeeOption(
+                        e.getId(), optionLabel(e),
+                        e.getDepartment() != null ? e.getDepartment().getName() : null))
                 .getContent();
     }
 

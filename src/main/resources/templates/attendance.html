@@ -339,8 +339,8 @@
 <div th:fragment="calendar" class="font-body-md text-on-surface">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-lg gap-md">
-        <div>
+    <div class="page-header mb-lg">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Attendance</h1>
             <p class="font-body-md text-body-md text-on-surface-variant">
                 Per-employee monthly attendance calendar
@@ -355,19 +355,41 @@
     <input type="hidden" name="year" th:value="${view.year}">
     <input type="hidden" name="month" th:value="${view.month}">
 
-    <!-- Controls: employee picker (left) + month navigation (right) -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-sm mb-md">
-        <select name="empId"
-                hx-get="/htmx/attendance/calendar" hx-target="#page-content" hx-swap="innerHTML"
-                hx-include="[name='year'],[name='month']" hx-trigger="change"
-                class="md:w-72 px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
-            <option value="" th:selected="${!view.employeeSelected}">Select an employee…</option>
-            <option th:each="emp : ${view.employees}"
-                    th:value="${emp.id}" th:text="${emp.label}"
-                    th:selected="${emp.id == view.selectedEmployeeId}">Jane Doe (E001)</option>
-        </select>
-
-        <div class="flex items-center gap-sm">
+    <!-- Employee filter card: 3-column row + month nav -->
+    <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin-bottom:20px;">
+        <div class="calendar-filter-row" style="display:flex; gap:12px; margin-bottom:16px;">
+            <!-- Column 1: Department -->
+            <div style="flex:1;">
+                <label style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; display:block; margin-bottom:6px;">Department</label>
+                <select id="dept-filter" onchange="applyCalendarFilters()"
+                        style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; background:white; cursor:pointer;">
+                    <option value="">All Departments</option>
+                </select>
+            </div>
+            <!-- Column 2: Search -->
+            <div style="flex:1;">
+                <label style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; display:block; margin-bottom:6px;">Search Employee</label>
+                <input type="text" id="calendar-emp-filter" placeholder="Search employee…" oninput="applyCalendarFilters()"
+                       style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
+            </div>
+            <!-- Column 3: Select Employee -->
+            <div style="flex:1;">
+                <label style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; display:block; margin-bottom:6px;">Select Employee</label>
+                <select name="empId"
+                        hx-get="/htmx/attendance/calendar" hx-target="#page-content" hx-swap="innerHTML"
+                        hx-include="[name='year'],[name='month']" hx-trigger="change"
+                        style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; background:white; cursor:pointer;">
+                    <option value="" th:selected="${!view.employeeSelected}">Select an employee…</option>
+                    <option th:each="emp : ${view.employees}"
+                            th:value="${emp.id}" th:text="${emp.label}"
+                            th:attr="data-dept=${emp.department}"
+                            th:selected="${emp.id == view.selectedEmployeeId}">Jane Doe (E001)</option>
+                </select>
+            </div>
+        </div>
+        <hr style="border:none; border-top:1px solid #f1f5f9; margin:0 0 16px;">
+        <!-- Month nav centered -->
+        <div style="display:flex; justify-content:center; align-items:center; gap:16px;">
             <button type="button"
                     th:attr="hx-get='/htmx/attendance/calendar?year=' + ${view.prevYear} + '&month=' + ${view.prevMonth}"
                     hx-target="#page-content" hx-swap="innerHTML" hx-include="[name='empId']"
@@ -443,6 +465,45 @@
             </div>
         </div>
     </div>
+
+    <style>
+    @media (max-width: 768px) {
+        .calendar-filter-row { flex-direction: column !important; }
+    }
+    </style>
+
+    <script th:inline="javascript">
+    (function () {
+        const calendarEmployeesData = /*[[${view.employees}]]*/ [];
+
+        function initDeptFilter() {
+            const depts = [...new Set(calendarEmployeesData.map(e => e.department).filter(Boolean))].sort();
+            const sel = document.getElementById('dept-filter');
+            depts.forEach(function (d) {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                sel.appendChild(opt);
+            });
+        }
+        initDeptFilter();
+
+        window.applyCalendarFilters = function () {
+            const dept = document.getElementById('dept-filter').value;
+            const search = document.getElementById('calendar-emp-filter').value.toLowerCase();
+            const select = document.querySelector('select[name="empId"]');
+            if (!select) return;
+            Array.from(select.options).forEach(function (opt) {
+                if (!opt.value) return;
+                const optDept = opt.dataset.dept || '';
+                const optText = opt.textContent.toLowerCase();
+                const deptMatch = !dept || optDept === dept;
+                const searchMatch = !search || optText.includes(search);
+                opt.style.display = (deptMatch && searchMatch) ? '' : 'none';
+            });
+        };
+    })();
+    </script>
 </div>
 
 </body>

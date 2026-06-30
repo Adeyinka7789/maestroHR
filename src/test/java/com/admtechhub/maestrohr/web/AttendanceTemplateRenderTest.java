@@ -148,8 +148,8 @@ class AttendanceTemplateRenderTest {
 
     private static List<AttendanceCalendarView.EmployeeOption> employeeOptions(UUID selectedId) {
         return List.of(
-                new AttendanceCalendarView.EmployeeOption(selectedId, "Jane Doe (E001)"),
-                new AttendanceCalendarView.EmployeeOption(UUID.randomUUID(), "Amaka Obi (E002)"));
+                new AttendanceCalendarView.EmployeeOption(selectedId, "Jane Doe (E001)", "Engineering"),
+                new AttendanceCalendarView.EmployeeOption(UUID.randomUUID(), "Amaka Obi (E002)", "HR"));
     }
 
     @Test
