@@ -4,5 +4,6 @@ public enum TransferStatus {
     PENDING,
     SUCCESS,
     PAID,
-    FAILED
+    FAILED,
+    REVERSED
 }

@@ -31,6 +31,9 @@ public class PayrollRunResponse {
     private UserDto approvedBy;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private UserDto reversedBy;
+    private LocalDateTime reversedAt;
+    private String reversalReason;
     private List<PayrollEntryResponse> entries;
     private String period;
     private boolean editable;

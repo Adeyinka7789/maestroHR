@@ -3,6 +3,7 @@ package com.admtechhub.maestrohr.loan;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -17,4 +18,7 @@ public interface LoanRepaymentRepository extends JpaRepository<LoanRepayment, UU
      * retry instead of provoking a constraint violation.
      */
     boolean existsByLoanIdAndPayrollRunId(UUID loanId, UUID payrollRunId);
+
+    /** All repayment rows for a payroll run — used during reversal to undo each deduction. */
+    List<LoanRepayment> findByPayrollRunId(UUID payrollRunId);
 }

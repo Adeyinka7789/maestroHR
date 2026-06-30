@@ -350,6 +350,43 @@ public class LoanService {
     }
 
     /**
+     * Phase 2 (reverse). Symmetric undo of {@link #applyRepaymentsForRun}: finds every active
+     * (non-reversed) {@link LoanRepayment} row written for this run and walks each one back —
+     * restores the balance, decrements monthsPaid, and re-activates a loan that was completed by
+     * this run. The row is soft-deleted (reversedAt stamped) rather than hard-deleted so the
+     * ledger retains a full audit trail of what was deducted and then returned.
+     *
+     * <p>Idempotent: a row already stamped with reversedAt is skipped.
+     */
+    @Transactional
+    public void reverseRepaymentsForRun(PayrollRun run) {
+        List<LoanRepayment> repayments = repaymentRepository.findByPayrollRunId(run.getId());
+        for (LoanRepayment repayment : repayments) {
+            if (repayment.getReversedAt() != null) {
+                continue; // already reversed — idempotent skip
+            }
+            EmployeeLoan loan = repayment.getLoan();
+            if (loan == null) {
+                continue;
+            }
+            long amount = repayment.getAmount() != null ? repayment.getAmount() : 0L;
+
+            loan.setRemainingBalance(loan.getRemainingBalance() + amount);
+            loan.setMonthsPaid(Math.max(0, loan.getMonthsPaid() - 1));
+            if (loan.getStatus() == LoanStatus.COMPLETED && loan.getRemainingBalance() > 0) {
+                loan.setStatus(LoanStatus.ACTIVE);
+            }
+            loanRepository.save(loan);
+
+            repayment.setReversedAt(OffsetDateTime.now());
+            repaymentRepository.save(repayment);
+
+            log.info("Reversed loan repayment: repayment={} loan={} run={} amount={} restoredBalance={}",
+                    repayment.getId(), loan.getId(), run.getId(), amount, loan.getRemainingBalance());
+        }
+    }
+
+    /**
      * The amount (kobo) to deduct from this loan in the current cycle:
      * the monthly installment, capped at the remaining balance, except on the final scheduled
      * month — when {@code monthsPaid} would reach {@code repaymentMonths} — where the entire

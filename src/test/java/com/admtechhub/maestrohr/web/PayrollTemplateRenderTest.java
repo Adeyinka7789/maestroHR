@@ -112,11 +112,12 @@ class PayrollTemplateRenderTest {
                 "₦42,500,000.00", "₦35,000,000.00", "₦4,200,000.00",
                 "₦2,100,000.00", "₦2,600,000.00", "₦1,050,000.00", rows.size(),
                 "hr@acme.test", null, "—", null,
+                null, null, null,
                 false, true, false, false,
                 // show* flags: with a viewer who can submit, the Submit button renders live.
                 false, true, false, false,
-                // showExport / showMarkPaid (Step D) — off for this PENDING_APPROVAL view.
-                false, false, rows);
+                // showExport / showMarkPaid / showReverse (Step D) — off for this PENDING_APPROVAL view.
+                false, false, false, rows);
     }
 
     @Test
@@ -151,9 +152,10 @@ class PayrollTemplateRenderTest {
                 "PENDING_APPROVAL", "Pending Approval", "warn",
                 "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
                 "hr@acme.test", null, "—", null,
+                null, null, null,
                 false, true, true, true,
                 false, false, false, false,
-                false, false, List.of());
+                false, false, false, List.of());
         Context ctx = new Context();
         ctx.setVariable("view", view);
 
@@ -183,9 +185,10 @@ class PayrollTemplateRenderTest {
                 "APPROVED", "Approved", "success",
                 "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
                 "hr@acme.test", "finance@acme.test", "02 Jun 2026, 10:15", null,
+                null, null, null,
                 false, false, false, false,
                 false, false, false, false,
-                true, true, List.of());
+                true, true, false, List.of());
         Context ctx = new Context();
         ctx.setVariable("view", view);
 
@@ -207,9 +210,10 @@ class PayrollTemplateRenderTest {
                 "DRAFT", "Draft", "neutral",
                 "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0,
                 "hr@acme.test", null, "—", null,
+                null, null, null,
                 false, false, false, false,
                 false, false, false, false,
-                false, false, List.of());
+                false, false, false, List.of());
         Context ctx = new Context();
         ctx.setVariable("view", view);
 

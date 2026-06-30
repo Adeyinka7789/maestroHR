@@ -76,6 +76,9 @@ public class PayrollDetailService {
                 run.getApprovedBy() != null ? run.getApprovedBy().getEmail() : null,
                 run.getApprovedAt() != null ? run.getApprovedAt().format(DATE_TIME_FORMAT) : "—",
                 run.getRejectionReason(),
+                run.getReversedBy() != null ? run.getReversedBy().getEmail() : null,
+                run.getReversedAt() != null ? run.getReversedAt().format(DATE_TIME_FORMAT) : null,
+                run.getReversalReason(),
 
                 run.isEditable(),
                 run.canSubmit(),
@@ -98,14 +101,18 @@ public class PayrollDetailService {
                 exportable(run.getStatus()) && hasAnyRole("HR_ADMIN", "SYSTEM_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
                 run.canComplete() && hasAnyRole("FINANCE_OFFICER", "SUPER_ADMIN"),
 
+                // Reversal: run must be APPROVED/DISBURSING/COMPLETED; SYSTEM_ADMIN or FINANCE_OFFICER only.
+                run.canReverse() && hasAnyRole("SYSTEM_ADMIN", "FINANCE_OFFICER", "SUPER_ADMIN"),
+
                 rows);
     }
 
-    /** The payment file may be exported once a run's figures are final: APPROVED onward. */
+    /** The payment file may be exported once a run's figures are final: APPROVED onward (including REVERSED for audit). */
     private static boolean exportable(PayrollStatus status) {
         return status == PayrollStatus.APPROVED
                 || status == PayrollStatus.DISBURSING
-                || status == PayrollStatus.COMPLETED;
+                || status == PayrollStatus.COMPLETED
+                || status == PayrollStatus.REVERSED;
     }
 
     /** True when the authenticated viewer holds any of the given roles (matched as ROLE_… authorities). */

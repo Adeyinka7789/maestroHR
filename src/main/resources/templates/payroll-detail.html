@@ -46,6 +46,11 @@
         <span class="material-symbols-outlined text-[20px]">check_circle</span>
         <span th:text="${success}">Payroll computed.</span>
     </div>
+    <div th:if="${warning}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-primary-fixed text-on-primary-fixed-variant font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">warning</span>
+        <span th:text="${warning}">Note: funds already disbursed — recover manually.</span>
+    </div>
     <div th:if="${error}" role="alert"
          class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
         <span class="material-symbols-outlined text-[20px]">error</span>
@@ -73,6 +78,19 @@
                  class="flex items-center gap-sm mt-sm px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
                 <span class="material-symbols-outlined text-[20px]">error</span>
                 <span>Rejected: <span th:text="${view.rejectionReason}">Figures need review</span></span>
+            </div>
+            <!-- Reversal details, only when the run has been reversed -->
+            <div th:if="${view.reversalReason}" role="alert"
+                 class="flex flex-col gap-xs mt-sm px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+                <div class="flex items-center gap-sm">
+                    <span class="material-symbols-outlined text-[20px]">undo</span>
+                    <span class="font-label-md text-label-md">Reversed</span>
+                </div>
+                <p>Reason: <span th:text="${view.reversalReason}">Error in computation</span></p>
+                <p th:if="${view.reversedByEmail}">
+                    By <span th:text="${view.reversedByEmail}">finance@acme.test</span>
+                    <span th:if="${view.reversedAtFormatted}" th:text="'on ' + ${view.reversedAtFormatted}">on 01 Jul 2026, 09:00</span>
+                </p>
             </div>
         </div>
     </div>
@@ -169,7 +187,7 @@
       Approve/Reject are FINANCE_OFFICER/SUPER_ADMIN (segregation of duties).
     -->
     <div class="flex flex-wrap justify-end gap-sm mt-lg"
-         th:if="${view.showCompute or view.showSubmit or view.showApprove or view.showReject or view.showExport or view.showMarkPaid}">
+         th:if="${view.showCompute or view.showSubmit or view.showApprove or view.showReject or view.showExport or view.showMarkPaid or view.showReverse}">
 
         <!-- Export bank payment file (Step D). Pure read — no status change. Plain anchors:
              the file is served Content-Disposition: attachment, so the click downloads it
@@ -240,6 +258,34 @@
                     <button type="submit"
                             class="px-3 py-1.5 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
                         Confirm Reject
+                    </button>
+                </div>
+            </form>
+        </details>
+
+        <!-- Reverse (APPROVED/DISBURSING/COMPLETED → REVERSED). Sensitive operation — requires a
+             reason (min 10 chars) and a SYSTEM_ADMIN or FINANCE_OFFICER role. An inline form
+             (matching the Reject pattern) confirms intent before posting. -->
+        <details th:if="${view.showReverse}" class="relative">
+            <summary class="list-none cursor-pointer px-4 py-2 rounded-lg bg-error text-white font-label-md text-label-md hover:opacity-90 transition-opacity">
+                Reverse Payroll
+            </summary>
+            <form th:attr="hx-post='/htmx/payroll/' + ${view.id} + '/reverse'"
+                  hx-target="#page-content" hx-swap="innerHTML"
+                  class="absolute right-0 z-10 mt-xs w-80 p-md bg-white border border-outline-variant rounded-xl shadow-lg text-left">
+                <div class="flex items-start gap-sm mb-sm p-sm rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+                    <span class="material-symbols-outlined text-[18px] mt-px flex-shrink-0">warning</span>
+                    <span>This will reverse all loan deductions and mark this payroll as REVERSED.
+                        If funds were already disbursed, you must manually recover them separately.</span>
+                </div>
+                <label class="block mb-xs font-label-sm text-label-sm text-on-surface">Reason for reversal <span class="text-error">(required, min 10 chars)</span></label>
+                <textarea name="reason" required minlength="10" rows="3"
+                          placeholder="Explain why this payroll run is being reversed…"
+                          class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-error resize-none"></textarea>
+                <div class="flex justify-end gap-xs mt-sm">
+                    <button type="submit"
+                            class="px-3 py-1.5 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                        Confirm Reversal
                     </button>
                 </div>
             </form>

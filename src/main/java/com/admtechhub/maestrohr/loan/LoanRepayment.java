@@ -5,6 +5,7 @@ import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -53,4 +54,8 @@ public class LoanRepayment extends BaseEntity {
     @Column(name = "repayment_type", nullable = false, length = 20)
     @Builder.Default
     private RepaymentType repaymentType = RepaymentType.STANDARD;
+
+    /** Set when this repayment row was voided by a payroll reversal. Null means active. */
+    @Column(name = "reversed_at")
+    private OffsetDateTime reversedAt;
 }

@@ -79,6 +79,17 @@ public class PayrollRun extends BaseEntity {
     @Column(name = "rejection_reason")
     private String rejectionReason;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reversed_by")
+    @JsonIgnoreProperties({"passwordHash", "failedLoginAttempts", "lockedUntil", "lastLoginAt"})
+    private User reversedBy;
+
+    @Column(name = "reversed_at")
+    private LocalDateTime reversedAt;
+
+    @Column(name = "reversal_reason", length = 500)
+    private String reversalReason;
+
     @OneToMany(mappedBy = "payrollRun", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<PayrollEntry> entries = new ArrayList<>();
@@ -111,5 +122,12 @@ public class PayrollRun extends BaseEntity {
      */
     public boolean canComplete() {
         return status == PayrollStatus.APPROVED || status == PayrollStatus.DISBURSING;
+    }
+
+    /** A run may be reversed once it has been approved (loan ledger exists to undo). */
+    public boolean canReverse() {
+        return status == PayrollStatus.APPROVED
+                || status == PayrollStatus.DISBURSING
+                || status == PayrollStatus.COMPLETED;
     }
 }

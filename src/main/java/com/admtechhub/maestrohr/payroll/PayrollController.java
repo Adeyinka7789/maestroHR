@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -173,6 +174,27 @@ public class PayrollController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success("Recent payslips retrieved", result));
+    }
+
+    /**
+     * Reverse an APPROVED/DISBURSING/COMPLETED payroll run. Rolls back the loan ledger,
+     * marks entries REVERSED, and transitions the run to REVERSED. Does NOT recover
+     * disbursed funds — that is an out-of-band manual step.
+     */
+    @PostMapping("/{payrollRunId}/reverse")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reversePayroll(
+            @PathVariable UUID payrollRunId,
+            @RequestBody Map<String, String> body) {
+        String reason = body != null ? body.getOrDefault("reason", "") : "";
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        PayrollRunService.PayrollReverseResult result = payrollRunService.reversePayrollRun(payrollRunId, email, reason);
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("payrollRun", result.run());
+        if (result.warning() != null) {
+            resp.put("warning", result.warning());
+        }
+        return ResponseEntity.ok(ApiResponse.success("Payroll reversed successfully", resp));
     }
 
     @GetMapping("/{payrollRunId}/export-excel")

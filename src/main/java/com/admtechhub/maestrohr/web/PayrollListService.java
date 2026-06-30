@@ -52,7 +52,8 @@ public class PayrollListService {
             PayrollStatus.APPROVED,
             PayrollStatus.DISBURSING,
             PayrollStatus.COMPLETED,
-            PayrollStatus.REJECTED);
+            PayrollStatus.REJECTED,
+            PayrollStatus.REVERSED);
 
     private final PayrollRunRepository payrollRunRepository;
     private final PayrollEntryRepository payrollEntryRepository;
@@ -151,7 +152,7 @@ public class PayrollListService {
         return switch (status) {
             case "APPROVED", "COMPLETED" -> "success";
             case "PENDING_APPROVAL", "DISBURSING" -> "warn";
-            case "REJECTED" -> "error";
+            case "REJECTED", "REVERSED" -> "error";
             default -> "neutral"; // DRAFT
         };
     }

@@ -42,6 +42,9 @@ public record PayrollDetailView(
         String approvedByEmail,                 // null until approved
         String approvedAtFormatted,             // "—" until approved
         String rejectionReason,                 // null/blank unless rejected
+        String reversedByEmail,                 // null unless reversed
+        String reversedAtFormatted,             // null unless reversed
+        String reversalReason,                  // null unless reversed
 
         // ── action availability (drives Step C/D buttons) ──
         // Raw status flags: whether the run's *state* permits each transition.
@@ -66,6 +69,9 @@ public record PayrollDetailView(
         //   may attest the out-of-band bank upload completed (APPROVED → COMPLETED).
         boolean showExport,
         boolean showMarkPaid,
+
+        // Reversal — SYSTEM_ADMIN/FINANCE_OFFICER only; run must be APPROVED/DISBURSING/COMPLETED.
+        boolean showReverse,
 
         List<EntryRow> rows
 ) {

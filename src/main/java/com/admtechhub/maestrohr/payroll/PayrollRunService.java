@@ -393,6 +393,84 @@ public class PayrollRunService {
     }
 
     /**
+     * Reverse an APPROVED, DISBURSING, or COMPLETED payroll run. This is a system-level
+     * correction — it rolls back the loan ledger written at approval, marks every entry's
+     * transfer status as REVERSED, and transitions the run to REVERSED. It does NOT attempt
+     * to claw back money already disbursed via Paystack or the bank; that must be handled
+     * operationally outside the system.
+     *
+     * <p>The method is idempotent against the loan ledger (each LoanRepayment row is only
+     * reversed once) but a second call on an already-REVERSED run is rejected immediately.
+     */
+    @Transactional
+    public PayrollReverseResult reversePayrollRun(UUID runId, String reversedByEmail, String reason) {
+        PayrollRun payrollRun = payrollRunRepository.findById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + runId));
+
+        if (payrollRun.getStatus() == PayrollStatus.REVERSED) {
+            throw new IllegalStateException("This payroll run has already been reversed.");
+        }
+        if (!payrollRun.canReverse()) {
+            throw new IllegalStateException(
+                    "Only APPROVED, DISBURSING, or COMPLETED runs can be reversed. Current status: "
+                            + payrollRun.getStatus());
+        }
+        if (reason == null || reason.strip().length() < 10) {
+            throw new IllegalArgumentException("Reversal reason must be at least 10 characters.");
+        }
+
+        User reversedBy = userRepository.findByEmail(reversedByEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + reversedByEmail));
+
+        boolean wasDisbursed = payrollRun.getStatus() == PayrollStatus.DISBURSING
+                || payrollRun.getStatus() == PayrollStatus.COMPLETED;
+
+        // Roll back loan ledger (idempotent per repayment row)
+        loanService.reverseRepaymentsForRun(payrollRun);
+
+        // Mark every entry reversed
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(runId);
+        for (PayrollEntry entry : entries) {
+            entry.setTransferStatus(TransferStatus.REVERSED);
+        }
+        payrollEntryRepository.saveAll(entries);
+
+        payrollRun.setStatus(PayrollStatus.REVERSED);
+        payrollRun.setReversedBy(reversedBy);
+        payrollRun.setReversedAt(LocalDateTime.now());
+        payrollRun.setReversalReason(reason.strip());
+        payrollRunRepository.save(payrollRun);
+
+        // Notify initiator and approver
+        String period = payrollRun.getPeriod();
+        String msg = "Payroll run " + period + " has been reversed. Reason: " + reason.strip();
+        if (payrollRun.getInitiatedBy() != null) {
+            notificationService.createInAppNotification(
+                    payrollRun.getInitiatedBy().getEmail(),
+                    "PAYROLL_REVERSED", "Payroll reversed", msg, "/payroll/" + runId);
+        }
+        if (payrollRun.getApprovedBy() != null
+                && !payrollRun.getApprovedBy().getEmail().equalsIgnoreCase(
+                payrollRun.getInitiatedBy() != null ? payrollRun.getInitiatedBy().getEmail() : "")) {
+            notificationService.createInAppNotification(
+                    payrollRun.getApprovedBy().getEmail(),
+                    "PAYROLL_REVERSED", "Payroll reversed", msg, "/payroll/" + runId);
+        }
+
+        log.info("Payroll run {} reversed by {} — wasDisbursed={}", runId, reversedByEmail, wasDisbursed);
+
+        String warning = wasDisbursed
+                ? "Note: This payroll was already disbursed. You must manually recover funds from employees. "
+                + "This reversal only corrects system records."
+                : null;
+
+        return new PayrollReverseResult(toResponse(payrollRun), warning);
+    }
+
+    /** Return type for reversePayrollRun, carrying the updated run and an optional disbursement warning. */
+    public record PayrollReverseResult(PayrollRunResponse run, String warning) {}
+
+    /**
      * Get payroll run by ID
      */
     @Transactional(readOnly = true)
@@ -503,6 +581,14 @@ public class PayrollRunService {
                                 .build() : null)
                 .approvedAt(approvedAt)
                 .rejectionReason(payrollRun.getRejectionReason())
+                .reversedBy(payrollRun.getReversedBy() != null ?
+                        PayrollRunResponse.UserDto.builder()
+                                .id(payrollRun.getReversedBy().getId())
+                                .email(payrollRun.getReversedBy().getEmail())
+                                .role(payrollRun.getReversedBy().getRole().name())
+                                .build() : null)
+                .reversedAt(payrollRun.getReversedAt())
+                .reversalReason(payrollRun.getReversalReason())
                 .entries(entryResponses)
                 .period(payrollRun.getPeriod())
                 .editable(payrollRun.isEditable())

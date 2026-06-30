@@ -216,6 +216,30 @@ public class PayrollDetailController {
         return "payroll-detail :: content";
     }
 
+    /**
+     * Reverse an APPROVED/DISBURSING/COMPLETED run. Rolls back the loan ledger, marks entries
+     * REVERSED, and transitions the run to REVERSED. Requires a reason (min 10 chars). Shows
+     * a disbursement warning banner if the run was already disbursed. SYSTEM_ADMIN/FINANCE_OFFICER
+     * only. A non-reversible run raises {@link IllegalStateException} → in-place error banner.
+     */
+    @PostMapping("/htmx/payroll/{id}/reverse")
+    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public String reverse(@PathVariable UUID id, @RequestParam("reason") String reason, Model model) {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            PayrollRunService.PayrollReverseResult result = payrollRunService.reversePayrollRun(id, email, reason);
+            model.addAttribute("view", payrollDetailService.build(id));
+            if (result.warning() != null) {
+                model.addAttribute("warning", result.warning());
+            } else {
+                model.addAttribute("success", "Payroll run reversed successfully.");
+            }
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            return renderWithError(id, ex.getMessage(), model);
+        }
+        return "payroll-detail :: content";
+    }
+
     /** Resolve the authenticated user's id (recorded as approver). Mirrors LeaveListController. */
     private UUID currentUserId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

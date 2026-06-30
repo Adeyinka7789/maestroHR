@@ -6,5 +6,6 @@ public enum PayrollStatus {
     APPROVED,           // Approved by Finance Officer
     DISBURSING,         // Payment in progress
     COMPLETED,          // All payments successful
-    REJECTED            // Rejected with comments
+    REJECTED,           // Rejected with comments
+    REVERSED            // Reversed by SYSTEM_ADMIN/FINANCE_OFFICER; loan ledger rolled back
 }
