@@ -10,7 +10,7 @@ import java.util.stream.Stream;
  *
  * <p>Before this class existed, the same paths were hand-maintained in four places
  * ({@code SecurityConfig.permitAll()}, {@link TenantValidationFilter},
- * {@link LapsedAccessFilter}, {@link JwtAuthFilter#isPublicPath}) using three different
+ * {@link LapsedAccessFilter}, {@link JwtAuthFilter isPublicPath}) using three different
  * matching styles (AntPath {@code /**}, {@code Set.contains}, {@code String.startsWith}),
  * which had drifted out of sync. Every consumer now references the groups below and matches
  * via the shared {@link AntPathMatcher}, so {@code /**} semantics are identical everywhere.
@@ -49,6 +49,7 @@ public final class PublicPaths {
             "/login",
             "/register",
             "/reset-password",
+            "/forgot-password",
             "/dashboard",
             "/manifest.json",
             "/offline.html"

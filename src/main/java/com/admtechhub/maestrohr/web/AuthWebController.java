@@ -21,4 +21,9 @@ public class AuthWebController {
     public String resetPassword() {
         return "reset-password";
     }
+
+    @GetMapping("/forgot-password")
+    public String forgotPassword() {
+        return "forgot-password";
+    }
 }
