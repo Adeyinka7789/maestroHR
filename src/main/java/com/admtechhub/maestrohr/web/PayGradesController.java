@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.employee.PayGradeService;
+import com.admtechhub.maestrohr.loan.LoanPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -37,11 +38,12 @@ public class PayGradesController {
 
     private final PayGradeListService payGradeListService;
     private final PayGradeService payGradeService;
+    private final LoanPolicyRepository loanPolicyRepository;
 
     /** Carries submitted form values back into the template on validation error. */
     record PayGradeForm(UUID id, String name, String basicSalary,
                         String housingAllowance, String transportAllowance,
-                        String otherAllowances) {}
+                        String otherAllowances, UUID loanPolicyId) {}
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/pay-grades")
@@ -55,6 +57,7 @@ public class PayGradesController {
         }
 
         model.addAttribute("view", payGradeListService.buildList(q));
+        model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 
@@ -83,12 +86,14 @@ public class PayGradesController {
             @RequestParam(value = "housingAllowance", defaultValue = "0") String housingStr,
             @RequestParam(value = "transportAllowance", defaultValue = "0") String transportStr,
             @RequestParam(value = "otherAllowances", defaultValue = "0") String otherStr,
+            @RequestParam(value = "loanPolicyId", defaultValue = "") String loanPolicyIdStr,
             Model model) {
 
         String trimmedName = name.trim();
         boolean isEdit = !idStr.isBlank();
         UUID id = isEdit ? UUID.fromString(idStr) : null;
-        PayGradeForm form = new PayGradeForm(id, name, basicStr, housingStr, transportStr, otherStr);
+        UUID loanPolicyId = loanPolicyIdStr.isBlank() ? null : UUID.fromString(loanPolicyIdStr);
+        PayGradeForm form = new PayGradeForm(id, name, basicStr, housingStr, transportStr, otherStr, loanPolicyId);
 
         if (trimmedName.isBlank()) {
             return modalError(model, form, "Grade name is required.");
@@ -110,10 +115,10 @@ public class PayGradesController {
 
         try {
             if (isEdit) {
-                payGradeService.update(id, trimmedName, basic, housing, transport, other);
+                payGradeService.update(id, trimmedName, basic, housing, transport, other, loanPolicyId);
                 model.addAttribute("success", "Pay grade updated.");
             } else {
-                payGradeService.create(trimmedName, basic, housing, transport, other);
+                payGradeService.create(trimmedName, basic, housing, transport, other, loanPolicyId);
                 model.addAttribute("success", "Pay grade created.");
             }
         } catch (IllegalArgumentException ex) {
@@ -121,6 +126,7 @@ public class PayGradesController {
         }
 
         model.addAttribute("view", payGradeListService.buildList(null));
+        model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 
@@ -140,6 +146,7 @@ public class PayGradesController {
             model.addAttribute("error", ex.getMessage());
         }
         model.addAttribute("view", payGradeListService.buildList(null));
+        model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 
@@ -147,6 +154,7 @@ public class PayGradesController {
         model.addAttribute("formValues", form);
         model.addAttribute("modalError", message);
         model.addAttribute("view", payGradeListService.buildList(null));
+        model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 }

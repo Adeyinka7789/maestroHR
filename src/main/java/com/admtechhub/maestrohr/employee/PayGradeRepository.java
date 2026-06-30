@@ -44,12 +44,12 @@ public interface PayGradeRepository extends JpaRepository<PayGrade, UUID> {
     // DepartmentRepository#findFilteredWithEmployeeCount.
     @Query("SELECT new com.admtechhub.maestrohr.employee.PayGradeListRow(" +
             "  p.id, p.name, p.basicSalary, p.housingAllowance, p.transportAllowance, " +
-            "  p.otherAllowances, p.isActive, COUNT(e.id)) " +
+            "  p.otherAllowances, p.isActive, COUNT(e.id), p.loanPolicy.id) " +
             "FROM PayGrade p LEFT JOIN Employee e ON e.payGrade.id = p.id " +
             "WHERE p.tenant.id = :tenantId AND p.isActive = true " +
             "AND (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))) " +
             "GROUP BY p.id, p.name, p.basicSalary, p.housingAllowance, p.transportAllowance, " +
-            "  p.otherAllowances, p.isActive " +
+            "  p.otherAllowances, p.isActive, p.loanPolicy.id " +
             "ORDER BY (p.basicSalary + p.housingAllowance + p.transportAllowance + p.otherAllowances) DESC")
     List<PayGradeListRow> findFilteredWithEmployeeCount(@Param("tenantId") UUID tenantId,
                                                         @Param("search") String search);

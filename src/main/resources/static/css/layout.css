@@ -329,4 +329,37 @@ body.sidebar-pinned .nav-item {
     .page-header-text p {
         text-align: left !important;
     }
+    /* Loan policies table → 2-column grid cards on mobile */
+    .loan-policy-table thead { display: none; }
+    .loan-policy-table,
+    .loan-policy-table tbody { display: block; width: 100%; }
+    .loan-policy-table tr {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 16px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        padding: 14px;
+    }
+    .loan-policy-table td {
+        display: block !important;
+        border: none;
+        padding: 0;
+    }
+    .loan-policy-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        color: #6b7280;
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 2px;
+    }
+    /* Name spans full width — it's the card title */
+    .loan-policy-table td:first-child { grid-column: 1 / -1; }
+    /* Status and Actions span full width at the bottom */
+    .loan-policy-table td:nth-last-child(2),
+    .loan-policy-table td:last-child { grid-column: 1 / -1; }
 }

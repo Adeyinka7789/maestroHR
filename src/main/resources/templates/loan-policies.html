@@ -9,18 +9,20 @@
 <div th:fragment="content" class="p-lg flex flex-col gap-lg">
 
     <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
+    <div class="page-header">
+        <div class="page-header-text">
             <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Loan Policies</h1>
             <p class="font-body-sm text-body-sm text-on-surface-variant">
                 Define eligibility rules and limits for employee loan requests. Each pay grade can be linked to a
                 specific policy; employees with no grade-level policy fall back to the first active policy.
             </p>
         </div>
-        <button onclick="document.getElementById('add-policy-modal').style.display='flex'"
-                class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
-            <span class="material-symbols-outlined text-[18px]">add</span> Add Policy
-        </button>
+        <div class="page-header-actions">
+            <button onclick="document.getElementById('add-policy-modal').style.display='flex'"
+                    class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                <span class="material-symbols-outlined text-[18px]">add</span> Add Policy
+            </button>
+        </div>
     </div>
 
     <!-- Flash messages -->
@@ -38,7 +40,7 @@
             No loan policies configured yet. Click "Add Policy" to create the first one.
         </div>
 
-        <table th:unless="${policies.isEmpty()}" class="w-full text-left border-collapse">
+        <table th:unless="${policies.isEmpty()}" class="loan-policy-table w-full text-left border-collapse">
             <thead class="bg-surface-container-high">
             <tr>
                 <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Name</th>
@@ -54,31 +56,31 @@
             </thead>
             <tbody>
             <tr th:each="p : ${policies}" class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
-                <td class="px-md py-sm">
+                <td class="px-md py-sm" data-label="Name">
                     <p class="font-label-md text-label-md text-on-surface" th:text="${p.name}">Standard</p>
                     <p th:if="${p.description != null and !p.description.isEmpty()}"
                        class="font-body-sm text-body-sm text-on-surface-variant truncate max-w-[200px]"
                        th:text="${p.description}">...</p>
                 </td>
-                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Max Amount"
                     th:text="${'₦' + #numbers.formatDecimal(p.maxAmountKobo / 100.0, 1, 'COMMA', 2, 'POINT')}">₦500,000.00</td>
-                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Max Gross"
                     th:text="${p.maxMultiplierOfGross + '×'}">3.0×</td>
-                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Max Tenor"
                     th:text="${p.maxTenorMonths + ' mo'}">12 mo</td>
-                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Interest"
                     th:text="${p.interestRatePct + '%'}">0.0%</td>
-                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Net Floor"
                     th:text="${p.netFloorPct + '%'}">50.0%</td>
-                <td class="px-md py-sm font-body-md text-body-md text-on-surface"
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Eligible After"
                     th:text="${p.eligibleAfterMonths + ' mo'}">6 mo</td>
-                <td class="px-md py-sm">
+                <td class="px-md py-sm" data-label="Status">
                     <span th:if="${p.isActive}"
                           class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-secondary-container text-on-secondary-container">Active</span>
                     <span th:unless="${p.isActive}"
                           class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-surface-container text-on-surface-variant">Inactive</span>
                 </td>
-                <td class="px-md py-sm">
+                <td class="px-md py-sm" data-label="Actions">
                     <div class="flex items-center gap-xs">
                         <button class="text-primary font-label-sm text-label-sm hover:underline"
                                 hx-get="${'/htmx/loan-policies/' + p.id + '/edit'}"

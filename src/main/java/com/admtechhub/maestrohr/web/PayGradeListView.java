@@ -39,6 +39,7 @@ public record PayGradeListView(
             String transportFormatted,
             String otherFormatted,
             String grossFormatted,
-            int relativePct             // gross as a % of the highest gross in this view (0–100)
+            int relativePct,            // gross as a % of the highest gross in this view (0–100)
+            UUID loanPolicyId           // null when no policy is linked to this grade
     ) {}
 }

@@ -70,7 +70,8 @@ public class PayGradeListService {
                 formatNaira(nz(r.getTransportAllowance())),
                 formatNaira(nz(r.getOtherAllowances())),
                 formatNaira(g),
-                relativePct);
+                relativePct,
+                r.getLoanPolicyId());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

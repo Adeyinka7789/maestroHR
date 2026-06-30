@@ -50,7 +50,8 @@ public class PayGradeController {
                 request.getBasicSalary(),
                 request.getHousingAllowance(),
                 request.getTransportAllowance(),
-                request.getOtherAllowances()
+                request.getOtherAllowances(),
+                null
         );
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -76,7 +77,8 @@ public class PayGradeController {
                 request.getBasicSalary(),
                 request.getHousingAllowance(),
                 request.getTransportAllowance(),
-                request.getOtherAllowances()
+                request.getOtherAllowances(),
+                null
         );
         return ResponseEntity.ok(ApiResponse.success("Pay grade updated", updated));
     }
