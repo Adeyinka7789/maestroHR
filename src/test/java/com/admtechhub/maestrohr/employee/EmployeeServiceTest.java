@@ -165,7 +165,7 @@ class EmployeeServiceTest {
     @Test
     void hardDeleteEmployee_withDependents_throws() {
         when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(active()));
-        when(payrollEntryRepository.existsByEmployeeId(EMP_ID)).thenReturn(true);
+        when(payrollEntryRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(true);
 
         assertThatThrownBy(() -> employeeService.hardDeleteEmployee(EMP_ID))
                 .isInstanceOf(IllegalStateException.class)
@@ -178,8 +178,8 @@ class EmployeeServiceTest {
     @Test
     void softDeleteEmployee_withDependents_throws() {
         when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(active()));
-        when(payrollEntryRepository.existsByEmployeeId(EMP_ID)).thenReturn(false);
-        when(leaveRequestRepository.existsByEmployeeId(EMP_ID)).thenReturn(true);
+        when(payrollEntryRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
+        when(leaveRequestRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(true);
 
         assertThatThrownBy(() -> employeeService.softDeleteEmployee(EMP_ID))
                 .isInstanceOf(IllegalStateException.class)
@@ -193,9 +193,9 @@ class EmployeeServiceTest {
     void softDeleteEmployee_noDependents_setsDeletedAt() {
         Employee e = active();
         when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(e));
-        when(payrollEntryRepository.existsByEmployeeId(EMP_ID)).thenReturn(false);
-        when(leaveRequestRepository.existsByEmployeeId(EMP_ID)).thenReturn(false);
-        when(attendanceRepository.existsByEmployeeId(EMP_ID)).thenReturn(false);
+        when(payrollEntryRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
+        when(leaveRequestRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
+        when(attendanceRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
         when(departmentRepository.existsByHeadEmployeeId(EMP_ID.toString())).thenReturn(false);
         when(employeeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

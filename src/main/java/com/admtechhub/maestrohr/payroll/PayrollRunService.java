@@ -25,10 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -90,7 +87,13 @@ public class PayrollRunService {
     }
 
     /**
-     * Compute payroll for a run (generate entries)
+     * Compute payroll for a run (generate entries).
+     *
+     * STEP 8 OPTIMIZATION: Prefetches leave, attendance, and loan data in batch
+     * before the employee loop to eliminate N+1 service calls.
+     *
+     * Before: 1 + 4N queries (N = employee count)
+     * After:  1 + 4 queries (constant, independent of employee count)
      */
     @Transactional
     public PayrollRunResponse computePayroll(UUID payrollRunId) {
@@ -106,7 +109,7 @@ public class PayrollRunService {
         }
 
         // Delete existing entries for this payroll run to avoid duplicates
-        List<PayrollEntry> existingEntries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> existingEntries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
         if (!existingEntries.isEmpty()) {
             log.info("Deleting {} existing entries for payroll run {}", existingEntries.size(), payrollRunId);
             payrollEntryRepository.deleteAll(existingEntries);
@@ -125,6 +128,33 @@ public class PayrollRunService {
             throw new IllegalStateException("No active employees found for payroll");
         }
 
+        // ================================================================
+        // STEP 8: BATCH PREFETCH - Replace N+1 per-employee calls with 3 batch calls
+        // ================================================================
+        List<UUID> employeeIds = payrollEmployees.stream()
+                .map(Employee::getId)
+                .toList();
+
+        log.info("Batch prefetching leave, attendance, and loan data for {} employees", employeeIds.size());
+
+        // 1 batch call instead of N
+        Map<UUID, Integer> unpaidLeaveDaysMap = leaveService.getUnpaidLeaveDaysBatch(
+                employeeIds, periodStart, periodEnd);
+
+        // 1 batch call instead of N
+        Map<UUID, Integer> absentDaysMap = attendanceService.getAbsentDaysBatch(
+                employeeIds, periodStart, periodEnd);
+
+        // 1 batch call instead of N
+        Map<UUID, Integer> lateDaysMap = attendanceService.getLateDaysBatch(
+                employeeIds, periodStart, periodEnd);
+
+        // 1 batch call instead of N
+        Map<UUID, Long> loanDeductionMap = loanService.computeLoanDeductionsBatch(employeeIds);
+
+        log.info("Batch prefetch complete. Building payroll entries...");
+        // ================================================================
+
         List<PayrollEntry> entries = new ArrayList<>();
         long totalGross = 0;
         long totalNet = 0;
@@ -134,21 +164,20 @@ public class PayrollRunService {
         long totalNhf = 0;
 
         for (Employee employee : payrollEmployees) {
-            // Prorate for mid-month joiners (employmentStartDate after period start)
-            // and mid-month leavers (terminationDate before period end).
+            // Prorate for mid-month joiners and mid-month leavers
             LocalDate effectiveStart = employee.getEmploymentStartDate().isAfter(periodStart)
                     ? employee.getEmploymentStartDate() : periodStart;
-            LocalDate effectiveEnd = (employee.getTerminationDate() != null && employee.getTerminationDate().isBefore(periodEnd))
+            LocalDate effectiveEnd = (employee.getTerminationDate() != null
+                    && employee.getTerminationDate().isBefore(periodEnd))
                     ? employee.getTerminationDate() : periodEnd;
-            int daysWorked = effectiveEnd.isBefore(effectiveStart) ? 0 : countWorkingDays(effectiveStart, effectiveEnd);
+            int daysWorked = effectiveEnd.isBefore(effectiveStart)
+                    ? 0 : countWorkingDays(effectiveStart, effectiveEnd);
 
-            int unpaidLeaveDays = leaveService.getUnpaidLeaveDays(employee.getId(), periodStart, periodEnd);
-            int absentDays      = attendanceService.getAbsentDays(employee.getId(), periodStart, periodEnd);
-            int lateDays        = attendanceService.getLateDays(employee.getId(), periodStart, periodEnd);
-
-            // Phase 1 (calculate): pure, idempotent — no loan balance is touched here, so a
-            // recompute never double-charges. The balance decrement happens once at approval.
-            long loanDeduction = loanService.computeLoanDeductionForEmployee(employee.getId());
+            // Use batch-prefetched values instead of per-employee service calls
+            int unpaidLeaveDays = unpaidLeaveDaysMap.getOrDefault(employee.getId(), 0);
+            int absentDays      = absentDaysMap.getOrDefault(employee.getId(), 0);
+            int lateDays        = lateDaysMap.getOrDefault(employee.getId(), 0);
+            long loanDeduction  = loanDeductionMap.getOrDefault(employee.getId(), 0L);
 
             PayrollEngine.PayrollResult result = payrollEngine.calculateEmployeePayroll(
                     employee, daysWorked, workingDays, unpaidLeaveDays, absentDays, loanDeduction);
@@ -229,7 +258,7 @@ public class PayrollRunService {
             throw new IllegalStateException("Payroll cannot be submitted. Current status: " + payrollRun.getStatus());
         }
 
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
         if (entries.isEmpty()) {
             throw new IllegalStateException("Cannot submit empty payroll. Run compute first.");
         }
@@ -364,7 +393,7 @@ public class PayrollRunService {
         String period = payrollRun.getPeriod();
         String companyName = payrollRun.getTenant().getCompanyName();
 
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
         for (PayrollEntry entry : entries) {
             entry.setTransferStatus(TransferStatus.PAID);
         }
@@ -429,7 +458,7 @@ public class PayrollRunService {
         loanService.reverseRepaymentsForRun(payrollRun);
 
         // Mark every entry reversed
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(runId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(runId, currentTenantId());
         for (PayrollEntry entry : entries) {
             entry.setTransferStatus(TransferStatus.REVERSED);
         }
@@ -494,7 +523,7 @@ public class PayrollRunService {
      */
     @Transactional(readOnly = true)
     public List<PayrollEntry> getPayrollEntries(UUID payrollRunId) {
-        return payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        return payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
     }
 
     private UUID currentTenantId() {
@@ -597,7 +626,7 @@ public class PayrollRunService {
 
     @Transactional(readOnly = true)
     public List<PayrollRunResponse.PayrollEntryResponse> getPayrollEntryResponses(UUID payrollRunId) {
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
         return entries.stream().map(this::toEntryResponse).toList();
     }
 
@@ -634,7 +663,7 @@ public class PayrollRunService {
         PayrollRun payrollRun = payrollRunRepository.findById(payrollRunId)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
 
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
 
         // Defensive: ensure entries is never null
         if (entries == null) {

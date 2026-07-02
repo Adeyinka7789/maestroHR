@@ -30,7 +30,7 @@ public class PenComReportService {
                 .findTopByTenant_IdAndPayrollMonthAndPayrollYearOrderByCreatedAtDesc(tenantId, month, year)
                 .orElseThrow(() -> new IllegalArgumentException("No payroll run found for " + month + "/" + year));
 
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRun.getId());
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRun.getId(), tenantId);
         Tenant tenant = payrollRun.getTenant();
 
         return buildHtml(entries, tenant, month, year);

@@ -90,7 +90,7 @@ class AttendanceServiceTest {
     void checkIn_newRecord_createsRecord() {
         UUID empId = UUID.randomUUID();
         when(employeeRepository.findById(empId)).thenReturn(Optional.of(mockEmployee));
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class)))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class), any(UUID.class)))
                 .thenReturn(Optional.empty());
         when(attendanceRepository.save(any(AttendanceRecord.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -115,7 +115,7 @@ class AttendanceServiceTest {
                 .clockInTime(LocalTime.now().minusHours(1).withSecond(0).withNano(0))
                 .status(AttendanceStatus.PRESENT)
                 .build();
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class)))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class), any(UUID.class)))
                 .thenReturn(Optional.of(existing));
 
         assertThrows(IllegalStateException.class, () -> attendanceService.checkIn(empId, null),
@@ -125,7 +125,7 @@ class AttendanceServiceTest {
     @Test
     void checkOut_noCheckIn_throws() {
         UUID empId = UUID.randomUUID();
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class)))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class), any(UUID.class)))
                 .thenReturn(Optional.empty());
 
         assertThrows(IllegalStateException.class, () -> attendanceService.checkOut(empId, null),
@@ -142,7 +142,7 @@ class AttendanceServiceTest {
                 .clockOutTime(LocalTime.of(17, 0))
                 .status(AttendanceStatus.PRESENT)
                 .build();
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class)))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(eq(empId), any(LocalDate.class), any(UUID.class)))
                 .thenReturn(Optional.of(alreadyOut));
 
         assertThrows(IllegalStateException.class, () -> attendanceService.checkOut(empId, null),

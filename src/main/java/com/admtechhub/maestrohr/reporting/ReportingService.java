@@ -228,7 +228,7 @@ public class ReportingService {
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + employeeId));
         hydrateEmployee(employee);
 
-        List<PayrollEntry> entries = payrollEntryRepository.findByEmployeeId(employeeId).stream()
+        List<PayrollEntry> entries = payrollEntryRepository.findByEmployeeId(employeeId, currentTenantId()).stream()
                 .sorted(Comparator.comparingInt((PayrollEntry entry) ->
                         entry.getPayrollRun().getPayrollYear() * 100 + entry.getPayrollRun().getPayrollMonth()).reversed())
                 .toList();
@@ -306,7 +306,7 @@ public class ReportingService {
     }
 
     public ReportFile generateLatestPayslip(UUID employeeId) {
-        PayrollEntry latest = payrollEntryRepository.findByEmployeeId(employeeId).stream()
+        PayrollEntry latest = payrollEntryRepository.findByEmployeeId(employeeId, currentTenantId()).stream()
                 .max(Comparator.comparing(entry -> YearMonth.of(entry.getPayrollRun().getPayrollYear(), entry.getPayrollRun().getPayrollMonth())))
                 .orElseThrow(() -> new IllegalArgumentException("No payroll history found for employee"));
         return generatePayslip(employeeId, latest.getPayrollRun().getId());
@@ -427,7 +427,7 @@ public class ReportingService {
     }
 
     private List<PayrollEntry> hydratePayrollEntries(UUID payrollRunId) {
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId).stream()
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId()).stream()
                 .sorted(Comparator.comparing(entry -> entry.getEmployee().getLastName(), String.CASE_INSENSITIVE_ORDER))
                 .toList();
         entries.forEach(entry -> {

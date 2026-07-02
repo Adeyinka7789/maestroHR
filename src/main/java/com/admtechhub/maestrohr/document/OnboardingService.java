@@ -38,12 +38,12 @@ public class OnboardingService {
      */
     @Transactional
     public void createDefaultTasksForEmployee(UUID employeeId) {
-        if (onboardingTaskRepository.existsByEmployeeId(employeeId)) {
+        UUID tenantId = currentTenantId();
+        if (onboardingTaskRepository.existsByEmployeeId(employeeId, tenantId)) {
             log.debug("Onboarding tasks already exist for employee {}; skipping seed", employeeId);
             return;
         }
 
-        UUID tenantId = currentTenantId();
         List<OnboardingTask> tasks = new ArrayList<>(DEFAULT_TASKS.size());
         for (int i = 0; i < DEFAULT_TASKS.size(); i++) {
             tasks.add(OnboardingTask.builder()
@@ -61,7 +61,7 @@ public class OnboardingService {
     /** The ordered checklist for an employee. */
     @Transactional(readOnly = true)
     public List<OnboardingTask> getTasksByEmployee(UUID employeeId) {
-        return onboardingTaskRepository.findByEmployeeIdOrderByTaskOrderAsc(employeeId);
+        return onboardingTaskRepository.findByEmployeeIdOrderByTaskOrderAsc(employeeId, currentTenantId());
     }
 
     /** Mark a task complete (idempotent on an already-complete task). */
@@ -79,7 +79,7 @@ public class OnboardingService {
     /** Outstanding (unticked) task count — drives whether the dashboard checklist still shows. */
     @Transactional(readOnly = true)
     public long outstandingCount(UUID employeeId) {
-        return onboardingTaskRepository.countByEmployeeIdAndCompletedFalse(employeeId);
+        return onboardingTaskRepository.countByEmployeeIdAndCompletedFalse(employeeId, currentTenantId());
     }
 
     private UUID currentTenantId() {

@@ -190,3 +190,23 @@ sentry:
 web:
   resources:
     static-locations: classpath:/static/, file:uploads/
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      paystack:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        # Ensure client payload errors (4xx) don't trip open the circuit breaker
+        ignoreExceptions:
+          - com.admtechhub.maestrohr.paystack.PaystackClient.PaystackApiException
+  retry:
+    instances:
+      paystackRead:
+        maxAttempts: 3
+        waitDuration: 1s
+        # ONLY retry on genuine network-level drops for read endpoints
+        retryExceptions:
+          - com.admtechhub.maestrohr.paystack.PaystackClient.PaystackNetworkException

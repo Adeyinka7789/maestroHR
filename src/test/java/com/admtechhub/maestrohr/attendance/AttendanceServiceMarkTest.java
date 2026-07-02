@@ -84,7 +84,7 @@ class AttendanceServiceMarkTest {
     // ── #3 clock-out not after clock-in ───────────────────────────────────────────
     @Test
     void markAttendance_clockOutBeforeClockIn_throwsIllegalState() {
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(EMPLOYEE_ID, LocalDate.now()))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(EMPLOYEE_ID, LocalDate.now(), TENANT_ID))
                 .thenReturn(Optional.empty());
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
@@ -98,7 +98,7 @@ class AttendanceServiceMarkTest {
     // ── #5 malformed time → wrapped IllegalArgumentException ──────────────────────
     @Test
     void markAttendance_malformedTime_throwsIllegalArgumentWithWrappedMessage() {
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(EMPLOYEE_ID, LocalDate.now()))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(EMPLOYEE_ID, LocalDate.now(), TENANT_ID))
                 .thenReturn(Optional.empty());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
@@ -112,7 +112,7 @@ class AttendanceServiceMarkTest {
     // ── #6 notes persisted (trimmed) ──────────────────────────────────────────────
     @Test
     void markAttendance_persistsTrimmedNotes() {
-        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(EMPLOYEE_ID, LocalDate.now()))
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDate(EMPLOYEE_ID, LocalDate.now(), TENANT_ID))
                 .thenReturn(Optional.empty());
 
         AttendanceRecordDTO dto = attendanceService.markAttendance(

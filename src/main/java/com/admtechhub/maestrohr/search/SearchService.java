@@ -50,7 +50,7 @@ public class SearchService {
                     results.add(toSearchResult(currentEmployee));
                 }
                 leaveRequestRepository.findByEmployeeId(currentEmployee.getId(),
-                                PageRequest.of(0, 5)).stream()
+                                currentTenantId(), PageRequest.of(0, 5)).stream()
                         .filter(lr -> matchesLeave(lr, term))
                         .forEach(lr -> results.add(toLeaveResult(lr)));
             }
@@ -70,7 +70,7 @@ public class SearchService {
 
                 Set<UUID> empIds = deptEmployees.stream().map(Employee::getId).collect(Collectors.toSet());
                 if (!empIds.isEmpty()) {
-                    leaveRequestRepository.findByEmployeeIdIn(empIds, PageRequest.of(0, 10)).stream()
+                    leaveRequestRepository.findByEmployeeIdIn(empIds, currentTenantId(), PageRequest.of(0, 10)).stream()
                             .filter(lr -> matchesLeave(lr, term))
                             .forEach(lr -> results.add(toLeaveResult(lr)));
                 }
@@ -151,6 +151,10 @@ public class SearchService {
                 lr.getEmployee().getFullName(),
                 lr.getLeaveType().getName() + " · " + lr.getStatus().name(),
                 "/leave");
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(com.admtechhub.maestrohr.auth.TenantContext.getCurrentTenant());
     }
 
     // ── DTOs ────────────────────────────────────────────────────

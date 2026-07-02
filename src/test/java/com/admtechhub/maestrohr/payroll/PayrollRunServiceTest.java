@@ -139,7 +139,7 @@ class PayrollRunServiceTest {
                 .build();
 
         when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
-        when(payrollEntryRepository.findByPayrollRunId(runId))
+        when(payrollEntryRepository.findByPayrollRunId(runId, any(UUID.class)))
                 .thenReturn(List.of(mock(PayrollEntry.class)));
         when(payrollRunRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

@@ -3,18 +3,14 @@ package com.admtechhub.maestrohr.payment;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.common.ApiResponse;
 import com.admtechhub.maestrohr.payment.dto.PaymentInitializeRequest;
-import com.admtechhub.maestrohr.paystack.PaystackClient;
-import com.admtechhub.maestrohr.paystack.dto.PaystackResponse;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.dto.PlanResponse;
 import com.admtechhub.maestrohr.tenant.PaymentPeriod;
 import com.admtechhub.maestrohr.tenant.PricingService;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
-import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -26,6 +22,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Payment REST controller.
+ *
+ * Delegates all transactional orchestration and external API calls
+ * to {@link PaymentService} to keep the controller thin and testable.
+ */
 @RestController
 @RequestMapping("/api/payment")
 @RequiredArgsConstructor
@@ -34,13 +36,8 @@ public class PaymentController {
 
     private final PaystackOAuthService paystackOAuthService;
     private final SubscriptionService subscriptionService;
-    private final TenantRepository tenantRepository;
     private final PricingService pricingService;
-    private final PaystackClient paystackClient;
-    private final InvoiceRepository invoiceRepository;
-
-    @Value("${paystack.transaction-callback-url:http://localhost:8080/dashboard?payment=success}")
-    private String transactionCallbackUrl;
+    private final PaymentService paymentService;
 
     private UUID getCurrentTenantId() {
         return UUID.fromString(TenantContext.getCurrentTenant());
@@ -101,52 +98,38 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("Subscription cancelled", null));
     }
 
+    /**
+     * Initialize a Paystack payment for subscription.
+     *
+     * Delegates to {@link PaymentService} which handles:
+     * 1. Price validation (server-side, never trusts client)
+     * 2. Idempotent reference generation
+     * 3. PENDING invoice persistence BEFORE Paystack call
+     * 4. Paystack API call OUTSIDE transaction
+     * 5. Failure marking if Paystack call fails
+     */
     @PostMapping("/initialize")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, String>>> initializePayment(
             @RequestBody PaymentInitializeRequest request,
             Authentication authentication) {
+
         UUID tenantId = getCurrentTenantId();
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
-
-        SubscriptionPlan plan = SubscriptionPlan.valueOf(request.getPlan().toUpperCase());
-        PaymentPeriod period = PaymentPeriod.valueOf(request.getPeriod().toUpperCase());
-
-        // Resolve the price server-side from pricing_config (kobo). The client-supplied
-        // amount is intentionally ignored — trusting it would let a caller underpay.
-        long amountKobo = pricingService.getPrice(plan.name(), period.name());
-        if (amountKobo <= 0) {
-            return ResponseEntity.badRequest().body(
-                    ApiResponse.error("Plan " + plan + "/" + period + " is not payable"));
-        }
-
-        // Bill the authenticated user's email (JWT principal). Paystack requires a real,
-        // unique email per customer — the old companyName@maestrohr.com placeholder was fake.
         String billingEmail = authentication.getName();
-        String reference = "SUB_" + System.currentTimeMillis() + "_" + tenantId.toString().substring(0, 8);
 
-        PaystackResponse.Data init = paystackClient.initializeTransaction(
-                billingEmail, amountKobo, reference, transactionCallbackUrl);
+        try {
+            Map<String, String> initDetails = paymentService.prepareAndInitializePayment(
+                    tenantId, billingEmail, request.getPlan(), request.getPeriod());
 
-        // Record the attempt as PENDING; the charge.success webhook flips it to SUCCESS.
-        invoiceRepository.save(Invoice.builder()
-                .tenant(tenant)
-                .paystackReference(reference)
-                .amountKobo(amountKobo)
-                .status(PaymentStatus.PENDING)
-                .plan(plan)
-                .period(period)
-                .build());
+            return ResponseEntity.ok(ApiResponse.success("Payment initialized", initDetails));
 
-        Map<String, String> response = Map.of(
-                "authorization_url", init.getAuthorizationUrl(),
-                "reference", reference
-        );
-
-        log.info("Initialized Paystack transaction {} for tenant {} ({} {}, {} kobo)",
-                reference, tenantId, plan, period, amountKobo);
-
-        return ResponseEntity.ok(ApiResponse.success("Payment initialized", response));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Payment initialization failed for tenant {}: {}", tenantId, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Payment initialization failed. Please try again."));
+        }
     }
 }

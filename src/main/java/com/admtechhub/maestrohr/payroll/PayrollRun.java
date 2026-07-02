@@ -115,6 +115,18 @@ public class PayrollRun extends BaseEntity {
         return status == PayrollStatus.PENDING_APPROVAL;
     }
 
+    @Column(name = "batch_reference", length = 100)
+    private String batchReference;
+
+    // Getter and setter
+    public String getBatchReference() {
+        return batchReference;
+    }
+
+    public void setBatchReference(String batchReference) {
+        this.batchReference = batchReference;
+    }
+
     /**
      * Whether the run may be marked completed. Accepts both APPROVED (manual/bank path via
      * markAsPaid or CSV export) and DISBURSING (Paystack path, after all transfer.success

@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -223,7 +224,7 @@ public class LoanService {
 
     @Transactional(readOnly = true)
     public List<EmployeeLoan> getLoansByEmployee(UUID employeeId) {
-        return loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId);
+        return loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId, currentTenantId());
     }
 
     @Transactional(readOnly = true)
@@ -234,13 +235,13 @@ public class LoanService {
     /** True when the employee has any loan record — feeds the hard-delete dependency guard. */
     @Transactional(readOnly = true)
     public boolean hasAnyLoan(UUID employeeId) {
-        return loanRepository.existsByEmployeeId(employeeId);
+        return loanRepository.existsByEmployeeId(employeeId, currentTenantId());
     }
 
     /** Total outstanding balance (naira) across all ACTIVE loans — used in exit settlement. */
     @Transactional(readOnly = true)
     public java.math.BigDecimal getOutstandingLoanBalance(UUID employeeId) {
-        long kobo = loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employeeId, LoanStatus.ACTIVE)
+        long kobo = loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employeeId, LoanStatus.ACTIVE, currentTenantId())
                 .stream()
                 .mapToLong(l -> l.getRemainingBalance() != null ? l.getRemainingBalance() : 0L)
                 .sum();
@@ -257,7 +258,7 @@ public class LoanService {
     @Transactional(readOnly = true)
     public long computeLoanDeductionForEmployee(UUID employeeId) {
         long total = 0;
-        for (EmployeeLoan loan : loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employeeId, LoanStatus.ACTIVE)) {
+        for (EmployeeLoan loan : loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employeeId, LoanStatus.ACTIVE, currentTenantId())) {
             total += installmentFor(loan);
         }
         return total;
@@ -314,7 +315,7 @@ public class LoanService {
                 continue;
             }
             List<EmployeeLoan> activeLoans =
-                    loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE);
+                    loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId());
 
             // When the net-floor cap was applied at compute time, entry.loanDeduction is the
             // capped budget. Apply loans in creation order up to that budget so the ledger
@@ -326,7 +327,7 @@ public class LoanService {
                 if (budgetUsed >= budget) {
                     break; // net-floor cap exhausted — remaining loans deferred to next run
                 }
-                if (repaymentRepository.existsByLoanIdAndPayrollRunId(loan.getId(), run.getId())) {
+                if (repaymentRepository.existsByLoanIdAndPayrollRunId(loan.getId(), run.getId(), currentTenantId())) {
                     budgetUsed += installmentFor(loan);
                     continue; // already applied for this run — idempotent skip
                 }
@@ -370,7 +371,7 @@ public class LoanService {
      */
     @Transactional
     public void reverseRepaymentsForRun(PayrollRun run) {
-        List<LoanRepayment> repayments = repaymentRepository.findByPayrollRunId(run.getId());
+        List<LoanRepayment> repayments = repaymentRepository.findByPayrollRunId(run.getId(), currentTenantId());
         for (LoanRepayment repayment : repayments) {
             if (repayment.getReversedAt() != null) {
                 continue; // already reversed — idempotent skip
@@ -428,5 +429,42 @@ public class LoanService {
     private String currentUserEmail() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null ? auth.getName() : "system";
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(com.admtechhub.maestrohr.auth.TenantContext.getCurrentTenant());
+    }
+
+    /**
+     * Batch version: computes loan deductions for multiple employees in a single query.
+     * Used by payroll computation to avoid N+1 on the loan table.
+     *
+     * @return Map of employeeId → total loan deduction in kobo
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Long> computeLoanDeductionsBatch(List<UUID> employeeIds) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, Long> result = new java.util.HashMap<>();
+        for (UUID id : employeeIds) {
+            result.put(id, 0L);
+        }
+
+        List<List<UUID>> partitions = com.google.common.collect.Lists.partition(employeeIds, 500);
+
+        for (List<UUID> partition : partitions) {
+            List<EmployeeLoan> activeLoans = loanRepository
+                    .findActiveLoansByEmployeeIds(partition);
+
+            for (EmployeeLoan loan : activeLoans) {
+                UUID empId = loan.getEmployee().getId();
+                long installment = installmentFor(loan);
+                result.merge(empId, installment, Long::sum);
+            }
+        }
+
+        return result;
     }
 }

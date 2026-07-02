@@ -88,7 +88,7 @@ class LoanServiceTest {
     void guard_passes_whenStoredMatchesCurrentLoanState() {
         UUID empId = UUID.randomUUID();
         Employee emp = mockEmployee(empId, "Jane Doe");
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE))
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE, any(UUID.class)))
                 .thenReturn(List.of(loan(25_000L, 150_000L, 0, 6, LoanStatus.ACTIVE)));
 
         PayrollEntry entry = mockEntry(emp, 25_000L); // matches the active loan's installment
@@ -101,7 +101,7 @@ class LoanServiceTest {
         UUID empId = UUID.randomUUID();
         Employee emp = mockEmployee(empId, "Jane Doe");
         // Loan was paused since compute → no active loans now → current deduction is 0.
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE))
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE,any(UUID.class)))
                 .thenReturn(List.of());
 
         PayrollEntry entry = mockEntry(emp, 25_000L); // payslip still carries the stale 25k
@@ -181,7 +181,7 @@ class LoanServiceTest {
         PayrollEntry entry = mockEntry(emp, 1_000_000L);
         PayrollRun payrollRun = mock(PayrollRun.class);
 
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE))
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE, any(UUID.class)))
                 .thenReturn(List.of(activeLoan));
         when(loanRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(repaymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

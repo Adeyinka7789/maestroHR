@@ -13,39 +13,30 @@ import java.util.UUID;
 @Repository
 public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UUID> {
 
-    Optional<AttendanceRecord> findByEmployeeIdAndAttendanceDate(UUID employeeId, LocalDate date);
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.employee.id = :employeeId AND a.attendanceDate = :date AND a.tenant.id = :tenantId")
+    Optional<AttendanceRecord> findByEmployeeIdAndAttendanceDate(@Param("employeeId") UUID employeeId, @Param("date") LocalDate date, @Param("tenantId") UUID tenantId);
 
     // True when the employee has any attendance record on file. Backs the hard-delete guard.
-    boolean existsByEmployeeId(UUID employeeId);
+    @Query("SELECT COUNT(a) > 0 FROM AttendanceRecord a WHERE a.employee.id = :employeeId AND a.tenant.id = :tenantId")
+    boolean existsByEmployeeId(@Param("employeeId") UUID employeeId, @Param("tenantId") UUID tenantId);
 
-    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetween(UUID employeeId, LocalDate startDate, LocalDate endDate);
+    @Query("SELECT a FROM AttendanceRecord a WHERE a.employee.id = :employeeId AND a.attendanceDate BETWEEN :startDate AND :endDate AND a.tenant.id = :tenantId")
+    List<AttendanceRecord> findByEmployeeIdAndAttendanceDateBetween(@Param("employeeId") UUID employeeId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("tenantId") UUID tenantId);
 
     List<AttendanceRecord> findByAttendanceDate(LocalDate date);
 
-    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId " +
-            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
-            "AND a.status = 'PRESENT'")
-    long countPresentDays(@Param("employeeId") UUID employeeId,
-                          @Param("startDate") LocalDate startDate,
-                          @Param("endDate") LocalDate endDate);
+    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId AND a.attendanceDate BETWEEN :startDate AND :endDate AND a.status = 'PRESENT' AND a.tenant.id = :tenantId")
+    long countPresentDays(@Param("employeeId") UUID employeeId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("tenantId") UUID tenantId);
 
     @Query("SELECT a FROM AttendanceRecord a WHERE a.attendanceDate = :date AND a.status = 'ABSENT'")
     List<AttendanceRecord> findAbsenteesOnDate(@Param("date") LocalDate date);
 
-    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId " +
-            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
-            "AND a.status = 'ABSENT'")
-    long countAbsentDays(@Param("employeeId") UUID employeeId,
-                         @Param("startDate") LocalDate startDate,
-                         @Param("endDate") LocalDate endDate);
+    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId AND a.attendanceDate BETWEEN :startDate AND :endDate AND a.status = 'ABSENT' AND a.tenant.id = :tenantId")
+    long countAbsentDays(@Param("employeeId") UUID employeeId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("tenantId") UUID tenantId);
 
     // LATE records carry no automatic deduction — count is surfaced for HR review only.
-    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId " +
-            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
-            "AND a.status = 'LATE'")
-    long countLateDays(@Param("employeeId") UUID employeeId,
-                       @Param("startDate") LocalDate startDate,
-                       @Param("endDate") LocalDate endDate);
+    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.employee.id = :employeeId AND a.attendanceDate BETWEEN :startDate AND :endDate AND a.status = 'LATE' AND a.tenant.id = :tenantId")
+    long countLateDays(@Param("employeeId") UUID employeeId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("tenantId") UUID tenantId);
 
     // Backs the redesigned attendance "Today" list (server-rendered fragment, Option 3):
     // one day's records with an optional status filter and free-text employee search.
@@ -100,4 +91,31 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
     List<Object[]> countByStatusForDateAndDepartment(@Param("tenantId") UUID tenantId,
                                                      @Param("departmentId") UUID departmentId,
                                                      @Param("date") LocalDate date);
+
+    /**
+     * Count ABSENT days per employee for a batch of employee IDs within a date range.
+     * Single query replaces N individual countAbsentDays calls.
+     */
+    @Query("SELECT a.employee.id, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.employee.id IN :employeeIds " +
+            "AND a.status = 'ABSENT' " +
+            "AND a.attendanceDate >= :periodStart " +
+            "AND a.attendanceDate <= :periodEnd " +
+            "GROUP BY a.employee.id")
+    List<Object[]> countAbsentDaysBatch(@Param("employeeIds") List<UUID> employeeIds,
+                                        @Param("periodStart") LocalDate periodStart,
+                                        @Param("periodEnd") LocalDate periodEnd);
+
+    /**
+     * Count LATE days per employee for a batch of employee IDs within a date range.
+     */
+    @Query("SELECT a.employee.id, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.employee.id IN :employeeIds " +
+            "AND a.status = 'LATE' " +
+            "AND a.attendanceDate >= :periodStart " +
+            "AND a.attendanceDate <= :periodEnd " +
+            "GROUP BY a.employee.id")
+    List<Object[]> countLateDaysBatch(@Param("employeeIds") List<UUID> employeeIds,
+                                      @Param("periodStart") LocalDate periodStart,
+                                      @Param("periodEnd") LocalDate periodEnd);
 }

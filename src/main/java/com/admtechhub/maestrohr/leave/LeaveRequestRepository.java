@@ -17,12 +17,15 @@ import java.util.UUID;
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID> {
 
-    List<LeaveRequest> findByEmployeeId(UUID employeeId, PageRequest pageRequest);
+    @Query("SELECT lr FROM LeaveRequest lr WHERE lr.employee.id = :employeeId AND lr.employee.tenant.id = :tenantId")
+    List<LeaveRequest> findByEmployeeId(@Param("employeeId") UUID employeeId, @Param("tenantId") UUID tenantId, PageRequest pageRequest);
 
     // True when the employee has any leave request on file. Backs the hard-delete guard.
-    boolean existsByEmployeeId(UUID employeeId);
+    @Query("SELECT COUNT(lr) > 0 FROM LeaveRequest lr WHERE lr.employee.id = :employeeId AND lr.employee.tenant.id = :tenantId")
+    boolean existsByEmployeeId(@Param("employeeId") UUID employeeId, @Param("tenantId") UUID tenantId);
 
-    List<LeaveRequest> findByEmployeeIdAndStatus(UUID employeeId, LeaveStatus status);
+    @Query("SELECT lr FROM LeaveRequest lr WHERE lr.employee.id = :employeeId AND lr.status = :status AND lr.employee.tenant.id = :tenantId")
+    List<LeaveRequest> findByEmployeeIdAndStatus(@Param("employeeId") UUID employeeId, @Param("status") LeaveStatus status, @Param("tenantId") UUID tenantId);
 
     List<LeaveRequest> findByStatus(LeaveStatus status);
 
@@ -124,9 +127,26 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
                                      @Param("periodEnd") LocalDate periodEnd);
 
     // Find leave requests for a specific employee (already exists)
-    List<LeaveRequest> findByEmployeeId(UUID employeeId, Pageable pageable);
+    @Query("SELECT lr FROM LeaveRequest lr WHERE lr.employee.id = :employeeId AND lr.employee.tenant.id = :tenantId")
+    List<LeaveRequest> findByEmployeeId(@Param("employeeId") UUID employeeId, @Param("tenantId") UUID tenantId, Pageable pageable);
 
     // Find leave requests for a list of employee IDs
-    @Query("SELECT lr FROM LeaveRequest lr WHERE lr.employee.id IN :ids")
-    List<LeaveRequest> findByEmployeeIdIn(@Param("ids") Set<UUID> ids, Pageable pageable);
+    @Query("SELECT lr FROM LeaveRequest lr WHERE lr.employee.id IN :ids AND lr.employee.tenant.id = :tenantId")
+    List<LeaveRequest> findByEmployeeIdIn(@Param("ids") Set<UUID> ids, @Param("tenantId") UUID tenantId, Pageable pageable);
+
+    /**
+     * Find all approved unpaid leaves for a batch of employees overlapping the given period.
+     * Single query replaces N individual calls in payroll computation.
+     */
+    @Query("SELECT lr FROM LeaveRequest lr " +
+            "JOIN lr.leaveType lt " +
+            "WHERE lr.employee.id IN :employeeIds " +
+            "AND lr.status = 'APPROVED' " +
+            "AND lt.isPaid = false " +
+            "AND lr.startDate <= :periodEnd " +
+            "AND lr.endDate >= :periodStart")
+    List<LeaveRequest> findApprovedUnpaidLeavesInRangeForEmployees(
+            @Param("employeeIds") List<UUID> employeeIds,
+            @Param("periodStart") LocalDate periodStart,
+            @Param("periodEnd") LocalDate periodEnd);
 }

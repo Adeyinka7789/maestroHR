@@ -4,6 +4,10 @@ import com.admtechhub.maestrohr.auth.TenantContextTaskDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskDecorator;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.concurrent.Executor;
 
 /**
  * Wires {@link TenantContextTaskDecorator} into the application's async executor.
@@ -16,10 +20,22 @@ import org.springframework.core.task.TaskDecorator;
  * changes required, and any future {@code @Async} method is covered automatically.
  */
 @Configuration
+@EnableAsync
 public class AsyncConfig {
 
     @Bean
     public TaskDecorator tenantContextTaskDecorator() {
         return new TenantContextTaskDecorator();
     }
+
+    @Bean(name = "taskExecutor")
+    public Executor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("employee-async-");
+        executor.initialize();
+        return executor;
+        }
 }

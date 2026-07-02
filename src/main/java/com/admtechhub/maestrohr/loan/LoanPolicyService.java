@@ -174,14 +174,14 @@ public class LoanPolicyService {
         }
 
         // 6. No concurrent active loan
-        if (!loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE).isEmpty()) {
+        if (!loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId()).isEmpty()) {
             throw new IllegalArgumentException(
                     "Employee already has an active loan. The existing loan must be completed or waived before a new application is submitted.");
         }
 
         // 7. Cooling period — count from most recent completed or cancelled loan
         if (p.getCoolingPeriodDays() > 0) {
-            loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId()).stream()
+            loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId(), currentTenantId()).stream()
                     .filter(l -> l.getStatus() == LoanStatus.COMPLETED || l.getStatus() == LoanStatus.CANCELLED)
                     .findFirst()
                     .ifPresent(last -> {
@@ -198,7 +198,7 @@ public class LoanPolicyService {
 
         // 8. Annual loan count
         int currentYear = LocalDate.now().getYear();
-        long loansThisYear = loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId()).stream()
+        long loansThisYear = loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId(), currentTenantId()).stream()
                 .filter(l -> l.getStatus() != LoanStatus.REJECTED)
                 .filter(l -> l.getCreatedAt() != null && l.getCreatedAt().getYear() == currentYear)
                 .count();
@@ -260,9 +260,9 @@ public class LoanPolicyService {
         int coolingDays = p.getCoolingPeriodDays() != null ? p.getCoolingPeriodDays() : 0;
 
         long activeCount = loanRepository
-                .findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE).size();
+                .findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId()).size();
         int currentYear = LocalDate.now().getYear();
-        long loansThisYear = loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId()).stream()
+        long loansThisYear = loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId(), currentTenantId()).stream()
                 .filter(l -> l.getStatus() != LoanStatus.REJECTED)
                 .filter(l -> l.getCreatedAt() != null && l.getCreatedAt().getYear() == currentYear)
                 .count();
@@ -301,7 +301,7 @@ public class LoanPolicyService {
         LocalDate cooldownEnds = null;
         if (coolingDays > 0) {
             Optional<EmployeeLoan> lastClosed = loanRepository
-                    .findByEmployeeIdOrderByCreatedAtDesc(employee.getId()).stream()
+                    .findByEmployeeIdOrderByCreatedAtDesc(employee.getId(), currentTenantId()).stream()
                     .filter(l -> l.getStatus() == LoanStatus.COMPLETED || l.getStatus() == LoanStatus.CANCELLED)
                     .findFirst();
             if (lastClosed.isPresent() && lastClosed.get().getUpdatedAt() != null) {
@@ -337,5 +337,9 @@ public class LoanPolicyService {
 
     private static String koboToNaira(long kobo) {
         return String.format("%,.2f", kobo / 100.0);
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(com.admtechhub.maestrohr.auth.TenantContext.getCurrentTenant());
     }
 }

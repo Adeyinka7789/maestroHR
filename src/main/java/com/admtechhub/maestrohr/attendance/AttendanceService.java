@@ -17,6 +17,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -64,13 +65,13 @@ public class AttendanceService {
     public List<AttendanceRecordDTO> getEmployeeAttendance(UUID employeeId, LocalDate startDate, LocalDate endDate) {
         if (startDate == null) startDate = LocalDate.now().minusMonths(3);
         if (endDate == null) endDate = LocalDate.now();
-        List<AttendanceRecord> records = attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, startDate, endDate);
+        List<AttendanceRecord> records = attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, startDate, endDate, currentTenantId());
         return toDtoList(records);
     }
 
     @Transactional(readOnly = true)
     public AttendanceRecordDTO getAttendanceByEmployeeAndDate(UUID employeeId, LocalDate date) {
-        AttendanceRecord record = attendanceRepository.findByEmployeeIdAndAttendanceDate(employeeId, date).orElse(null);
+        AttendanceRecord record = attendanceRepository.findByEmployeeIdAndAttendanceDate(employeeId, date, currentTenantId()).orElse(null);
         return toDto(record);
     }
 
@@ -111,7 +112,7 @@ public class AttendanceService {
 
         // Check if attendance already exists for this employee on this date
         AttendanceRecord record = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employeeId, date)
+                .findByEmployeeIdAndAttendanceDate(employeeId, date, currentTenantId())
                 .orElse(null);
 
         LocalTime clockIn = parseTime(clockInTimeStr);
@@ -223,7 +224,7 @@ public class AttendanceService {
 
         LocalDate today = LocalDate.now();
         AttendanceRecord record = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employeeId, today)
+                .findByEmployeeIdAndAttendanceDate(employeeId, today, currentTenantId())
                 .orElse(null);
 
         if (record != null && record.getClockInTime() != null) {
@@ -265,7 +266,7 @@ public class AttendanceService {
     public AttendanceRecordDTO checkOut(UUID employeeId, String notes) {
         LocalDate today = LocalDate.now();
         AttendanceRecord record = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employeeId, today)
+                .findByEmployeeIdAndAttendanceDate(employeeId, today, currentTenantId())
                 .orElseThrow(() -> new IllegalStateException("You haven't checked in today"));
 
         if (record.getClockInTime() == null) {
@@ -292,7 +293,7 @@ public class AttendanceService {
     public long getPresentDaysInMonth(UUID employeeId, int year, int month) {
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate = startDate.plusMonths(1).minusDays(1);
-        return attendanceRepository.countPresentDays(employeeId, startDate, endDate);
+        return attendanceRepository.countPresentDays(employeeId, startDate, endDate, currentTenantId());
     }
 
     /**
@@ -315,7 +316,7 @@ public class AttendanceService {
         }
 
         AttendanceRecord record = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employeeId, date)
+                .findByEmployeeIdAndAttendanceDate(employeeId, date, currentTenantId())
                 .orElse(null);
 
         if (record != null && record.getClockInTime() != null) {
@@ -352,7 +353,7 @@ public class AttendanceService {
     public AttendanceRecordDTO processDeviceCheckOut(UUID employeeId, LocalDateTime timestamp) {
         LocalDate date = timestamp.toLocalDate();
         AttendanceRecord record = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employeeId, date)
+                .findByEmployeeIdAndAttendanceDate(employeeId, date, currentTenantId())
                 .orElseThrow(() -> new IllegalStateException("No check-in found for " + date));
 
         if (record.getClockInTime() == null) {
@@ -375,12 +376,80 @@ public class AttendanceService {
     /** Count of ABSENT records in the period — used to calculate attendance deduction in kobo. */
     @Transactional(readOnly = true)
     public int getAbsentDays(UUID employeeId, LocalDate periodStart, LocalDate periodEnd) {
-        return (int) attendanceRepository.countAbsentDays(employeeId, periodStart, periodEnd);
+        return (int) attendanceRepository.countAbsentDays(employeeId, periodStart, periodEnd, currentTenantId());
     }
 
     /** Count of LATE records in the period — informational only, no automatic deduction applied. */
     @Transactional(readOnly = true)
     public int getLateDays(UUID employeeId, LocalDate periodStart, LocalDate periodEnd) {
-        return (int) attendanceRepository.countLateDays(employeeId, periodStart, periodEnd);
+        return (int) attendanceRepository.countLateDays(employeeId, periodStart, periodEnd, currentTenantId());
+    }
+
+    /**
+     * Batch version: returns absent day counts for multiple employees.
+     * Single query round-trip instead of N individual calls.
+     *
+     * @return Map of employeeId → count of ABSENT days in the period
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Integer> getAbsentDaysBatch(List<UUID> employeeIds,
+                                                 LocalDate periodStart,
+                                                 LocalDate periodEnd) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, Integer> result = new java.util.HashMap<>();
+        for (UUID id : employeeIds) {
+            result.put(id, 0);
+        }
+
+        List<List<UUID>> partitions = com.google.common.collect.Lists.partition(employeeIds, 500);
+
+        for (List<UUID> partition : partitions) {
+            List<Object[]> results = attendanceRepository
+                    .countAbsentDaysBatch(partition, periodStart, periodEnd);
+
+            for (Object[] row : results) {
+                UUID empId = (UUID) row[0];
+                Long count = (Long) row[1];
+                result.put(empId, count != null ? count.intValue() : 0);
+            }
+        }
+
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, Integer> getLateDaysBatch(List<UUID> employeeIds,
+                                               LocalDate periodStart,
+                                               LocalDate periodEnd) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, Integer> result = new java.util.HashMap<>();
+        for (UUID id : employeeIds) {
+            result.put(id, 0);
+        }
+
+        List<List<UUID>> partitions = com.google.common.collect.Lists.partition(employeeIds, 500);
+
+        for (List<UUID> partition : partitions) {
+            List<Object[]> results = attendanceRepository
+                    .countLateDaysBatch(partition, periodStart, periodEnd);
+
+            for (Object[] row : results) {
+                UUID empId = (UUID) row[0];
+                Long count = (Long) row[1];
+                result.put(empId, count != null ? count.intValue() : 0);
+            }
+        }
+
+        return result;
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(com.admtechhub.maestrohr.auth.TenantContext.getCurrentTenant());
     }
 }

@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
@@ -51,7 +52,7 @@ public class PayrollDetailService {
         PayrollRun run = payrollRunRepository.findById(payrollRunId)
                 .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
 
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
         List<PayrollDetailView.EntryRow> rows = entries.stream().map(this::toEntryRow).toList();
 
         String statusName = run.getStatus() != null ? run.getStatus().name() : PayrollStatus.DRAFT.name();
@@ -160,5 +161,9 @@ public class PayrollDetailService {
         char a = first != null && !first.isBlank() ? first.charAt(0) : '?';
         char b = last != null && !last.isBlank() ? last.charAt(0) : ' ';
         return (String.valueOf(a) + b).trim().toUpperCase(Locale.ENGLISH);
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 }

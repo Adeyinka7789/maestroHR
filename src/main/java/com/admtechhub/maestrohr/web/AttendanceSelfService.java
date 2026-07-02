@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.attendance.AttendanceRecord;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
+import com.admtechhub.maestrohr.auth.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,7 @@ public class AttendanceSelfService {
     public AttendanceSelfView build(UUID employeeId, String employeeName) {
         LocalDate today = LocalDate.now();
         AttendanceRecord record = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employeeId, today)
+                .findByEmployeeIdAndAttendanceDate(employeeId, today, currentTenantId())
                 .orElse(null);
 
         boolean checkedIn = record != null && record.getClockInTime() != null;
@@ -65,5 +66,9 @@ public class AttendanceSelfService {
 
     private String formatHours(BigDecimal hours) {
         return hours == null ? "—" : hours.stripTrailingZeros().toPlainString();
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 }

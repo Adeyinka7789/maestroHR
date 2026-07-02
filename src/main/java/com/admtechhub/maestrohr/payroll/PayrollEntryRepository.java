@@ -15,33 +15,26 @@ import java.util.UUID;
 @Repository
 public interface PayrollEntryRepository extends JpaRepository<PayrollEntry, UUID> {
 
-    // Find all entries for a payroll run
-    List<PayrollEntry> findByPayrollRunId(UUID payrollRunId);
+    @Query("SELECT pe FROM PayrollEntry pe WHERE pe.payrollRun.id = :payrollRunId AND pe.tenant.id = :tenantId")
+    List<PayrollEntry> findByPayrollRunId(@Param("payrollRunId") UUID payrollRunId, @Param("tenantId") UUID tenantId);
 
-    // Find entries by employee ID (for employee dashboard)
-    List<PayrollEntry> findByEmployeeId(UUID employeeId);
+    @Query("SELECT pe FROM PayrollEntry pe WHERE pe.employee.id = :employeeId AND pe.tenant.id = :tenantId")
+    List<PayrollEntry> findByEmployeeId(@Param("employeeId") UUID employeeId, @Param("tenantId") UUID tenantId);
 
-    // True when the employee has any payroll history. Backs the hard-delete guard:
-    // an employee that has ever been on a payroll run must never be permanently
-    // removed (only terminated), so its payslips/ledger stay intact.
-    boolean existsByEmployeeId(UUID employeeId);
+    @Query("SELECT COUNT(pe) > 0 FROM PayrollEntry pe WHERE pe.employee.id = :employeeId AND pe.tenant.id = :tenantId")
+    boolean existsByEmployeeId(@Param("employeeId") UUID employeeId, @Param("tenantId") UUID tenantId);
 
-    // Find top N entries by employee ID ordered by payroll run creation date desc
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.employee.id = :employeeId ORDER BY pe.payrollRun.createdAt DESC")
     List<PayrollEntry> findTop3ByEmployeeIdOrderByPayrollRunCreatedAtDesc(@Param("employeeId") UUID employeeId, Pageable pageable);
 
-    // Find all entries by employee ID ordered by payroll run creation date desc
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.employee.id = :employeeId ORDER BY pe.payrollRun.createdAt DESC")
     List<PayrollEntry> findByEmployeeIdOrderByPayrollRunCreatedAtDesc(@Param("employeeId") UUID employeeId);
 
-    // Find entries by transfer status
     List<PayrollEntry> findByTransferStatus(TransferStatus status);
 
-    // Find failed transfers for a payroll run
     @Query("SELECT e FROM PayrollEntry e WHERE e.payrollRun.id = :payrollRunId AND e.transferStatus = 'FAILED'")
     List<PayrollEntry> findFailedTransfers(@Param("payrollRunId") UUID payrollRunId);
 
-    // Update transfer status for an entry
     @Modifying
     @Transactional
     @Query("UPDATE PayrollEntry e SET e.transferStatus = :status, e.transferReference = :reference WHERE e.id = :entryId")
@@ -49,35 +42,35 @@ public interface PayrollEntryRepository extends JpaRepository<PayrollEntry, UUID
                               @Param("status") TransferStatus status,
                               @Param("reference") String reference);
 
-    // Mark payslip as generated
     @Modifying
     @Transactional
     @Query("UPDATE PayrollEntry e SET e.payslipGenerated = true WHERE e.id = :entryId")
     void markPayslipGenerated(@Param("entryId") UUID entryId);
 
-    // Count entries by transfer status for a payroll run
     @Query("SELECT COUNT(e) FROM PayrollEntry e WHERE e.payrollRun.id = :payrollRunId AND e.transferStatus = :status")
     long countByTransferStatus(@Param("payrollRunId") UUID payrollRunId, @Param("status") TransferStatus status);
 
-    // Find a specific payroll entry by payroll run ID and employee ID
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.payrollRun.id = :payrollRunId AND pe.employee.id = :employeeId")
     Optional<PayrollEntry> findByPayrollRunIdAndEmployeeId(@Param("payrollRunId") UUID payrollRunId, @Param("employeeId") UUID employeeId);
 
-    // Find entry by its Paystack transfer reference — used by the transfer.success/failed webhook
-    // handlers which have no tenant context when called, so this is paired with a
-    // WebhookTenantResolver lookup + bindTenantSession before the JPQL filter fires.
     @Query("SELECT pe FROM PayrollEntry pe WHERE pe.transferReference = :ref")
     Optional<PayrollEntry> findByTransferReference(@Param("ref") String ref);
 
-    // Used by PayrollNotificationConsumer: eagerly fetches employee and payrollRun so both
-    // associations are available outside a JPA session (no LazyInitializationException).
     @Query("SELECT pe FROM PayrollEntry pe JOIN FETCH pe.employee JOIN FETCH pe.payrollRun WHERE pe.payrollRun.id = :runId")
     List<PayrollEntry> findByPayrollRunIdWithEntities(@Param("runId") UUID runId);
 
-    // Per-run entry counts for the whole tenant, backing the payroll list's "employees"
-    // column without lazy-loading every run's full entry collection. Returns rows of
-    // [runId (UUID), Long]; runs with no entries (uncomputed drafts) are absent.
     @Query("SELECT e.payrollRun.id, COUNT(e) FROM PayrollEntry e " +
             "WHERE e.payrollRun.tenant.id = :tenantId GROUP BY e.payrollRun.id")
     List<Object[]> countEntriesByRunForTenant(@Param("tenantId") UUID tenantId);
+
+    /**
+     * Eagerly fetches individual lines mapped to an active tenant context scope.
+     * Prevents lazy loading traps when compiling isolated itemized accounting reports.
+     */
+    @Query("SELECT pe FROM PayrollEntry pe " +
+            "JOIN FETCH pe.employee emp " +
+            "JOIN FETCH pe.payrollRun pr " +
+            "JOIN FETCH pr.tenant t " +
+            "WHERE pr.id = :payrollRunId AND t.id = :tenantId")
+    List<PayrollEntry> findEntriesWithDetailsByRunAndTenant(@Param("payrollRunId") UUID payrollRunId, @Param("tenantId") UUID tenantId);
 }

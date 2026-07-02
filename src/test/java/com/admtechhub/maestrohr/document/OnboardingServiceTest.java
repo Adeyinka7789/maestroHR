@@ -39,7 +39,7 @@ class OnboardingServiceTest {
 
     @Test
     void createDefaultTasks_createsExactly5Tasks() {
-        when(onboardingTaskRepository.existsByEmployeeId(employeeId)).thenReturn(false);
+        when(onboardingTaskRepository.existsByEmployeeId(employeeId, any(UUID.class))).thenReturn(false);
 
         onboardingService.createDefaultTasksForEmployee(employeeId);
 
@@ -53,7 +53,7 @@ class OnboardingServiceTest {
 
     @Test
     void createDefaultTasks_idempotent_doesNotDuplicate() {
-        when(onboardingTaskRepository.existsByEmployeeId(employeeId)).thenReturn(true);
+        when(onboardingTaskRepository.existsByEmployeeId(employeeId, any(UUID.class))).thenReturn(true);
 
         onboardingService.createDefaultTasksForEmployee(employeeId);
 
@@ -104,7 +104,7 @@ class OnboardingServiceTest {
                         .taskName("Task A").taskOrder(0).completed(false).build(),
                 OnboardingTask.builder().employeeId(employeeId).tenantId(tenantId)
                         .taskName("Task B").taskOrder(1).completed(true).build());
-        when(onboardingTaskRepository.findByEmployeeIdOrderByTaskOrderAsc(employeeId))
+        when(onboardingTaskRepository.findByEmployeeIdOrderByTaskOrderAsc(employeeId, any(UUID.class)))
                 .thenReturn(expected);
 
         List<OnboardingTask> result = onboardingService.getTasksByEmployee(employeeId);

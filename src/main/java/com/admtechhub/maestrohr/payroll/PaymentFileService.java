@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -116,7 +117,7 @@ public class PaymentFileService {
         }
 
         String narration = "Salary " + run.getPeriod();
-        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, currentTenantId());
         return entries.stream()
                 .map(entry -> paymentRowMapper.toRow(entry, narration))
                 .toList();
@@ -131,5 +132,9 @@ public class PaymentFileService {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 }

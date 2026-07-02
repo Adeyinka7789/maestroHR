@@ -186,7 +186,7 @@ public class DashboardService {
                         .toList();
 
         AttendanceRecord record =
-                attendanceRepository.findByEmployeeIdAndAttendanceDate(me.getId(), today).orElse(null);
+                attendanceRepository.findByEmployeeIdAndAttendanceDate(me.getId(), today, currentTenantId()).orElse(null);
         boolean checkedIn = record != null && record.getClockInTime() != null;
         boolean checkedOut = record != null && record.getClockOutTime() != null;
         String attStatusLabel = checkedOut ? "Checked out"
@@ -202,7 +202,7 @@ public class DashboardService {
                 .orElse(null);
 
         List<DashboardView.MyLeaveItem> pending =
-                leaveRequestRepository.findByEmployeeIdAndStatus(me.getId(), LeaveStatus.PENDING).stream()
+                leaveRequestRepository.findByEmployeeIdAndStatus(me.getId(), LeaveStatus.PENDING, currentTenantId()).stream()
                         .sorted(Comparator.comparing(LeaveRequest::getStartDate))
                         .map(this::toMyLeaveItem)
                         .toList();

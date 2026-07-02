@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -381,7 +382,7 @@ public class LeaveService {
                 throw new AccessDeniedException("Access denied");
             }
         }
-        List<LeaveRequest> requests = leaveRequestRepository.findByEmployeeId(employeeId, PageRequest.of(0, 5));
+        List<LeaveRequest> requests = leaveRequestRepository.findByEmployeeId(employeeId, currentTenantId(), PageRequest.of(0, 5));
         return toDtoList(requests);
     }
 
@@ -456,5 +457,49 @@ public class LeaveService {
     private String currentUserEmail() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null ? auth.getName() : "system";
+    }
+
+    /**
+     * Batch version: returns unpaid leave working days for multiple employees
+     * in a single query round-trip. Used by payroll computation to avoid N+1.
+     *
+     * @return Map of employeeId → total unpaid leave working days in the period
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Integer> getUnpaidLeaveDaysBatch(List<UUID> employeeIds,
+                                                      LocalDate periodStart,
+                                                      LocalDate periodEnd) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, Integer> result = new java.util.HashMap<>();
+        for (UUID id : employeeIds) {
+            result.put(id, 0);
+        }
+
+        // Partition into batches of 500 to avoid IN clause limits
+        List<List<UUID>> partitions = com.google.common.collect.Lists.partition(employeeIds, 500);
+
+        for (List<UUID> partition : partitions) {
+            List<LeaveRequest> unpaidLeaves = leaveRequestRepository
+                    .findApprovedUnpaidLeavesInRangeForEmployees(partition, periodStart, periodEnd);
+
+            for (LeaveRequest leave : unpaidLeaves) {
+                UUID empId = leave.getEmployee().getId();
+                LocalDate effectiveStart = leave.getStartDate().isBefore(periodStart)
+                        ? periodStart : leave.getStartDate();
+                LocalDate effectiveEnd = leave.getEndDate().isAfter(periodEnd)
+                        ? periodEnd : leave.getEndDate();
+                int days = (int) calculateWorkingDays(effectiveStart, effectiveEnd);
+                result.merge(empId, days, Integer::sum);
+            }
+        }
+
+        return result;
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 }

@@ -76,7 +76,7 @@ class DisbursementServiceTest {
         when(entry.getEmployee()).thenReturn(emp);
         when(entry.getNetSalary()).thenReturn(100_000L);
 
-        when(payrollEntryRepository.findByPayrollRunId(runId)).thenReturn(List.of(entry));
+        when(payrollEntryRepository.findByPayrollRunId(runId, any(UUID.class))).thenReturn(List.of(entry));
 
         // Mock a response with no transfer codes (since no transfers were queued).
         PaystackResponse mockResponse = mock(PaystackResponse.class);

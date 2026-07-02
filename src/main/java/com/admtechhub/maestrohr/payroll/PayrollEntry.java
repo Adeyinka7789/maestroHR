@@ -116,4 +116,16 @@ public class PayrollEntry extends BaseEntity {
     @Column(name = "payslip_generated", nullable = false)
     @Builder.Default
     private Boolean payslipGenerated = false;
+
+    @Column(name = "paystack_transfer_code", length = 100)
+    private String paystackTransferCode;
+
+    // Getter and setter
+    public String getPaystackTransferCode() {
+        return paystackTransferCode;
+    }
+
+    public void setPaystackTransferCode(String paystackTransferCode) {
+        this.paystackTransferCode = paystackTransferCode;
+    }
 }

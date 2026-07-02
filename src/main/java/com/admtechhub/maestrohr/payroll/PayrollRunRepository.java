@@ -22,7 +22,7 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
     List<PayrollRun> findByStatus(PayrollStatus status);
     List<PayrollRun> findByTenant_IdAndStatus(UUID tenantId, PayrollStatus status);
 
-    // Count by tenant and status - ADD THIS
+    // Count by tenant and status
     @Query("SELECT COUNT(p) FROM PayrollRun p WHERE p.tenant.id = :tenantId AND p.status = :status")
     long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") PayrollStatus status);
 
@@ -49,11 +49,22 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
 
     List<PayrollRun> findAllByTenant_IdOrderByCreatedAtDesc(UUID tenantId);
 
-    // Per-status run counts for the whole tenant, backing the payroll list filter-chip
-    // counts (so they reflect the full data set, not the filtered view). Returns rows of
-    // [PayrollStatus, Long]; statuses with zero runs are absent. Mirrors
-    // LeaveRequestRepository#countByStatusForTenant.
     @Query("SELECT p.status, COUNT(p) FROM PayrollRun p " +
             "WHERE p.tenant.id = :tenantId GROUP BY p.status")
     List<Object[]> countByStatusForTenant(@Param("tenantId") UUID tenantId);
+
+    /**
+     * Eagerly hydrates the entire object tree required for DTO assembly in a single DB round-trip.
+     * Uses LEFT JOIN FETCH for optional actor associations (like approvedBy, reversedBy)
+     * to prevent filtering out DRAFT or non-reversed payroll states.
+     */
+    @Query("SELECT DISTINCT p FROM PayrollRun p " +
+            "JOIN FETCH p.tenant " +
+            "JOIN FETCH p.initiatedBy " +
+            "LEFT JOIN FETCH p.approvedBy " +
+            "LEFT JOIN FETCH p.reversedBy " +
+            "LEFT JOIN FETCH p.entries e " +
+            "LEFT JOIN FETCH e.employee " +
+            "WHERE p.id = :id AND p.tenant.id = :tenantId")
+    Optional<PayrollRun> findByIdAndTenantIdWithDetails(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 }

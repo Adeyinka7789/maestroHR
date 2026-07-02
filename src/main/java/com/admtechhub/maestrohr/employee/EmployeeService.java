@@ -7,6 +7,7 @@ import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
 import com.admtechhub.maestrohr.document.OnboardingService;
+import com.admtechhub.maestrohr.employee.event.EmployeeCreatedEvent;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -61,6 +63,7 @@ public class EmployeeService {
     private final AttendanceRepository attendanceRepository;
     private final OnboardingService onboardingService;
     private final AuditTrailService auditTrailService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String EMPLOYEE_NUMBER_PREFIX = "EMP";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -90,10 +93,23 @@ public class EmployeeService {
         return UUID.fromString(tenantIdStr);
     }
 
+    /**
+     * Create a new employee.
+     *
+     * TRANSACTION STRATEGY:
+     * - Step 1: All DB operations execute inside @Transactional
+     * - Step 2: EmployeeCreatedEvent is published (held until after commit)
+     * - Step 3: After DB commit, @TransactionalEventListener fires asynchronously
+     *   to handle Paystack verification and welcome notification OUTSIDE the DB transaction
+     *
+     * This prevents holding DB connections during slow external API calls.
+     */
     @Transactional
     public EmployeeDetailsDTO createEmployee(EmployeeRequest request) {
         UUID tenantId = getCurrentTenantId();
         log.debug("Creating employee for tenant: {}", tenantId);
+
+        // --- All DB operations inside transaction ---
 
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new TenantNotFoundException("Tenant not found: " + tenantId));
@@ -126,6 +142,7 @@ public class EmployeeService {
             throw new IllegalArgumentException("Only a super-admin can assign HR_ADMIN or SUPER_ADMIN roles.");
         }
 
+        // Create or link user account
         User savedUser = userRepository.findByEmailAndTenantId(request.getEmail(), tenantId)
                 .map(existing -> {
                     log.info("Linking employee to existing user account: {}", existing.getEmail());
@@ -149,6 +166,7 @@ public class EmployeeService {
                     return created;
                 });
 
+        // Build and save employee
         Employee employee = Employee.builder()
                 .tenant(tenant)
                 .user(savedUser)
@@ -178,39 +196,20 @@ public class EmployeeService {
         Employee savedEmployee = employeeRepository.save(employee);
         log.info("Created employee with ID: {}, Number: {}", savedEmployee.getId(), savedEmployee.getEmployeeNumber());
 
-        // New hires created in the ONBOARDING state get the default onboarding checklist seeded.
+        // Onboarding tasks (DB-only, stays in transaction)
         if (savedEmployee.getStatus() == EmployeeStatus.ONBOARDING) {
             onboardingService.createDefaultTasksForEmployee(savedEmployee.getId());
         }
 
-        try {
-            String bankCode = getBankCode(request.getBankName());
-            var accountData = paystackClient.resolveAccount(request.getBankAccountNumber(), bankCode);
-
-            if (!accountData.getAccountName().equalsIgnoreCase(request.getBankAccountName())) {
-                log.warn("Account name mismatch: Expected {}, Got {}",
-                        request.getBankAccountName(), accountData.getAccountName());
-            }
-
-            String recipientCode = paystackClient.createTransferRecipient(
-                    request.getBankAccountName(),
-                    request.getBankAccountNumber(),
-                    bankCode
-            );
-
-            savedEmployee.setPaystackRecipientCode(recipientCode);
-            employeeRepository.save(savedEmployee);
-
-        } catch (Exception e) {
-            log.error("Failed to verify bank account for employee {}: {}",
-                    savedEmployee.getEmployeeNumber(), e.getMessage());
-        }
-
-        try {
-            notificationService.sendWelcomeNotification(savedEmployee, request.getPassword());
-        } catch (Exception e) {
-            log.error("Failed to send welcome notification: {}", e.getMessage());
-        }
+        // Publish event for post-commit processing
+        // Spring holds this until the transaction successfully commits
+        eventPublisher.publishEvent(new EmployeeCreatedEvent(
+                savedEmployee.getId(),
+                request.getBankName(),
+                request.getBankAccountNumber(),
+                request.getBankAccountName(),
+                request.getPassword()
+        ));
 
         return toDetailsDto(savedEmployee);
     }
@@ -218,26 +217,15 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     public Page<Employee> getAllEmployees(Pageable pageable) {
         UUID tenantId = getCurrentTenantId();
-        Page<Employee> employees = employeeRepository.findAllByTenantId(tenantId, pageable);
-
-        employees.getContent().forEach(employee -> {
-            if (employee.getDepartment() != null) {
-                employee.getDepartment().getName();
-                employee.getDepartment().getId();
-            }
-            if (employee.getPayGrade() != null) {
-                employee.getPayGrade().getName();
-                employee.getPayGrade().getBasicSalary();
-                employee.getPayGrade().getId();
-            }
-        });
-
-        return employees;
+        // Department and payGrade are now fetched eagerly by the repository query.
+        // No need to manually touch lazy-loaded associations.
+        return employeeRepository.findAllByTenantId(tenantId, pageable);
     }
 
     @Transactional(readOnly = true)
     public EmployeeDetailsDTO getEmployeeById(UUID id) {
-        Employee employee = employeeRepository.findById(id)
+        UUID tenantId = getCurrentTenantId();
+        Employee employee = employeeRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
         return toDetailsDto(employee);
     }
@@ -245,7 +233,7 @@ public class EmployeeService {
     @Transactional
     public EmployeeDetailsDTO updateEmployee(UUID id, UpdateEmployeeRequest request) {
         UUID tenantId = getCurrentTenantId();
-        Employee employee = employeeRepository.findById(id)
+        Employee employee = employeeRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
 
         UserRole oldRole = employee.getUser() != null ? employee.getUser().getRole() : null;
@@ -335,7 +323,8 @@ public class EmployeeService {
 
     @Transactional
     public void terminateEmployee(UUID id, LocalDate terminationDate) {
-        Employee employee = employeeRepository.findById(id)
+        UUID tenantId = getCurrentTenantId();
+        Employee employee = employeeRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
 
         if (employee.getStatus() == EmployeeStatus.TERMINATED) {
@@ -359,20 +348,26 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public boolean canHardDelete(UUID id) {
-        return !payrollEntryRepository.existsByEmployeeId(id)
-                && !leaveRequestRepository.existsByEmployeeId(id)
-                && !attendanceRepository.existsByEmployeeId(id)
+        UUID tenantId = getCurrentTenantId();
+        // First verify employee exists in this tenant
+        if (employeeRepository.findByIdAndTenantId(id, tenantId).isEmpty()) {
+            return false;
+        }
+        return !payrollEntryRepository.existsByEmployeeId(id, tenantId)
+                && !leaveRequestRepository.existsByEmployeeId(id, tenantId)
+                && !attendanceRepository.existsByEmployeeId(id, tenantId)
                 && !departmentRepository.existsByHeadEmployeeId(id.toString());
     }
 
     private void assertNoDependents(UUID id) {
-        if (payrollEntryRepository.existsByEmployeeId(id)) {
+        UUID tenantId = getCurrentTenantId();
+        if (payrollEntryRepository.existsByEmployeeId(id, tenantId)) {
             throw new IllegalStateException("This employee has payroll history and cannot be deleted. Terminate them instead.");
         }
-        if (leaveRequestRepository.existsByEmployeeId(id)) {
+        if (leaveRequestRepository.existsByEmployeeId(id, tenantId)) {
             throw new IllegalStateException("This employee has leave records and cannot be deleted. Terminate them instead.");
         }
-        if (attendanceRepository.existsByEmployeeId(id)) {
+        if (attendanceRepository.existsByEmployeeId(id, tenantId)) {
             throw new IllegalStateException("This employee has attendance records and cannot be deleted. Terminate them instead.");
         }
         if (departmentRepository.existsByHeadEmployeeId(id.toString())) {
@@ -382,7 +377,8 @@ public class EmployeeService {
 
     @Transactional
     public void softDeleteEmployee(UUID id) {
-        Employee employee = employeeRepository.findById(id)
+        UUID tenantId = getCurrentTenantId();
+        Employee employee = employeeRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
         assertNoDependents(id);
 
@@ -397,7 +393,8 @@ public class EmployeeService {
 
     @Transactional
     public void hardDeleteEmployee(UUID id) {
-        Employee employee = employeeRepository.findById(id)
+        UUID tenantId = getCurrentTenantId();
+        Employee employee = employeeRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
         assertNoDependents(id);
 
@@ -448,21 +445,10 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public Employee getEmployeeByIdWithDetails(UUID id) {
-        Employee employee = employeeRepository.findById(id)
+        UUID tenantId = getCurrentTenantId();
+        // Department, payGrade, and tenant all fetched in one JOIN FETCH query
+        return employeeRepository.findByIdWithDetails(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
-
-        if (employee.getDepartment() != null) {
-            employee.getDepartment().getName();
-            employee.getDepartment().getId();
-        }
-        if (employee.getPayGrade() != null) {
-            employee.getPayGrade().getName();
-            employee.getPayGrade().getBasicSalary();
-        }
-        if (employee.getTenant() != null) {
-            employee.getTenant().getCompanyName();
-        }
-        return employee;
     }
 
     @Transactional(readOnly = true)
@@ -505,26 +491,11 @@ public class EmployeeService {
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
             Row header = sheet.createRow(0);
-
-            // Headers mirror EmployeeImportService.TEMPLATE_HEADERS so an exported file can be
-            // re-imported as-is (the importer maps by header name, not position).
             String[] columns = {
-                    "First Name",       // 0
-                    "Last Name",        // 1
-                    "Email",            // 2
-                    "Phone",            // 3
-                    "Job Title",        // 4
-                    "Employment Type",  // 5
-                    "Bank Name",        // 6
-                    "Account Number",   // 7
-                    "Account Name",     // 8
-                    "Department",       // 9
-                    "Pay Grade",        // 10
-                    "Date of Birth",    // 11
-                    "Gender",           // 12
-                    "Marital Status",   // 13
-                    "Address",          // 14
-                    "Start Date"        // 15
+                    "First Name", "Last Name", "Email", "Phone", "Job Title",
+                    "Employment Type", "Bank Name", "Account Number", "Account Name",
+                    "Department", "Pay Grade", "Date of Birth", "Gender",
+                    "Marital Status", "Address", "Start Date"
             };
 
             for (int i = 0; i < columns.length; i++) {
@@ -536,8 +507,6 @@ public class EmployeeService {
             int rowNum = 1;
             for (Employee emp : allEmployees) {
                 Row row = sheet.createRow(rowNum++);
-
-                // Values written at the same indices as the header names above.
                 row.createCell(0).setCellValue(emp.getFirstName());
                 row.createCell(1).setCellValue(emp.getLastName());
                 row.createCell(2).setCellValue(emp.getEmail());
