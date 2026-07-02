@@ -65,6 +65,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(
             IllegalArgumentException ex) {
+        // Don't send validation errors to Sentry
+        log.debug("Validation error: {}", ex.getMessage());
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.error(ex.getMessage()));
@@ -73,8 +75,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception for request {}: {}", request.getRequestURI(), ex.getMessage(), ex);
-        // This sends the full stack trace and request context to Sentry
-        io.sentry.Sentry.captureException(ex);
+        // Sentry auto-captures unhandled exceptions — no need to manually call captureException
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred"));
