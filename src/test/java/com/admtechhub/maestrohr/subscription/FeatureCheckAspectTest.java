@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -51,10 +52,10 @@ class FeatureCheckAspectTest {
     @BeforeEach
     void bindTenant() {
         TenantContext.setCurrentTenant(CONTEXT_TENANT.toString());
-        // No global flag blocks these tests — the global kill switch defaults to enabled, so
-        // the tenant/plan resolution path is what is under test here. Lenient: the SUPER_ADMIN
-        // bypass test short-circuits before the flag is ever consulted.
-        lenient().when(platformFlagService.isEnabled(anyString())).thenReturn(true);
+        // No layered flag check blocks these tests — isEnabledForTenant defaults to true, so
+        // the tenant/plan (hasFeature) resolution path is what is under test here. Lenient:
+        // the SUPER_ADMIN bypass test short-circuits before the flag is ever consulted.
+        lenient().when(platformFlagService.isEnabledForTenant(anyString(), any(), any())).thenReturn(true);
     }
 
     @AfterEach

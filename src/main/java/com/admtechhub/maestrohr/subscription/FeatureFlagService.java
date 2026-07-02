@@ -17,21 +17,24 @@ public class FeatureFlagService {
     private final PlatformFlagService platformFlagService;
 
     /**
-     * A feature is available iff the global platform flag is on AND the tenant's plan
-     * includes it. The global flag is a platform-wide kill switch keyed by the feature's
-     * enum name; an absent flag defaults to enabled, so features without a flag behave
-     * exactly as before. The global check is evaluated first (and short-circuits) because it
-     * is tenant-independent — a feature switched off globally is unavailable to everyone.
+     * A feature is available iff the layered platform flag resolves to on AND the tenant's
+     * plan includes it. The layered flag check (tenant override → plan override → global kill
+     * switch → rollout percentage → global default, see
+     * {@link PlatformFlagService#isEnabledForTenant}) is evaluated first and short-circuits,
+     * since a flag switched off for this tenant is unavailable regardless of plan.
      */
     public boolean isEnabled(SubscriptionFeature feature) {
-        if (!platformFlagService.isEnabled(feature.name())) {
-            return false;
-        }
         String tenantIdStr = TenantContext.getCurrentTenant();
-        if (tenantIdStr == null || tenantIdStr.isBlank()) {
+        UUID tenantId = (tenantIdStr != null && !tenantIdStr.isBlank())
+                ? UUID.fromString(tenantIdStr) : null;
+        String planName = tenantId != null ? subscriptionService.getPlanName(tenantId) : null;
+
+        if (!platformFlagService.isEnabledForTenant(feature.name(), tenantId, planName)) {
             return false;
         }
-        UUID tenantId = UUID.fromString(tenantIdStr);
+        if (tenantId == null) {
+            return false;
+        }
         return subscriptionService.hasFeature(tenantId, feature);
     }
 

@@ -148,6 +148,21 @@ public class SubscriptionService {
                 .orElse(null);
     }
 
+    /**
+     * The tenant's current plan name (e.g. {@code "PROFESSIONAL"}), or {@code null} if it has
+     * no subscription row. Read from the same {@link TenantSubscription} row as
+     * {@link #hasFeature} so a plan-targeted {@code FeatureFlagOverride} always matches the
+     * plan actually used for entitlement checks.
+     */
+    @Transactional(readOnly = true)
+    public String getPlanName(UUID tenantId) {
+        bindTenantSession(tenantId);
+        return tenantSubscriptionRepository.findByTenantId(tenantId)
+                .map(TenantSubscription::getPlan)
+                .map(Enum::name)
+                .orElse(null);
+    }
+
     @Transactional
     public void renewSubscription(UUID tenantId) {
         bindTenantSession(tenantId);

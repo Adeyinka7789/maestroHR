@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.subscription.PlatformFlagService;
+import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
+import com.admtechhub.maestrohr.tenant.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public class FeatureFlagsAdminController {
 
     private final PlatformFlagService platformFlagService;
+    private final TenantRepository tenantRepository;
 
     @GetMapping("/htmx/admin/feature-flags")
     public String featureFlags(@RequestHeader(value = "HX-Request", required = false) String htmx, Model model) {
@@ -54,6 +57,8 @@ public class FeatureFlagsAdminController {
 
     private String render(Model model) {
         model.addAttribute("flags", platformFlagService.listAll());
+        model.addAttribute("tenants", tenantRepository.findAllByOrderByCreatedAtDesc());
+        model.addAttribute("plans", SubscriptionPlan.values());
         return "admin-feature-flags :: content";
     }
 

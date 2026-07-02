@@ -43,4 +43,9 @@ public class PlatformFlag extends BaseEntity {
     /** Email of the SUPER_ADMIN who last toggled the flag. */
     @Column(name = "updated_by")
     private String updatedBy;
+
+    /** Percentage of tenants (by consistent hash) that get this flag when no override applies. */
+    @Column(name = "rollout_percentage", nullable = false)
+    @Builder.Default
+    private int rolloutPercentage = 100;
 }

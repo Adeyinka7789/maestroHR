@@ -63,7 +63,7 @@ class FeatureCheckAspectTest {
 
     @Test
     void featureEnabled_planIncludes_proceeds() {
-        when(platformFlagService.isEnabled(anyString())).thenReturn(true);
+        when(platformFlagService.isEnabledForTenant(anyString(), any(), any())).thenReturn(true);
         when(subscriptionService.hasFeature(TENANT, SubscriptionFeature.LEAVE_MANAGEMENT))
                 .thenReturn(true);
 
@@ -74,7 +74,7 @@ class FeatureCheckAspectTest {
 
     @Test
     void featureDisabled_planExcludes_throws402() {
-        when(platformFlagService.isEnabled(anyString())).thenReturn(true);
+        when(platformFlagService.isEnabledForTenant(anyString(), any(), any())).thenReturn(true);
         when(subscriptionService.hasFeature(TENANT, SubscriptionFeature.LEAVE_MANAGEMENT))
                 .thenReturn(false);
 
@@ -99,7 +99,7 @@ class FeatureCheckAspectTest {
 
     @Test
     void globalFlagDisabled_throws402() {
-        when(platformFlagService.isEnabled(SubscriptionFeature.LEAVE_MANAGEMENT.name()))
+        when(platformFlagService.isEnabledForTenant(eq(SubscriptionFeature.LEAVE_MANAGEMENT.name()), any(), any()))
                 .thenReturn(false);
 
         assertThrows(FeatureNotAvailableException.class, () -> proxied().leaveOp());
