@@ -1,6 +1,5 @@
 package com.admtechhub.maestrohr.employee;
 
-import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.employee.event.EmployeeCreatedEvent;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.paystack.PaystackClient;
@@ -23,8 +22,8 @@ import java.util.Map;
  * - Paystack account verification and transfer recipient creation
  * - Welcome notification dispatch
  *
- * These run asynchronously so the HTTP response returns immediately.
- * Failures here do NOT roll back employee creation - they're logged for retry.
+ * Runs asynchronously so the HTTP response returns immediately.
+ * Tenant context is automatically propagated by TenantContextTaskDecorator.
  */
 @Component
 @RequiredArgsConstructor
@@ -35,29 +34,20 @@ public class EmployeePostCommitProcessor {
     private final PaystackClient paystackClient;
     private final NotificationService notificationService;
 
-    /**
-     * Process employee creation side effects asynchronously after DB commit.
-     *
-     * Uses @Async to free the request thread immediately.
-     * Uses REQUIRES_NEW to run in its own transaction (isolated from the event publisher).
-     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleEmployeePostCommitSideEffects(EmployeeCreatedEvent event) {
         log.info("Processing post-commit side effects for employee ID: {}", event.employeeId());
 
-        // Fetch employee in the new async thread context
         Employee employee = employeeRepository.findById(event.employeeId()).orElse(null);
         if (employee == null) {
             log.error("Post-commit processing aborted: Employee {} not found.", event.employeeId());
             return;
         }
 
-        // Restore tenant context for downstream services that may use TenantContext
-        if (employee.getTenant() != null) {
-            TenantContext.setCurrentTenant(employee.getTenant().getId().toString());
-        }
+        // TenantContext is automatically propagated by TenantContextTaskDecorator
+        // No manual setCurrentTenant/clear needed
 
         // Step 1: Verify bank account with Paystack and create transfer recipient
         verifyBankAccountAndCreateRecipient(employee, event);
@@ -66,10 +56,6 @@ public class EmployeePostCommitProcessor {
         sendWelcomeNotification(employee, event);
     }
 
-    /**
-     * Verify bank account with Paystack and create transfer recipient.
-     * Updates the employee record with the recipient code on success.
-     */
     private void verifyBankAccountAndCreateRecipient(Employee employee, EmployeeCreatedEvent event) {
         try {
             log.info("Verifying bank account for employee {}", employee.getEmployeeNumber());
@@ -77,20 +63,17 @@ public class EmployeePostCommitProcessor {
             String bankCode = getBankCode(event.bankName());
             var accountData = paystackClient.resolveAccount(event.bankAccountNumber(), bankCode);
 
-            // Warn on name mismatch but don't block
             if (!accountData.getAccountName().equalsIgnoreCase(event.bankAccountName())) {
                 log.warn("Account name mismatch for employee {}: Expected '{}', Got '{}'",
                         employee.getEmployeeNumber(), event.bankAccountName(), accountData.getAccountName());
             }
 
-            // Create transfer recipient
             String recipientCode = paystackClient.createTransferRecipient(
                     event.bankAccountName(),
                     event.bankAccountNumber(),
                     bankCode
             );
 
-            // Update employee with recipient code
             employee.setPaystackRecipientCode(recipientCode);
             employeeRepository.save(employee);
 
@@ -98,23 +81,17 @@ public class EmployeePostCommitProcessor {
                     employee.getEmployeeNumber(), recipientCode);
 
         } catch (PaystackNetworkException e) {
-            log.error("Paystack network error for employee {}. " +
-                            "Recipient code not set. Payroll will handle missing codes.",
+            log.error("Paystack network error for employee {}. Payroll will handle missing codes.",
                     employee.getEmployeeNumber(), e);
-
         } catch (PaystackApiException e) {
-            log.error("Paystack API error for employee {}. Bank details may be invalid: {}",
+            log.error("Paystack API rejection for employee {}: {}",
                     employee.getEmployeeNumber(), e.getMessage());
-
         } catch (Exception e) {
             log.error("Unexpected error during Paystack verification for employee {}: {}",
                     employee.getEmployeeNumber(), e.getMessage(), e);
         }
     }
 
-    /**
-     * Send welcome notification email to the new employee.
-     */
     private void sendWelcomeNotification(Employee employee, EmployeeCreatedEvent event) {
         try {
             notificationService.sendWelcomeNotification(employee, event.rawPassword());
@@ -122,13 +99,9 @@ public class EmployeePostCommitProcessor {
         } catch (Exception e) {
             log.error("Failed to send welcome notification for employee {}: {}",
                     employee.getEmployeeNumber(), e.getMessage());
-            // Non-critical - employee can use password reset if email fails
         }
     }
 
-    /**
-     * Map bank name to CBN (Central Bank of Nigeria) bank code.
-     */
     private String getBankCode(String bankName) {
         Map<String, String> bankCodes = Map.ofEntries(
                 Map.entry("GTBank", "058"), Map.entry("GTB", "058"), Map.entry("Guaranty Trust Bank", "058"),

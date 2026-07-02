@@ -1,15 +1,21 @@
 package com.admtechhub.maestrohr.loan;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.Department;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
+import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,10 +32,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for the loan deduction maths and the approval consistency guard — the two pieces
- * with non-trivial logic. Repository access is mocked; no Spring context / DB.
- */
 @ExtendWith(MockitoExtension.class)
 class LoanServiceTest {
 
@@ -40,10 +42,15 @@ class LoanServiceTest {
 
     @InjectMocks private LoanService loanService;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void setUp() {
-        // Policy service has no active policy by default — applyForLoan tests focus on installment maths.
+        TenantContext.setCurrentTenant(UUID.randomUUID().toString());
         lenient().when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
     }
 
     private EmployeeLoan loan(long installment, long remaining, int monthsPaid, int repaymentMonths, LoanStatus status) {
@@ -56,18 +63,13 @@ class LoanServiceTest {
                 .build();
     }
 
-    // ── installmentFor ────────────────────────────────────────────────────────
-
     @Test
     void normalMonth_deductsInstallment() {
-        // month 1 of 6, plenty remaining → the flat installment
         assertEquals(25_000L, loanService.installmentFor(loan(25_000L, 150_000L, 0, 6, LoanStatus.ACTIVE)));
     }
 
     @Test
     void finalScheduledMonth_clearsEntireRemainder() {
-        // Non-divisible: 100/3 → installment 33. After 2 payments of 33, remaining = 34 on the
-        // final (3rd) month. installmentFor must take the whole 34, not 33, so the loan completes.
         assertEquals(34L, loanService.installmentFor(loan(33L, 34L, 2, 3, LoanStatus.ACTIVE)));
     }
 
@@ -82,16 +84,14 @@ class LoanServiceTest {
         assertEquals(0L, loanService.installmentFor(loan(25_000L, 0L, 6, 6, LoanStatus.ACTIVE)));
     }
 
-    // ── verifyDeductionsCurrent (approval guard) ───────────────────────────────
-
     @Test
     void guard_passes_whenStoredMatchesCurrentLoanState() {
         UUID empId = UUID.randomUUID();
         Employee emp = mockEmployee(empId, "Jane Doe");
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE, any(UUID.class)))
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
                 .thenReturn(List.of(loan(25_000L, 150_000L, 0, 6, LoanStatus.ACTIVE)));
 
-        PayrollEntry entry = mockEntry(emp, 25_000L); // matches the active loan's installment
+        PayrollEntry entry = mockEntry(emp, 25_000L);
 
         assertDoesNotThrow(() -> loanService.verifyDeductionsCurrent(List.of(entry)));
     }
@@ -100,18 +100,15 @@ class LoanServiceTest {
     void guard_throws_whenLoanPausedAfterCompute() {
         UUID empId = UUID.randomUUID();
         Employee emp = mockEmployee(empId, "Jane Doe");
-        // Loan was paused since compute → no active loans now → current deduction is 0.
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE,any(UUID.class)))
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
                 .thenReturn(List.of());
 
-        PayrollEntry entry = mockEntry(emp, 25_000L); // payslip still carries the stale 25k
+        PayrollEntry entry = mockEntry(emp, 25_000L);
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> loanService.verifyDeductionsCurrent(List.of(entry)));
         org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("recompute"));
     }
-
-    // ── applyForLoan: installment computation ─────────────────────────────────
 
     @Test
     void applyForLoan_calculatesCorrectInstallment() {
@@ -120,7 +117,6 @@ class LoanServiceTest {
         when(employeeRepository.findById(empId)).thenReturn(Optional.of(emp));
         when(loanRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        // 12_000_000 / 12 = 1_000_000 exactly
         EmployeeLoan result = loanService.applyForLoan(empId, 12_000_000L, 12, LocalDate.now(), "Car loan");
 
         assertThat(result.getMonthlyInstallment()).isEqualTo(1_000_000L);
@@ -134,14 +130,11 @@ class LoanServiceTest {
         when(employeeRepository.findById(empId)).thenReturn(Optional.of(emp));
         when(loanRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        // 10_000_000 / 3 = 3_333_333 (floor); last payment trues up: 10M - 2×3_333_333 = 3_333_334
         EmployeeLoan result = loanService.applyForLoan(empId, 10_000_000L, 3, LocalDate.now(), "Phone loan");
 
         assertThat(result.getMonthlyInstallment()).isEqualTo(3_333_333L);
         assertThat(result.getRemainingBalance()).isEqualTo(10_000_000L);
     }
-
-    // ── pauseLoan / resumeLoan state transitions ──────────────────────────────
 
     @Test
     void pauseLoan_changesStatusToPaused() {
@@ -171,8 +164,6 @@ class LoanServiceTest {
         assertThat(cap.getValue().getStatus()).isEqualTo(LoanStatus.ACTIVE);
     }
 
-    // ── applyRepaymentsForRun: last installment zeros balance → COMPLETED ─────
-
     @Test
     void applyRepayments_lastInstallment_completesLoan() {
         UUID empId = UUID.randomUUID();
@@ -181,7 +172,7 @@ class LoanServiceTest {
         PayrollEntry entry = mockEntry(emp, 1_000_000L);
         PayrollRun payrollRun = mock(PayrollRun.class);
 
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(empId, LoanStatus.ACTIVE, any(UUID.class)))
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
                 .thenReturn(List.of(activeLoan));
         when(loanRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(repaymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -198,6 +189,15 @@ class LoanServiceTest {
         Employee emp = org.mockito.Mockito.mock(Employee.class);
         lenient().when(emp.getId()).thenReturn(id);
         lenient().when(emp.getFullName()).thenReturn(name);
+
+        Department dept = mock(Department.class);
+        lenient().when(dept.getName()).thenReturn("Engineering");
+        lenient().when(emp.getDepartment()).thenReturn(dept);
+
+        PayGrade pg = mock(PayGrade.class);
+        lenient().when(pg.getName()).thenReturn("Grade-A");
+        lenient().when(emp.getPayGrade()).thenReturn(pg);
+
         return emp;
     }
 

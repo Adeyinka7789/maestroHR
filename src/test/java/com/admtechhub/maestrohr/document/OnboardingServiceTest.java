@@ -9,6 +9,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -39,7 +40,7 @@ class OnboardingServiceTest {
 
     @Test
     void createDefaultTasks_createsExactly5Tasks() {
-        when(onboardingTaskRepository.existsByEmployeeId(employeeId, any(UUID.class))).thenReturn(false);
+        when(onboardingTaskRepository.existsByEmployeeId(eq(employeeId), any(UUID.class))).thenReturn(false);
 
         onboardingService.createDefaultTasksForEmployee(employeeId);
 
@@ -53,7 +54,7 @@ class OnboardingServiceTest {
 
     @Test
     void createDefaultTasks_idempotent_doesNotDuplicate() {
-        when(onboardingTaskRepository.existsByEmployeeId(employeeId, any(UUID.class))).thenReturn(true);
+        when(onboardingTaskRepository.existsByEmployeeId(eq(employeeId), any(UUID.class))).thenReturn(true);
 
         onboardingService.createDefaultTasksForEmployee(employeeId);
 
@@ -68,7 +69,7 @@ class OnboardingServiceTest {
         OnboardingTask task = OnboardingTask.builder()
                 .employeeId(employeeId).tenantId(tenantId)
                 .taskName("Upload Documents").taskOrder(0).completed(false).build();
-        when(onboardingTaskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(onboardingTaskRepository.findById(eq(taskId))).thenReturn(Optional.of(task));
 
         onboardingService.completeTask(taskId);
 
@@ -87,7 +88,7 @@ class OnboardingServiceTest {
                 .employeeId(employeeId).tenantId(tenantId)
                 .taskName("Upload Documents").taskOrder(0)
                 .completed(true).completedAt(original).build();
-        when(onboardingTaskRepository.findById(taskId)).thenReturn(Optional.of(task));
+        when(onboardingTaskRepository.findById(eq(taskId))).thenReturn(Optional.of(task));
 
         onboardingService.completeTask(taskId);
 
@@ -104,7 +105,7 @@ class OnboardingServiceTest {
                         .taskName("Task A").taskOrder(0).completed(false).build(),
                 OnboardingTask.builder().employeeId(employeeId).tenantId(tenantId)
                         .taskName("Task B").taskOrder(1).completed(true).build());
-        when(onboardingTaskRepository.findByEmployeeIdOrderByTaskOrderAsc(employeeId, any(UUID.class)))
+        when(onboardingTaskRepository.findByEmployeeIdOrderByTaskOrderAsc(eq(employeeId), any(UUID.class)))
                 .thenReturn(expected);
 
         List<OnboardingTask> result = onboardingService.getTasksByEmployee(employeeId);

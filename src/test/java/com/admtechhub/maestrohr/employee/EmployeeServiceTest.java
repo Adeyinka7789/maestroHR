@@ -22,6 +22,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -49,6 +50,8 @@ class EmployeeServiceTest {
     @Mock AttendanceRepository   attendanceRepository;
     @Mock OnboardingService      onboardingService;
     @Mock AuditTrailService      auditTrailService;
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks EmployeeService employeeService;
 
@@ -121,7 +124,7 @@ class EmployeeServiceTest {
             e.setId(UUID.randomUUID());
             return e;
         });
-        when(paystackClient.resolveAccount(anyString(), anyString()))
+        lenient().when(paystackClient.resolveAccount(anyString(), anyString()))
                 .thenThrow(new RuntimeException("bank unavailable"));
 
         employeeService.createEmployee(minimalRequest());
@@ -140,7 +143,7 @@ class EmployeeServiceTest {
         Tenant mockTenant = new Tenant();
         mockTenant.setId(UUID.randomUUID());
         e.setTenant(mockTenant);
-        when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(e));
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
         when(employeeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         employeeService.terminateEmployee(EMP_ID, LocalDate.now());
@@ -154,7 +157,7 @@ class EmployeeServiceTest {
     void terminateEmployee_alreadyTerminated_throws() {
         Employee e = Employee.builder().status(EmployeeStatus.TERMINATED).build();
         e.setId(EMP_ID);
-        when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(e));
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
 
         assertThatThrownBy(() -> employeeService.terminateEmployee(EMP_ID, LocalDate.now()))
                 .isInstanceOf(IllegalStateException.class)
@@ -164,8 +167,8 @@ class EmployeeServiceTest {
     // 5 ── hardDelete with payroll history → ISE, physical delete never called
     @Test
     void hardDeleteEmployee_withDependents_throws() {
-        when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(active()));
-        when(payrollEntryRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(true);
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(active()));
+        when(payrollEntryRepository.existsByEmployeeId(eq(EMP_ID), any(UUID.class))).thenReturn(true);
 
         assertThatThrownBy(() -> employeeService.hardDeleteEmployee(EMP_ID))
                 .isInstanceOf(IllegalStateException.class)
@@ -177,9 +180,9 @@ class EmployeeServiceTest {
     // 6 ── softDelete with leave records → ISE, save never called
     @Test
     void softDeleteEmployee_withDependents_throws() {
-        when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(active()));
-        when(payrollEntryRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
-        when(leaveRequestRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(true);
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(active()));
+        when(payrollEntryRepository.existsByEmployeeId(eq(EMP_ID), any(UUID.class))).thenReturn(false);
+        when(leaveRequestRepository.existsByEmployeeId(eq(EMP_ID), any(UUID.class))).thenReturn(true);
 
         assertThatThrownBy(() -> employeeService.softDeleteEmployee(EMP_ID))
                 .isInstanceOf(IllegalStateException.class)
@@ -192,10 +195,10 @@ class EmployeeServiceTest {
     @Test
     void softDeleteEmployee_noDependents_setsDeletedAt() {
         Employee e = active();
-        when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.of(e));
-        when(payrollEntryRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
-        when(leaveRequestRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
-        when(attendanceRepository.existsByEmployeeId(EMP_ID, any(UUID.class))).thenReturn(false);
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
+        when(payrollEntryRepository.existsByEmployeeId(eq(EMP_ID), any(UUID.class))).thenReturn(false);
+        when(leaveRequestRepository.existsByEmployeeId(eq(EMP_ID), any(UUID.class))).thenReturn(false);
+        when(attendanceRepository.existsByEmployeeId(eq(EMP_ID), any(UUID.class))).thenReturn(false);
         when(departmentRepository.existsByHeadEmployeeId(EMP_ID.toString())).thenReturn(false);
         when(employeeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -207,7 +210,7 @@ class EmployeeServiceTest {
     // 8 ── RLS hides a row from the wrong tenant → IAE as if not found
     @Test
     void getEmployeeById_wrongTenant_throws() {
-        when(employeeRepository.findById(EMP_ID)).thenReturn(Optional.empty());
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> employeeService.getEmployeeById(EMP_ID))
                 .isInstanceOf(IllegalArgumentException.class)

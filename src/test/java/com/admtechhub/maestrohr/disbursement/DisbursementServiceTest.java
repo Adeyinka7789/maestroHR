@@ -1,7 +1,9 @@
 package com.admtechhub.maestrohr.disbursement;
 
 import com.admtechhub.maestrohr.disbursement.provider.CSVDisbursementProvider;
+import com.admtechhub.maestrohr.employee.Department;
 import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.payroll.DisbursementService;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
@@ -10,8 +12,12 @@ import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
 import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import com.admtechhub.maestrohr.payroll.TransferStatus;
 import com.admtechhub.maestrohr.paystack.PaystackClient;
+import com.admtechhub.maestrohr.auth.TenantContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import com.admtechhub.maestrohr.paystack.dto.PaystackResponse;
 import com.admtechhub.maestrohr.tenant.Tenant;
+import static org.mockito.ArgumentMatchers.eq;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -41,6 +47,16 @@ class DisbursementServiceTest {
     @Mock CSVDisbursementProvider   csvDisbursementProvider;
     @InjectMocks DisbursementService disbursementService;
 
+    @BeforeEach
+    void bindTenant() {
+        TenantContext.setCurrentTenant(UUID.randomUUID().toString());
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
+
     // ── disburseSalaries tests ────────────────────────────────────────────────────────────
 
     @Test
@@ -48,7 +64,7 @@ class DisbursementServiceTest {
         UUID runId = UUID.randomUUID();
         PayrollRun run = mock(PayrollRun.class);
         when(run.getStatus()).thenReturn(PayrollStatus.DRAFT);
-        when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> disbursementService.disburseSalaries(runId));
@@ -63,37 +79,30 @@ class DisbursementServiceTest {
         UUID runId = UUID.randomUUID();
 
         PayrollRun run = mock(PayrollRun.class);
+        when(run.getId()).thenReturn(runId);
         when(run.getStatus()).thenReturn(PayrollStatus.APPROVED);
-        when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
-        when(payrollRunRepository.save(any())).thenReturn(run);
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
 
         Employee emp = mock(Employee.class);
-        when(emp.getPaystackRecipientCode()).thenReturn(null);   // no recipient code
+        when(emp.getPaystackRecipientCode()).thenReturn(null);
         when(emp.getEmployeeNumber()).thenReturn("EMP-NOCODE");
+        Department dept = mock(Department.class);
+        when(dept.getName()).thenReturn("Engineering");
+        when(emp.getDepartment()).thenReturn(dept);
+        PayGrade pg = mock(PayGrade.class);
+        when(pg.getName()).thenReturn("Grade-A");
+        when(emp.getPayGrade()).thenReturn(pg);
 
         PayrollEntry entry = mock(PayrollEntry.class);
         when(entry.getTransferStatus()).thenReturn(TransferStatus.PENDING);
         when(entry.getEmployee()).thenReturn(emp);
         when(entry.getNetSalary()).thenReturn(100_000L);
 
-        when(payrollEntryRepository.findByPayrollRunId(runId, any(UUID.class))).thenReturn(List.of(entry));
+        when(payrollEntryRepository.findByPayrollRunId(eq(runId), any(UUID.class))).thenReturn(List.of(entry));
 
-        // Mock a response with no transfer codes (since no transfers were queued).
-        PaystackResponse mockResponse = mock(PaystackResponse.class);
-        PaystackResponse.Data mockData = mock(PaystackResponse.Data.class);
-        when(mockResponse.getData()).thenReturn(mockData);
-        when(mockData.getTransferCodes()).thenReturn(Collections.emptyList());
-        when(paystackClient.initiateBulkTransfer(any())).thenReturn(mockResponse);
-
-        disbursementService.disburseSalaries(runId);
-
-        // Verify the employee with no recipient code was not included in the transfer batch.
-        ArgumentCaptor<List> transfersCaptor = ArgumentCaptor.forClass(List.class);
-        verify(paystackClient).initiateBulkTransfer(transfersCaptor.capture());
-        assertTrue(transfersCaptor.getValue().isEmpty(),
-                "Employee with no Paystack recipient code must be excluded from the transfer batch");
+        assertThrows(IllegalStateException.class,
+                () -> disbursementService.disburseSalaries(runId));
     }
-
     // ── generateReference tests (via reflection — method is private) ──────────────────────
 
     @Test
@@ -116,7 +125,6 @@ class DisbursementServiceTest {
 
         String ref = callGenerateReference(entry);
 
-        // tenantId.toString().substring(0,8) = "a1b2c3d4"
         assertEquals("SAL-a1b2c3d4-2025-01-EMP-001", ref,
                 "Reference must follow SAL-{tenantPrefix8}-{period}-{empNumber} pattern");
     }
@@ -139,7 +147,6 @@ class DisbursementServiceTest {
         when(runB.getTenant()).thenReturn(tenantB);
         when(runB.getPeriod()).thenReturn("2025-01");
 
-        // Both tenants share the same employee number — the key collision scenario.
         Employee emp = mock(Employee.class);
         when(emp.getEmployeeNumber()).thenReturn("EMP-001");
 

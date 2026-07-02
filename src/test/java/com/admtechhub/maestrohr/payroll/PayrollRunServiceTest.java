@@ -13,6 +13,7 @@ import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
+import static org.mockito.ArgumentMatchers.eq;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +75,7 @@ class PayrollRunServiceTest {
     void approvePayroll_wrongStatus_throws() {
         UUID runId = UUID.randomUUID();
         PayrollRun run = PayrollRun.builder().status(PayrollStatus.DRAFT).build();
-        when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
 
         assertThrows(IllegalStateException.class,
                 () -> payrollRunService.approvePayroll(runId, USER_ID));
@@ -92,7 +93,7 @@ class PayrollRunServiceTest {
                 .initiatedBy(initiator)
                 .build();
 
-        when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
         when(userRepository.findById(USER_ID))
                 .thenReturn(Optional.of(User.builder()
                         .email("mgr@company.com")
@@ -111,7 +112,7 @@ class PayrollRunServiceTest {
     void markAsPaid_wrongStatus_throws() {
         UUID runId = UUID.randomUUID();
         PayrollRun run = PayrollRun.builder().status(PayrollStatus.DRAFT).build();
-        when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
 
         assertThrows(IllegalStateException.class,
                 () -> payrollRunService.markAsPaid(runId));
@@ -138,8 +139,8 @@ class PayrollRunServiceTest {
                 .payrollYear(2026)
                 .build();
 
-        when(payrollRunRepository.findById(runId)).thenReturn(Optional.of(run));
-        when(payrollEntryRepository.findByPayrollRunId(runId, any(UUID.class)))
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
+        when(payrollEntryRepository.findByPayrollRunId(eq(runId), any(UUID.class)))
                 .thenReturn(List.of(mock(PayrollEntry.class)));
         when(payrollRunRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
