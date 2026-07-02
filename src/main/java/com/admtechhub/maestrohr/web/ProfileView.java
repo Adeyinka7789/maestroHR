@@ -27,6 +27,9 @@ public record ProfileView(
         String lastLoginFormatted,
         String memberSinceFormatted,
 
+        // Gates the "Add another company" action — only tenant owners can provision new ones.
+        boolean systemAdmin,
+
         // ── Sections that require an Employee record (null for SUPER_ADMIN) ─────
         Personal personal,
         Work work,

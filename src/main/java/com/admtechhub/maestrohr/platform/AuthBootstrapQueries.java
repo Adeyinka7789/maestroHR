@@ -36,12 +36,22 @@ public class AuthBootstrapQueries {
 
     /** Authentication fields for a user, resolved by email across all tenants (op 1). */
     public Optional<UserAuthRow> findUserByEmail(String email) {
-        List<UserAuthRow> rows = jdbc.query(
+        return findAllUsersByEmail(email).stream().findFirst();
+    }
+
+    /**
+     * Every tenant membership row for an email, across all tenants. One person can own more
+     * than one company, so an email can resolve to more than one {@code users} row (each with
+     * its own {@code tenant_id}); password/lockout state is kept in sync across all of them by
+     * {@link com.admtechhub.maestrohr.platform.TenantUserWrites#updatePasswordHashByEmail} and
+     * {@link LoginAttemptWrites}, so any single row is representative for those checks.
+     */
+    public List<UserAuthRow> findAllUsersByEmail(String email) {
+        return jdbc.query(
                 "SELECT id, tenant_id, email, password_hash, role, is_active, "
                         + "failed_login_attempts, locked_until "
                         + "FROM users WHERE email = ?",
                 USER_AUTH_ROW, email);
-        return rows.stream().findFirst();
     }
 
     /**

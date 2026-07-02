@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -108,49 +109,167 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest.Login request) {
-        // Bootstrap read (op 1): resolve the user across all tenants with no tenant session
-        // bound. Under the RLS-enforced maestro_app primary role the scoped JPA lookup would
-        // return nothing here, so this must go through the privileged datasource.
-        AuthBootstrapQueries.UserAuthRow auth = authBootstrapQueries
-                .findUserByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-
-        if (isLocked(auth)) {
-            throw new IllegalArgumentException("Account locked. Try again later");
-        }
-
-        if (!passwordEncoder.matches(request.getPassword(), auth.passwordHash())) {
-            recordFailedAttempt(auth);
+        // Bootstrap read (op 1): resolve every tenant membership for this email, with no tenant
+        // session bound. One person can own more than one company, so this can be >1 row; under
+        // the RLS-enforced maestro_app primary role the scoped JPA lookup would see nothing here,
+        // so this must go through the privileged datasource.
+        List<AuthBootstrapQueries.UserAuthRow> rows =
+                authBootstrapQueries.findAllUsersByEmail(request.getEmail());
+        if (rows.isEmpty()) {
             throw new IllegalArgumentException("Invalid email or password");
         }
 
-        resetFailedAttempts(auth);
+        // Password and lockout state are kept in sync across every membership row for an email
+        // (see TenantUserWrites#updatePasswordHashByEmail / LoginAttemptWrites), so the first row
+        // is representative for both checks regardless of which company it belongs to.
+        AuthBootstrapQueries.UserAuthRow representative = rows.get(0);
 
-        // Bootstrap read (op 1b): the tenant company name for the response, again with no
-        // tenant session bound.
-        String companyName = authBootstrapQueries.findTenantById(auth.tenantId())
-                .map(AuthBootstrapQueries.TenantNameRow::companyName)
-                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        if (isLocked(representative)) {
+            throw new IllegalArgumentException("Account locked. Try again later");
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), representative.passwordHash())) {
+            recordFailedAttempt(representative);
+            throw new IllegalArgumentException("Invalid email or password");
+        }
+
+        resetFailedAttempts(representative);
+
+        AuthBootstrapQueries.UserAuthRow selected;
+        if (rows.size() == 1) {
+            selected = representative;
+        } else if (request.getTenantId() != null) {
+            selected = rows.stream()
+                    .filter(r -> r.tenantId().equals(request.getTenantId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid company selection"));
+        } else {
+            // Password matched more than one company membership: let the caller choose before
+            // issuing a token for any of them.
+            List<AuthResponse.TenantChoice> choices = rows.stream()
+                    .map(r -> new AuthResponse.TenantChoice(r.tenantId(), companyNameOf(r.tenantId())))
+                    .toList();
+            return AuthResponse.builder()
+                    .requiresTenantSelection(true)
+                    .tenants(choices)
+                    .build();
+        }
 
         String accessToken = jwtService.generateToken(
-                auth.email(),
-                auth.tenantId().toString(),
-                auth.role()
+                selected.email(),
+                selected.tenantId().toString(),
+                selected.role()
         );
 
         String refreshToken = jwtService.generateRefreshToken(
-                auth.email(),
-                auth.tenantId().toString()
+                selected.email(),
+                selected.tenantId().toString()
         );
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .email(auth.email())
-                .role(auth.role())
-                .tenantId(auth.tenantId())
-                .companyName(companyName)
+                .email(selected.email())
+                .role(selected.role())
+                .tenantId(selected.tenantId())
+                .companyName(companyNameOf(selected.tenantId()))
                 .build();
+    }
+
+    /**
+     * Create an additional company for an already-authenticated user (one person, many
+     * companies): a new tenant plus a new {@code users} row (fresh id, same email and password
+     * hash, {@code SYSTEM_ADMIN}) inserted atomically via {@link
+     * TenantUserWrites#provisionTenantWithAdmin}, then a token scoped to the new tenant so the
+     * caller lands directly in its dashboard. The caller's identity comes from the security
+     * context (resolved to {@code email} by the controller), never a request param — this only
+     * ever adds a company to the caller's own account.
+     */
+    public AuthResponse addCompany(String email, AuthRequest.AddCompany request) {
+        if (request.getRcNumber() != null && !request.getRcNumber().isBlank()
+                && authBootstrapQueries.existsTenantByRcNumber(request.getRcNumber())) {
+            throw new IllegalArgumentException(
+                    "A company with this RC number is already registered");
+        }
+
+        AuthBootstrapQueries.UserAuthRow existing = authBootstrapQueries.findUserByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Tenant tenant = Tenant.builder()
+                .companyName(request.getCompanyName())
+                .rcNumber(request.getRcNumber())
+                .industry(request.getIndustry())
+                .companySize(request.getCompanySize())
+                .subscriptionPlan(SubscriptionPlan.FREE_TRIAL)
+                .subscriptionExpiresAt(OffsetDateTime.now().plusDays(14))
+                .isActive(true)
+                .build();
+
+        User user = User.builder()
+                .email(existing.email())
+                .passwordHash(existing.passwordHash())
+                .role(UserRole.SYSTEM_ADMIN)
+                .build();
+
+        tenantUserWrites.provisionTenantWithAdmin(tenant, user);
+
+        String accessToken = jwtService.generateToken(
+                user.getEmail(), tenant.getId().toString(), user.getRole().name());
+        String refreshToken = jwtService.generateRefreshToken(
+                user.getEmail(), tenant.getId().toString());
+
+        log.info("Additional company registered: {}", tenant.getCompanyName());
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .email(user.getEmail())
+                .role(user.getRole().name())
+                .tenantId(tenant.getId())
+                .companyName(tenant.getCompanyName())
+                .build();
+    }
+
+    /** Every company the caller belongs to, for the sidebar switcher. */
+    @Transactional(readOnly = true)
+    public List<AuthResponse.TenantChoice> getMyCompanies(String email) {
+        return authBootstrapQueries.findAllUsersByEmail(email)
+                .stream()
+                .map(r -> new AuthResponse.TenantChoice(r.tenantId(), companyNameOf(r.tenantId())))
+                .toList();
+    }
+
+    /**
+     * Re-issues a JWT scoped to a different company, after verifying the caller actually belongs
+     * to it (never trust the target tenant id alone — an email can only switch into a tenant it
+     * already has a {@code users} row for).
+     */
+    public AuthResponse switchCompany(String email, UUID targetTenantId) {
+        AuthBootstrapQueries.UserAuthRow row = authBootstrapQueries.findAllUsersByEmail(email)
+                .stream()
+                .filter(r -> r.tenantId().equals(targetTenantId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("You don't have access to this company"));
+
+        String accessToken = jwtService.generateToken(
+                row.email(), row.tenantId().toString(), row.role());
+        String refreshToken = jwtService.generateRefreshToken(
+                row.email(), row.tenantId().toString());
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .email(row.email())
+                .role(row.role())
+                .tenantId(row.tenantId())
+                .companyName(companyNameOf(row.tenantId()))
+                .build();
+    }
+
+    private String companyNameOf(UUID tenantId) {
+        return authBootstrapQueries.findTenantById(tenantId)
+                .map(AuthBootstrapQueries.TenantNameRow::companyName)
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
     }
 
     /**
@@ -163,6 +282,11 @@ public class AuthService {
      * <p>The caller's identity comes from the security context (resolved to {@code email} by the
      * controller), never from a param, so a user can only ever change their own password. Throws
      * {@link IllegalArgumentException} on an unknown user or a wrong current password.
+     *
+     * <p>The new hash is written via {@link TenantUserWrites#updatePasswordHashByEmail}, not a
+     * save on the RLS-scoped {@code user} read above: one person's password is kept in sync
+     * across every company they belong to, and the JPA path here only ever sees the row for the
+     * caller's currently-bound tenant.
      */
     @Transactional
     public void changePassword(String email, String currentPassword, String newPassword) {
@@ -173,8 +297,7 @@ public class AuthService {
             throw new IllegalArgumentException("Current password is incorrect.");
         }
 
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        tenantUserWrites.updatePasswordHashByEmail(email, passwordEncoder.encode(newPassword));
         log.info("Password changed for user: {}", email);
     }
 
@@ -227,10 +350,10 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid or expired reset link.");
         }
 
-        AuthBootstrapQueries.UserAuthRow user = authBootstrapQueries.findUserByEmail(row.userEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired reset link."));
-
-        tenantUserWrites.updatePasswordHash(user.id(), passwordEncoder.encode(newPassword));
+        // Syncs the new hash across every company the person belongs to (see
+        // changePassword's doc comment for why this isn't a lookup-then-update-by-id).
+        tenantUserWrites.updatePasswordHashByEmail(
+                row.userEmail(), passwordEncoder.encode(newPassword));
         passwordResetTokenStore.markUsed(row.id());
 
         log.info("Password reset completed for an account");
@@ -257,11 +380,11 @@ public class AuthService {
      * template's own auto-commit connection sidesteps both — the counter genuinely persists.
      */
     private void recordFailedAttempt(AuthBootstrapQueries.UserAuthRow auth) {
-        loginAttemptWrites.recordFailedLogin(auth.id(), auth.failedLoginAttempts());
+        loginAttemptWrites.recordFailedLogin(auth.email(), auth.failedLoginAttempts());
     }
 
     private void resetFailedAttempts(AuthBootstrapQueries.UserAuthRow auth) {
-        loginAttemptWrites.resetFailedLogin(auth.id());
+        loginAttemptWrites.resetFailedLogin(auth.email());
     }
 
     /**

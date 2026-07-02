@@ -77,6 +77,19 @@ public class TenantUserWrites {
         return rows > 0;
     }
 
+    /**
+     * Set the password hash on every {@code users} row for an email in one statement. One person
+     * can own more than one company (one row per {@code tenant_id}), and password is kept in sync
+     * across all of them, so a self-service change or a reset must fan out to every membership
+     * rather than just the row for the caller's currently-bound tenant. @return whether any row
+     * existed.
+     */
+    public boolean updatePasswordHashByEmail(String email, String passwordHash) {
+        int rows = jdbc.update(
+                "UPDATE users SET password_hash = ? WHERE email = ?", passwordHash, email);
+        return rows > 0;
+    }
+
     /** Insert a single tenant (admin create-tenant). Assigns and back-fills its generated id. */
     public void insertTenant(Tenant tenant) {
         jdbc.execute((Connection con) -> {

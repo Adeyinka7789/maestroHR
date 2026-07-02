@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.auth.UserRepository;
+import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.Gender;
@@ -82,6 +83,7 @@ public class ProfileService {
                 user.isActive(),
                 formatDateTime(user.getLastLoginAt()),
                 formatDateTime(user.getCreatedAt()),
+                user.getRole() == UserRole.SYSTEM_ADMIN,
                 personal,
                 work,
                 bank);

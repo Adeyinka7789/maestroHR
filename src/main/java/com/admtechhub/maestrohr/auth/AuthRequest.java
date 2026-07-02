@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.UUID;
+
 public class AuthRequest {
 
     @Data
@@ -37,6 +39,28 @@ public class AuthRequest {
 
         @NotBlank(message = "Password is required")
         private String password;
+
+        /**
+         * Set only on the second round-trip of a multi-company login: after a first call
+         * returns {@code requiresTenantSelection = true} with the list of companies, the caller
+         * resubmits with this set to the chosen tenant.
+         */
+        private UUID tenantId;
+    }
+
+    /** Create an additional company for an already-authenticated user (see AuthService#addCompany). */
+    @Data
+    public static class AddCompany {
+        @NotBlank(message = "Company name is required")
+        private String companyName;
+
+        private String rcNumber;
+
+        @NotBlank(message = "Industry is required")
+        private String industry;
+
+        @NotBlank(message = "Company size is required")
+        private String companySize;
     }
 
     @Data

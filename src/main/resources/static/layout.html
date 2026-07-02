@@ -415,6 +415,15 @@
                     </svg>
                 </button>
                 <span id="page-heading" style="font-size:15px; font-weight:600; color:#111827;">Dashboard</span>
+<div id="company-switcher-topbar" style="display:none; position:relative; margin-left:8px;">
+  <button id="company-switcher-btn" style="background:#f1f5f9; border:1.5px solid #e2e8f0; border-radius:8px; padding:4px 10px; font-size:12px; font-weight:600; color:#00236f; cursor:pointer; display:flex; align-items:center; gap:4px;">
+    <span id="topbar-company-name"></span>
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00236f" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <div id="company-switcher-panel" style="display:none; position:absolute; top:calc(100% + 6px); left:0; min-width:200px; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.12); z-index:500; padding:6px 0;">
+    <div id="company-switcher-list"></div>
+  </div>
+</div>
             </div>
             <div style="display:flex; align-items:center; gap:16px;">
                 <div class="top-search">

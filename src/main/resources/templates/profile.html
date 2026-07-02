@@ -113,7 +113,93 @@
                 <p class="font-body-md text-body-md text-on-surface" th:text="${view.memberSinceFormatted}">—</p>
             </div>
         </div>
+
+        <!-- Add another company: tenant owners only. Creates a new tenant + membership under
+             the same login and lands in its dashboard — see AuthService#addCompany. -->
+        <div th:if="${view.systemAdmin}" class="mt-lg pt-lg border-t border-outline-variant">
+            <button type="button" id="add-company-toggle"
+                    class="font-label-md text-label-md font-bold"
+                    style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px; background:#00236f; color:white; border-radius:8px; font-size:13px; font-weight:600; text-decoration:none; cursor:pointer; border:none;">+ Add another company</button>
+
+            <div id="add-company-form" style="display:none;" class="mt-md">
+                <div id="add-company-error" class="hidden mb-md p-md rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm"></div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                    <input id="ac-companyName" type="text" placeholder="Company name"
+                           class="font-body-md text-body-md border border-outline-variant rounded-lg px-md py-sm">
+                    <input id="ac-rcNumber" type="text" placeholder="RC number (optional)"
+                           class="font-body-md text-body-md border border-outline-variant rounded-lg px-md py-sm">
+                    <input id="ac-industry" type="text" placeholder="Industry"
+                           class="font-body-md text-body-md border border-outline-variant rounded-lg px-md py-sm">
+                    <input id="ac-companySize" type="text" placeholder="Company size"
+                           class="font-body-md text-body-md border border-outline-variant rounded-lg px-md py-sm">
+                </div>
+                <button type="button" id="add-company-submit"
+                        class="mt-md font-label-md text-label-md bg-primary text-on-primary rounded-lg px-lg py-sm">
+                    Create company
+                </button>
+            </div>
+        </div>
     </div>
+
+    <script th:if="${view.systemAdmin}">
+        (function () {
+            var toggle   = document.getElementById('add-company-toggle');
+            var form     = document.getElementById('add-company-form');
+            var errorBox = document.getElementById('add-company-error');
+            var submit   = document.getElementById('add-company-submit');
+
+            toggle.addEventListener('click', function () {
+                form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            });
+
+            submit.addEventListener('click', async function () {
+                errorBox.classList.add('hidden');
+                var payload = {
+                    companyName: document.getElementById('ac-companyName').value.trim(),
+                    rcNumber:    document.getElementById('ac-rcNumber').value.trim(),
+                    industry:    document.getElementById('ac-industry').value.trim(),
+                    companySize: document.getElementById('ac-companySize').value.trim()
+                };
+
+                var token = localStorage.getItem('maestrohr_token');
+                submit.disabled = true;
+                try {
+                    var res = await fetch('/api/auth/companies', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    var result = await res.json();
+                    if (!res.ok) {
+                        errorBox.textContent = result.message || 'Could not create the company.';
+                        errorBox.classList.remove('hidden');
+                        return;
+                    }
+
+                    var auth = result.data || result;
+                    localStorage.setItem('maestrohr_token',   auth.accessToken || '');
+                    localStorage.setItem('maestrohr_email',   auth.email || '');
+                    localStorage.setItem('maestrohr_role',    auth.role || '');
+                    localStorage.setItem('maestrohr_tenant',  auth.tenantId || '');
+                    localStorage.setItem('maestrohr_company', auth.companyName || '');
+
+                    var secure = window.location.protocol === 'https:' ? '; Secure' : '';
+                    document.cookie = 'maestrohr_token=' + encodeURIComponent(auth.accessToken || '')
+                        + '; Path=/; Max-Age=' + (60 * 60 * 24 * 7) + '; SameSite=Lax' + secure;
+
+                    window.location.href = '/dashboard';
+                } catch (err) {
+                    errorBox.textContent = 'Connection error. Please try again.';
+                    errorBox.classList.remove('hidden');
+                } finally {
+                    submit.disabled = false;
+                }
+            });
+        })();
+    </script>
 
     <!-- ── Bank Details (read-only) ── -->
     <div th:if="${view.hasEmployee}" class="max-w-3xl bg-white border border-outline-variant rounded-xl p-lg mb-lg">

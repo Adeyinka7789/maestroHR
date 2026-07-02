@@ -194,6 +194,68 @@
         });
     })();
 
+    // ── Company switcher (sidebar) ──────────────────────────────────
+    // Lists every company the caller belongs to; hidden entirely when there's only one.
+    function setupCompanySwitcher() {
+    const btn    = document.getElementById('company-switcher-btn');
+    const panel  = document.getElementById('company-switcher-panel');
+    const list   = document.getElementById('company-switcher-list');
+    const wrap   = document.getElementById('company-switcher-topbar');
+    const nameEl = document.getElementById('topbar-company-name');
+    if (!btn || !panel || !list || !wrap) return;
+
+    if (nameEl) nameEl.textContent = companyName || 'My Company';
+
+    fetch('/api/auth/my-companies', { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => res.ok ? res.json() : null)
+        .then(result => {
+            if (!result) return;
+            const companies = result.data || result;
+            if (!Array.isArray(companies) || companies.length <= 1) return;
+            wrap.style.display = 'block';
+            const currentTenantId = localStorage.getItem('maestrohr_tenant') || '';
+            companies.forEach(company => {
+                const isActive = company.tenantId === currentTenantId;
+                const item = document.createElement('button');
+                item.style.cssText = 'display:flex; align-items:center; gap:8px; width:100%; padding:9px 14px; background:none; border:none; cursor:pointer; font-size:13px; text-align:left; color:#111827;';
+                item.innerHTML = (isActive ? '<span style="color:#00236f;font-weight:700;">&#10003;</span> ' : '<span style="width:14px;display:inline-block;"></span> ') + MaestroHR.escapeHtml(company.companyName);
+                if (!isActive) item.onclick = () => switchCompany(company.tenantId);
+                list.appendChild(item);
+            });
+        });
+
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    };
+
+    document.addEventListener('click', () => { panel.style.display = 'none'; });
+
+    function switchCompany(tenantId) {
+        fetch('/api/auth/switch-company', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ tenantId })
+        }).then(r => r.json()).then(result => {
+            const data = result.data || result;
+            if (!data.accessToken) return;
+            localStorage.setItem('maestrohr_token',   data.accessToken);
+            localStorage.setItem('maestrohr_email',   data.email       || '');
+            localStorage.setItem('maestrohr_role',    data.role        || '');
+            localStorage.setItem('maestrohr_tenant',  data.tenantId    || '');
+            localStorage.setItem('maestrohr_company', data.companyName || '');
+            document.cookie = 'maestrohr_token=' + encodeURIComponent(data.accessToken) + '; Path=/; SameSite=Lax';
+            window.location.href = '/htmx/dashboard';
+        });
+    }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupCompanySwitcher);
+    } else {
+        setupCompanySwitcher();
+    }
+
     // ── Sidebar pin (persist in localStorage) ─────────────────
     if (localStorage.getItem('sidebar-pinned') === 'true') {
         document.body.classList.add('sidebar-pinned');

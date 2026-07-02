@@ -66,7 +66,9 @@ public class SecurityConfig {
                         // below, so they require a valid session even though the parent
                         // pattern is public. JwtAuthFilter still sets TenantContext for
                         // valid tokens on NO_TENANT paths, so RLS-scoped reads work here.
-                        .requestMatchers("/api/auth/me", "/api/auth/onboarding/complete").authenticated()
+                        .requestMatchers("/api/auth/me", "/api/auth/onboarding/complete", "/api/auth/companies",
+                                "/api/auth/my-companies", "/api/auth/switch-company")
+                        .authenticated()
                         // ── Public endpoints ──────────────────────────────────────────
                         // NO_TENANT (truly public APIs + static) ∪ UI_SHELL (Thymeleaf pages,
                         // auth handled client-side via JWT). Single source of truth: PublicPaths.

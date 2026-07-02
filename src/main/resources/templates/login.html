@@ -47,7 +47,7 @@
         <div class="error-box" id="error-box"></div>
         <div class="info-box" id="info-box"></div>
 
-        <div style="display:flex;flex-direction:column;gap:20px;">
+        <div id="login-form" style="display:flex;flex-direction:column;gap:20px;">
             <div>
                 <label class="form-label" for="email">Work Email</label>
                 <input class="form-input" type="email" id="email" placeholder="name@company.com" autocomplete="email">
@@ -75,6 +75,11 @@
             </button>
         </div>
 
+        <div id="tenant-picker" style="display:none;">
+            <p style="font-size:14px;color:var(--text-muted);margin:0 0 16px;">You have access to more than one company. Choose one to continue:</p>
+            <div id="tenant-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
         <div class="footer-link">Don't have an account? <a href="/register">Create workspace</a></div>
     </div>
     <p style="text-align:center;font-size:12px;color:#94a3b8;margin-top:32px;">&copy; 2026 MaestroHR Technologies. Built for Nigerian SMEs.</p>
@@ -82,13 +87,21 @@
 
 <script>
     (function () {
-        var emailInput = document.getElementById('email');
-        var pwInput    = document.getElementById('password');
-        var loginBtn   = document.getElementById('login-btn');
-        var errorBox   = document.getElementById('error-box');
-        var infoBox    = document.getElementById('info-box');
-        var btnText    = document.getElementById('btn-text');
-        var btnSpinner = document.getElementById('btn-spinner');
+        var emailInput   = document.getElementById('email');
+        var pwInput      = document.getElementById('password');
+        var loginBtn     = document.getElementById('login-btn');
+        var errorBox     = document.getElementById('error-box');
+        var infoBox      = document.getElementById('info-box');
+        var btnText      = document.getElementById('btn-text');
+        var btnSpinner   = document.getElementById('btn-spinner');
+        var loginForm    = document.getElementById('login-form');
+        var tenantPicker = document.getElementById('tenant-picker');
+        var tenantList   = document.getElementById('tenant-list');
+
+        // Held only in memory (never persisted) between the first login attempt and the
+        // follow-up call once a company is picked, for accounts that own more than one.
+        var pendingEmail = null;
+        var pendingPassword = null;
         document.getElementById('toggle-pw').addEventListener('click', function () {
             pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
         });
@@ -97,11 +110,11 @@
             el.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
         });
 
-        loginBtn.addEventListener('click', doLogin);
+        loginBtn.addEventListener('click', function () { doLogin(null); });
 
-        async function doLogin() {
-            var email    = emailInput.value.trim();
-            var password = pwInput.value;
+        async function doLogin(tenantId) {
+            var email    = pendingEmail    || emailInput.value.trim();
+            var password = pendingPassword || pwInput.value;
 
             errorBox.style.display = 'none';
 
@@ -113,10 +126,13 @@
             setLoading(true);
 
             try {
+                var body = { email: email, password: password };
+                if (tenantId) { body.tenantId = tenantId; }
+
                 var res    = await fetch('/api/auth/login', {
                     method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ email: email, password: password })
+                    body:    JSON.stringify(body)
                 });
 
                 var result = await res.json();
@@ -131,6 +147,13 @@
 
                 // Navigate the response — handle ApiResponse wrapper or flat response
                 var payload = result.data || result;
+
+                if (payload.requiresTenantSelection) {
+                    pendingEmail = email;
+                    pendingPassword = password;
+                    showTenantPicker(payload.tenants || []);
+                    return;
+                }
 
                 // Extract token — try every field name Spring Boot commonly uses
                 var token = payload.accessToken
@@ -170,6 +193,24 @@
             } finally {
                 setLoading(false);
             }
+        }
+
+        function showTenantPicker(tenants) {
+            loginForm.style.display = 'none';
+            tenantPicker.style.display = 'block';
+            tenantList.innerHTML = '';
+            tenants.forEach(function (t) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-primary';
+                btn.style.background = '#fff';
+                btn.style.color = 'var(--text-main)';
+                btn.style.border = '1px solid var(--border)';
+                btn.style.justifyContent = 'flex-start';
+                btn.textContent = t.companyName;
+                btn.addEventListener('click', function () { doLogin(t.tenantId); });
+                tenantList.appendChild(btn);
+            });
         }
 
         function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
