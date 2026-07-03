@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.subscription;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +23,7 @@ class PlatformFlagServiceTest {
 
     @Mock private PlatformFlagRepository flagRepository;
     @Mock private FeatureFlagOverrideRepository overrideRepository;
+    @Mock private AuditTrailService auditTrailService;
 
     @InjectMocks private PlatformFlagService service;
 

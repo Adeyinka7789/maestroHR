@@ -9,11 +9,26 @@
   Overrides + rollout percentage are managed via the /api/admin/feature-flags REST API
   (AdminFeatureFlagApiController) using the same fetch + Bearer-token pattern as
   admin-platform-settings.html, since those are per-flag JSON operations rather than
-  full-page HTMX re-renders.
+  full-page HTMX re-renders. IMPORTANT: the <script>/<style> below must live INSIDE the
+  th:fragment="content" div — Thymeleaf's ":: content" fragment selector only serializes
+  the matched element's subtree, so anything placed as a sibling never reaches the browser
+  on an HTMX swap (see admin-platform-settings.html for the same working pattern).
 -->
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <body>
 <div th:fragment="content" class="font-body-md text-on-surface">
+
+    <style>
+        .ff-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+        .ff-switch input { opacity: 0; width: 0; height: 0; }
+        .ff-switch .ff-slider { position: absolute; cursor: pointer; inset: 0; background-color: #e2e8f0; transition: .15s; border-radius: 24px; }
+        .ff-switch .ff-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #fff; transition: .15s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .ff-switch input:checked + .ff-slider { background-color: #00236f; }
+        .ff-switch input:checked + .ff-slider:before { transform: translateX(18px); }
+        .ff-pill { padding: 6px 16px; border-radius: 20px; border: 1.5px solid #e2e8f0; background: #fff; font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; transition: all .15s; }
+        .ff-pill.active { background: #00236f; border-color: #00236f; color: #fff; }
+        .ff-pill:hover:not(.active) { background: #f9fafb; }
+    </style>
 
     <!-- Action result banner -->
     <div th:if="${successMessage != null}"
@@ -62,8 +77,7 @@
                 </tr>
                 </thead>
                 <tbody class="font-table-data text-table-data">
-                <th:block th:each="f : ${flags}">
-                <tr class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                <tr th:each="f : ${flags}" class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
                     <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${f.name}">LOAN_MANAGEMENT</td>
                     <td class="px-md py-3 text-on-surface-variant" th:text="${f.description}">—</td>
                     <td class="px-md py-3">
@@ -105,9 +119,10 @@
                                 <span class="material-symbols-outlined text-[16px]">toggle_on</span>
                                 Enable
                             </button>
-                            <!-- Overrides panel toggle -->
+                            <!-- Overrides modal trigger -->
                             <button type="button"
-                                    th:attr="onclick=|var r=document.getElementById('overrides-row-${f.name}');r.style.display=r.style.display==='none'?'':'none';if(r.style.display!=='none'&&!this.dataset.loaded){this.dataset.loaded=1;loadOverrides('${f.name}');}|"
+                                    th:id="${'overrides-btn-' + f.name}"
+                                    th:attr="data-rollout=${f.rolloutPercentage},onclick=|window.openOverridesModal('${f.name}', ${f.rolloutPercentage})|"
                                     class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all duration-200">
                                 <span class="material-symbols-outlined text-[16px]">tune</span>
                                 Overrides
@@ -115,194 +130,320 @@
                         </div>
                     </td>
                 </tr>
-                <!-- Overrides + rollout panel (hidden until "Overrides" is clicked) -->
-                <tr th:id="${'overrides-row-' + f.name}" style="display:none" class="border-t border-outline-variant bg-surface-container-low">
-                    <td colspan="6" class="px-md py-md">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
-
-                            <!-- Existing overrides -->
-                            <div>
-                                <h3 class="font-label-md text-label-md text-on-surface mb-xs">Overrides</h3>
-                                <div th:id="${'overrides-list-' + f.name}" class="flex flex-col gap-xs">
-                                    <p class="font-body-sm text-body-sm text-on-surface-variant">Loading…</p>
-                                </div>
-                            </div>
-
-                            <!-- Add override + rollout -->
-                            <div class="flex flex-col gap-md">
-                                <form th:id="${'override-form-' + f.name}"
-                                      th:data-name="${f.name}" onsubmit="submitOverride(event, this.getAttribute('data-name')); return false;"
-                                      class="flex flex-col gap-xs bg-white border border-outline-variant rounded-lg p-sm">
-                                    <h3 class="font-label-md text-label-md text-on-surface">Add override</h3>
-                                    <select name="targetType"
-                                            th:data-name="${f.name}" onchange="toggleOverrideTargetInputs(this.getAttribute('data-name'))"
-                                            class="border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm">
-                                        <option value="TENANT">Tenant</option>
-                                        <option value="PLAN">Plan</option>
-                                    </select>
-                                    <select th:id="${'override-tenant-select-' + f.name}" name="tenantValue"
-                                            class="border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm">
-                                        <option th:each="t : ${tenants}" th:value="${t.id}" th:text="${t.companyName}">Tenant</option>
-                                    </select>
-                                    <select th:id="${'override-plan-select-' + f.name}" name="planValue" style="display:none"
-                                            class="border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm">
-                                        <option th:each="p : ${plans}" th:value="${p}" th:text="${p}">PLAN</option>
-                                    </select>
-                                    <label class="flex items-center gap-xs font-body-sm text-body-sm">
-                                        <input type="checkbox" name="enabled" checked="checked"> Enabled
-                                    </label>
-                                    <input type="text" name="reason" placeholder="Reason"
-                                           class="border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm">
-                                    <button type="submit"
-                                            class="inline-flex items-center justify-center gap-xs bg-primary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all duration-200">
-                                        Save override
-                                    </button>
-                                </form>
-
-                                <form th:id="${'rollout-form-' + f.name}"
-                                      th:data-name="${f.name}" onsubmit="submitRollout(event, this.getAttribute('data-name')); return false;"
-                                      class="flex items-end gap-xs bg-white border border-outline-variant rounded-lg p-sm">
-                                    <div class="flex flex-col gap-xs">
-                                        <label class="font-body-sm text-body-sm text-on-surface-variant">Rollout %</label>
-                                        <input type="number" name="percentage" min="0" max="100" th:value="${f.rolloutPercentage}"
-                                               class="w-24 border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm">
-                                    </div>
-                                    <button type="submit"
-                                            class="inline-flex items-center justify-center gap-xs bg-secondary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all duration-200">
-                                        Save rollout
-                                    </button>
-                                </form>
-                            </div>
-
-                        </div>
-                    </td>
-                </tr>
-                </th:block>
                 </tbody>
             </table>
         </div>
     </div>
 
-</div>
+    <!-- Overrides modal (shared across all flags; populated per-flag by JS) -->
+    <div id="overrides-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:500;padding:16px">
+        <div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;border-left:4px solid #00236f;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
 
-<script th:inline="none">
-(function () {
-    var token = localStorage.getItem('maestrohr_token');
-    var loadedPanels = {};
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span class="material-symbols-outlined" style="color:#00236f;font-size:22px">tune</span>
+                    <h2 style="margin:0;font-size:17px;font-weight:700;color:#00236f">
+                        Overrides — <span id="overrides-modal-flag-name"></span>
+                    </h2>
+                </div>
+                <button type="button" onclick="window.closeOverridesModal()"
+                        style="background:none;border:none;cursor:pointer;color:#6b7280;display:flex;align-items:center;padding:4px;border-radius:6px"
+                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
 
-    function showBanner(msg, ok) {
-        var el = document.getElementById('override-banner');
-        el.textContent = msg;
-        el.className = 'mb-md p-sm rounded-lg font-label-md text-label-md ' +
-            (ok ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fee2e2] text-[#991b1b]');
-        el.style.display = 'block';
-        setTimeout(function () { el.style.display = 'none'; }, 4000);
-    }
+            <!-- Scrollable body -->
+            <div style="overflow-y:auto;flex:1;padding:16px 24px">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
 
-    function apiFetch(url, options) {
-        options = options || {};
-        options.headers = Object.assign(
-            { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            options.headers || {});
-        return fetch(url, options).then(function (r) { return r.json(); });
-    }
+                    <!-- Existing overrides -->
+                    <div>
+                        <h3 style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Existing overrides</h3>
+                        <div id="overrides-modal-list" class="flex flex-col gap-xs">
+                            <p class="font-body-sm text-body-sm text-on-surface-variant">Loading…</p>
+                        </div>
+                    </div>
 
-    function renderOverrides(flagName, overrides) {
-        var container = document.getElementById('overrides-list-' + flagName);
-        if (!overrides || overrides.length === 0) {
-            container.innerHTML = '<p class="font-body-sm text-body-sm text-on-surface-variant">No overrides.</p>';
-            return;
+                    <!-- Add override form -->
+                    <div>
+                        <h3 style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Add override</h3>
+                        <form id="override-form" onsubmit="window.submitOverride(event); return false;"
+                              class="flex flex-col gap-xs bg-white border border-outline-variant rounded-lg p-sm">
+
+                            <div style="display:flex;gap:8px">
+                                <button type="button" id="override-type-pill-TENANT" class="ff-pill active"
+                                        onclick="window.selectOverrideType('TENANT')">Tenant</button>
+                                <button type="button" id="override-type-pill-PLAN" class="ff-pill"
+                                        onclick="window.selectOverrideType('PLAN')">Plan</button>
+                            </div>
+
+                            <div id="override-tenant-picker">
+                                <div style="position:relative;">
+                                  <input type="text" id="override-tenant-search" placeholder="Search company name..."
+                                         autocomplete="off"
+                                         style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; box-sizing:border-box;"
+                                         oninput="filterTenantList(this.value)">
+                                  <input type="hidden" id="override-tenant-id" name="targetValue">
+                                  <div id="override-tenant-dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.1); max-height:200px; overflow-y:auto; z-index:600;"></div>
+                                </div>
+                            </div>
+
+                            <div id="override-plan-picker" style="display:none;flex-wrap:wrap;gap:8px">
+                                <button type="button" th:each="p : ${plans}" class="ff-pill"
+                                        th:text="${p}" th:attr="onclick=|window.selectPlanPill('${p}', this)|">PLAN</button>
+                            </div>
+
+                            <label class="flex items-center gap-xs font-body-sm text-body-sm mt-xs">
+                                <span class="ff-switch">
+                                    <input type="checkbox" id="override-enabled-switch" checked="checked">
+                                    <span class="ff-slider"></span>
+                                </span>
+                                Enabled
+                            </label>
+
+                            <textarea id="override-reason" placeholder="Reason" rows="2"
+                                      class="border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm w-full"></textarea>
+
+                            <button type="submit"
+                                    class="inline-flex items-center justify-center gap-xs bg-primary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all duration-200">
+                                Save override
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- Rollout percentage -->
+                <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0">
+                    <h3 style="font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Rollout percentage</h3>
+                    <form id="rollout-form" onsubmit="window.submitRollout(event); return false;"
+                          class="flex items-center gap-md">
+                        <input type="range" id="overrides-modal-rollout-range" min="0" max="100" value="100"
+                               oninput="document.getElementById('overrides-modal-rollout-value').textContent = this.value + '%'"
+                               style="flex:1;accent-color:#00236f">
+                        <span id="overrides-modal-rollout-value" style="min-width:44px;font-weight:700;color:#00236f;font-size:14px">100%</span>
+                        <button type="submit"
+                                class="inline-flex items-center justify-center gap-xs bg-secondary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all duration-200">
+                            Save rollout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+    (function () {
+        var token = localStorage.getItem('maestrohr_token');
+        var state = { currentFlag: null, targetType: 'TENANT', planValue: null };
+        const ALL_TENANTS = /*[[${tenants}]]*/ [];
+
+        function showBanner(msg, ok) {
+            var el = document.getElementById('override-banner');
+            el.textContent = msg;
+            el.className = 'mb-md p-sm rounded-lg font-label-md text-label-md ' +
+                (ok ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fee2e2] text-[#991b1b]');
+            el.style.display = 'block';
+            setTimeout(function () { el.style.display = 'none'; }, 4000);
         }
-        container.innerHTML = overrides.map(function (o) {
-            return '<div class="flex items-center justify-between gap-xs bg-white border border-outline-variant rounded-lg px-sm py-xs">' +
-                '<div>' +
-                '<span class="font-label-sm text-label-sm">' + o.targetType + ': ' + o.targetValue + '</span>' +
-                '<span class="ml-xs px-2 py-0.5 rounded-full text-[10px] font-bold ' +
-                (o.enabled ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container') +
-                '">' + (o.enabled ? 'Enabled' : 'Disabled') + '</span>' +
-                (o.reason ? '<p class="font-body-sm text-body-sm text-on-surface-variant">' + o.reason + '</p>' : '') +
-                '</div>' +
-                '<button type="button" onclick="deleteOverride(\'' + flagName + '\', \'' + o.id + '\')" ' +
-                'class="text-error font-label-sm text-label-sm hover:underline">Remove</button>' +
-                '</div>';
-        }).join('');
-    }
 
-    window.toggleOverridesPanel = function (flagName) {
-        var row = document.getElementById('overrides-row-' + flagName);
-        var opening = row.style.display === 'none';
-        row.style.display = opening ? '' : 'none';
-        if (opening && !loadedPanels[flagName]) {
-            loadedPanels[flagName] = true;
-            window.loadOverrides(flagName);
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
         }
-    };
 
-    window.loadOverrides = function (flagName) {
-        apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/overrides')
-            .then(function (d) { renderOverrides(flagName, d.data); })
-            .catch(function () { showBanner('Failed to load overrides.', false); });
-    };
+        function apiFetch(url, options) {
+            options = options || {};
+            options.headers = Object.assign(
+                { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                options.headers || {});
+            return fetch(url, options).then(function (r) { return r.json(); });
+        }
 
-    window.toggleOverrideTargetInputs = function (flagName) {
-        var type = document.querySelector('#override-form-' + flagName + ' select[name="targetType"]').value;
-        document.getElementById('override-tenant-select-' + flagName).style.display = type === 'TENANT' ? '' : 'none';
-        document.getElementById('override-plan-select-' + flagName).style.display = type === 'PLAN' ? '' : 'none';
-    };
+        // Endpoint returns ApiResponse { success, data: [...] }, but tolerate a bare array too.
+        function extractList(response) {
+            if (Array.isArray(response)) return response;
+            if (response && Array.isArray(response.data)) return response.data;
+            return [];
+        }
 
-    window.submitOverride = function (event, flagName) {
-        var form = document.getElementById('override-form-' + flagName);
-        var targetType = form.querySelector('select[name="targetType"]').value;
-        var targetValue = targetType === 'TENANT'
-            ? document.getElementById('override-tenant-select-' + flagName).value
-            : document.getElementById('override-plan-select-' + flagName).value;
-        var payload = {
-            targetType: targetType,
-            targetValue: targetValue,
-            enabled: form.querySelector('input[name="enabled"]').checked,
-            reason: form.querySelector('input[name="reason"]').value.trim()
-        };
-        apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/overrides', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        })
-        .then(function (d) {
-            showBanner(d.success ? 'Override saved.' : (d.message || d.error || 'Save failed.'), !!d.success);
-            if (d.success) { window.loadOverrides(flagName); }
-        })
-        .catch(function () { showBanner('Network error — override not saved.', false); });
-    };
-
-    window.deleteOverride = function (flagName, overrideId) {
-        apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/overrides/' + overrideId, {
-            method: 'DELETE'
-        })
-        .then(function (d) {
-            showBanner(d.success ? 'Override removed.' : (d.message || d.error || 'Remove failed.'), !!d.success);
-            if (d.success) { window.loadOverrides(flagName); }
-        })
-        .catch(function () { showBanner('Network error — override not removed.', false); });
-    };
-
-    window.submitRollout = function (event, flagName) {
-        var form = document.getElementById('rollout-form-' + flagName);
-        var percentage = parseInt(form.querySelector('input[name="percentage"]').value, 10) || 0;
-        apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/rollout', {
-            method: 'PATCH',
-            body: JSON.stringify({ percentage: percentage })
-        })
-        .then(function (d) {
-            showBanner(d.success ? 'Rollout updated.' : (d.message || d.error || 'Update failed.'), !!d.success);
-            if (d.success && d.data) {
-                var badge = document.getElementById('rollout-badge-' + flagName);
-                badge.textContent = d.data.rolloutPercentage + '%';
-                badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold ' +
-                    (d.data.rolloutPercentage < 100 ? 'bg-[#fef9c3] text-[#854d0e]' : 'bg-surface-container-low text-on-surface-variant');
+        function renderOverridesList(overrides) {
+            var container = document.getElementById('overrides-modal-list');
+            if (!overrides || overrides.length === 0) {
+                container.innerHTML = '<p class="font-body-sm text-body-sm text-on-surface-variant">No overrides yet. Add one above.</p>';
+                return;
             }
-        })
-        .catch(function () { showBanner('Network error — rollout not saved.', false); });
-    };
-})();
-</script>
+            container.innerHTML = overrides.map(function (o) {
+                return '<div class="flex items-center justify-between gap-xs bg-white border border-outline-variant rounded-lg px-sm py-xs">' +
+                    '<div>' +
+                    '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-surface-container-low text-on-surface-variant">' + escapeHtml(o.targetType) + '</span>' +
+                    '<span class="ml-xs font-label-sm text-label-sm">' + escapeHtml(o.targetValue) + '</span>' +
+                    '<span class="ml-xs px-2 py-0.5 rounded-full text-[10px] font-bold ' +
+                    (o.enabled ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container') +
+                    '">' + (o.enabled ? 'Enabled' : 'Disabled') + '</span>' +
+                    (o.reason ? '<p class="font-body-sm text-body-sm text-on-surface-variant">' + escapeHtml(o.reason) + '</p>' : '') +
+                    '</div>' +
+                    '<button type="button" onclick="window.deleteOverride(\'' + o.id + '\')" ' +
+                    'class="text-error font-label-sm text-label-sm hover:underline">Remove</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        window.loadOverrides = function (flagName) {
+            document.getElementById('overrides-modal-list').innerHTML =
+                '<p class="font-body-sm text-body-sm text-on-surface-variant">Loading…</p>';
+            apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/overrides')
+                .then(function (d) { renderOverridesList(extractList(d)); })
+                .catch(function () {
+                    document.getElementById('overrides-modal-list').innerHTML =
+                        '<p class="font-body-sm text-body-sm text-on-error">Failed to load overrides.</p>';
+                    showBanner('Failed to load overrides.', false);
+                });
+        };
+
+        function resetOverrideForm() {
+            document.getElementById('override-form').reset();
+            document.getElementById('override-tenant-id').value = '';
+            document.getElementById('override-tenant-dropdown').style.display = 'none';
+            state.planValue = null;
+            document.querySelectorAll('#override-plan-picker .ff-pill').forEach(function (p) {
+                p.classList.remove('active');
+            });
+            window.selectOverrideType('TENANT');
+        }
+
+        window.openOverridesModal = function (flagName, rolloutPercentage) {
+            state.currentFlag = flagName;
+            document.getElementById('overrides-modal-flag-name').textContent = flagName;
+            resetOverrideForm();
+            document.getElementById('overrides-modal-rollout-range').value = rolloutPercentage;
+            document.getElementById('overrides-modal-rollout-value').textContent = rolloutPercentage + '%';
+            document.getElementById('overrides-modal').style.display = 'flex';
+            window.loadOverrides(flagName);
+        };
+
+        window.closeOverridesModal = function () {
+            document.getElementById('overrides-modal').style.display = 'none';
+            state.currentFlag = null;
+        };
+
+        window.selectOverrideType = function (type) {
+            state.targetType = type;
+            document.getElementById('override-type-pill-TENANT').classList.toggle('active', type === 'TENANT');
+            document.getElementById('override-type-pill-PLAN').classList.toggle('active', type === 'PLAN');
+            document.getElementById('override-tenant-picker').style.display = type === 'TENANT' ? '' : 'none';
+            document.getElementById('override-plan-picker').style.display = type === 'PLAN' ? 'flex' : 'none';
+        };
+
+        window.selectPlanPill = function (value, btnEl) {
+            state.planValue = value;
+            document.querySelectorAll('#override-plan-picker .ff-pill').forEach(function (p) {
+                p.classList.remove('active');
+            });
+            btnEl.classList.add('active');
+        };
+
+        window.filterTenantList = function (query) {
+            var dropdown = document.getElementById('override-tenant-dropdown');
+            document.getElementById('override-tenant-id').value = '';
+            if (!query) { dropdown.style.display = 'none'; return; }
+            var matches = ALL_TENANTS.filter(function (t) {
+                return t.companyName.toLowerCase().includes(query.toLowerCase());
+            });
+            if (!matches.length) {
+                dropdown.innerHTML = '<div style="padding:10px 14px;color:#9ca3af;font-size:13px;">No companies found</div>';
+            } else {
+                dropdown.innerHTML = matches.map(function (t) {
+                    return '<button type="button" onclick="selectTenant(\'' + t.id + '\',\'' + MaestroHR.escapeHtml(t.companyName) + '\')" ' +
+                        'style="display:block;width:100%;padding:9px 14px;background:none;border:none;text-align:left;cursor:pointer;font-size:13px;color:#111827;" ' +
+                        'onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'none\'">' +
+                        MaestroHR.escapeHtml(t.companyName) + '</button>';
+                }).join('');
+            }
+            dropdown.style.display = 'block';
+        };
+
+        window.selectTenant = function (id, name) {
+            document.getElementById('override-tenant-search').value = name;
+            document.getElementById('override-tenant-id').value = id;
+            document.getElementById('override-tenant-dropdown').style.display = 'none';
+        };
+
+        document.addEventListener('click', function (e) {
+            var d = document.getElementById('override-tenant-dropdown');
+            var s = document.getElementById('override-tenant-search');
+            if (d && s && !s.contains(e.target) && !d.contains(e.target)) { d.style.display = 'none'; }
+        });
+
+        window.submitOverride = function (event) {
+            var flagName = state.currentFlag;
+            if (!flagName) return;
+            var targetValue = state.targetType === 'TENANT'
+                ? document.getElementById('override-tenant-id').value
+                : state.planValue;
+            if (!targetValue) {
+                showBanner(state.targetType === 'TENANT' ? 'Select a tenant.' : 'Select a plan.', false);
+                return;
+            }
+            var payload = {
+                targetType: state.targetType,
+                targetValue: targetValue,
+                enabled: document.getElementById('override-enabled-switch').checked,
+                reason: document.getElementById('override-reason').value.trim()
+            };
+            apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/overrides', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(function (d) {
+                showBanner(d.success ? 'Override saved.' : (d.message || d.error || 'Save failed.'), !!d.success);
+                if (d.success) { resetOverrideForm(); window.loadOverrides(flagName); }
+            })
+            .catch(function () { showBanner('Network error — override not saved.', false); });
+        };
+
+        window.deleteOverride = function (overrideId) {
+            var flagName = state.currentFlag;
+            if (!flagName) return;
+            apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/overrides/' + overrideId, {
+                method: 'DELETE'
+            })
+            .then(function (d) {
+                showBanner(d.success ? 'Override removed.' : (d.message || d.error || 'Remove failed.'), !!d.success);
+                if (d.success) { window.loadOverrides(flagName); }
+            })
+            .catch(function () { showBanner('Network error — override not removed.', false); });
+        };
+
+        window.submitRollout = function (event) {
+            var flagName = state.currentFlag;
+            if (!flagName) return;
+            var percentage = parseInt(document.getElementById('overrides-modal-rollout-range').value, 10) || 0;
+            apiFetch('/api/admin/feature-flags/' + encodeURIComponent(flagName) + '/rollout', {
+                method: 'PATCH',
+                body: JSON.stringify({ percentage: percentage })
+            })
+            .then(function (d) {
+                showBanner(d.success ? 'Rollout updated.' : (d.message || d.error || 'Update failed.'), !!d.success);
+                if (d.success && d.data) {
+                    var badge = document.getElementById('rollout-badge-' + flagName);
+                    if (badge) {
+                        badge.textContent = d.data.rolloutPercentage + '%';
+                        badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold ' +
+                            (d.data.rolloutPercentage < 100 ? 'bg-[#fef9c3] text-[#854d0e]' : 'bg-surface-container-low text-on-surface-variant');
+                    }
+                    var btn = document.getElementById('overrides-btn-' + flagName);
+                    if (btn) { btn.setAttribute('data-rollout', d.data.rolloutPercentage); }
+                }
+            })
+            .catch(function () { showBanner('Network error — rollout not saved.', false); });
+        };
+    })();
+    </script>
+</div>
 </body>
 </html>

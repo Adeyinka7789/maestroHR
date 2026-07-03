@@ -1,14 +1,20 @@
 package com.admtechhub.maestrohr.subscription;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.subscription.FeatureFlagOverride.TargetType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Manages global {@link PlatformFlag} kill switches, plus per-tenant/per-plan
@@ -25,8 +31,11 @@ import java.util.UUID;
 @Slf4j
 public class PlatformFlagService {
 
+    private static final String FLAG_CACHE_ATTR = "PlatformFlagService.flagCache";
+
     private final PlatformFlagRepository flagRepository;
     private final FeatureFlagOverrideRepository overrideRepository;
+    private final AuditTrailService auditTrailService;
 
     /**
      * Whether the named flag is on, with no tenant/plan context. Backward-compatible entry
@@ -72,7 +81,8 @@ public class PlatformFlagService {
             }
         }
 
-        PlatformFlag flag = flagRepository.findByName(flagName).orElse(null);
+        Map<String, PlatformFlag> cache = requestScopedFlagCache();
+        PlatformFlag flag = cache != null ? cache.get(flagName) : flagRepository.findByName(flagName).orElse(null);
 
         if (flag != null && !flag.isEnabled()) {
             return false;
@@ -85,6 +95,29 @@ public class PlatformFlagService {
         }
 
         return flag == null || flag.isEnabled();
+    }
+
+    /**
+     * Loads every {@link PlatformFlag} once per HTTP request and caches it in request
+     * attributes, so a request that calls {@link #isEnabledForTenant} many times (e.g. rendering
+     * a page with several gated widgets) hits the DB once instead of once per call. Returns
+     * {@code null} when there is no request context (background jobs, tests), in which case
+     * callers fall back to a direct per-flag query.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, PlatformFlag> requestScopedFlagCache() {
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
+            return null;
+        }
+        Map<String, PlatformFlag> cache = (Map<String, PlatformFlag>)
+                attrs.getAttribute(FLAG_CACHE_ATTR, RequestAttributes.SCOPE_REQUEST);
+        if (cache == null) {
+            cache = flagRepository.findAll().stream()
+                    .collect(Collectors.toMap(PlatformFlag::getName, f -> f));
+            attrs.setAttribute(FLAG_CACHE_ATTR, cache, RequestAttributes.SCOPE_REQUEST);
+        }
+        return cache;
     }
 
     /** Turn the flag on, creating it if it does not yet exist. */
@@ -116,6 +149,9 @@ public class PlatformFlagService {
         flag.setUpdatedBy(updatedBy);
         PlatformFlag saved = flagRepository.save(flag);
         log.info("Platform flag '{}' rollout set to {}% by {}", flagName, percentage, updatedBy);
+        auditTrailService.record(null, updatedBy, "FEATURE_FLAG_CHANGED",
+                "PLATFORM_FLAG", flagName, "/admin/feature-flags", "POST",
+                null, 200, "Flag " + flagName + " changed: rollout=" + percentage + "%");
         return saved;
     }
 
@@ -141,12 +177,24 @@ public class PlatformFlagService {
         FeatureFlagOverride saved = overrideRepository.save(override);
         log.info("Feature flag override '{}' [{} {}] set to enabled={} by {}",
                 flagName, targetType, targetValue, enabled, createdBy);
+        auditTrailService.record(null, createdBy, "FEATURE_FLAG_CHANGED",
+                "PLATFORM_FLAG", flagName, "/admin/feature-flags", "POST",
+                null, 200, "Flag " + flagName + " changed: override " + targetType + "=" + targetValue
+                        + " enabled=" + enabled);
         return saved;
     }
 
     @Transactional
     public void deleteOverride(UUID overrideId) {
+        FeatureFlagOverride override = overrideRepository.findById(overrideId).orElse(null);
         overrideRepository.deleteById(overrideId);
+        if (override != null) {
+            String actor = currentUserEmail();
+            auditTrailService.record(null, actor, "FEATURE_FLAG_CHANGED",
+                    "PLATFORM_FLAG", override.getFlagName(), "/admin/feature-flags", "POST",
+                    null, 200, "Flag " + override.getFlagName() + " changed: override removed "
+                            + override.getTargetType() + "=" + override.getTargetValue());
+        }
     }
 
     private PlatformFlag setEnabled(String flagName, boolean enabled, String updatedBy) {
@@ -156,6 +204,14 @@ public class PlatformFlagService {
         flag.setUpdatedBy(updatedBy);
         PlatformFlag saved = flagRepository.save(flag);
         log.info("Platform flag '{}' set to enabled={} by {}", flagName, enabled, updatedBy);
+        auditTrailService.record(null, updatedBy, "FEATURE_FLAG_CHANGED",
+                "PLATFORM_FLAG", flagName, "/admin/feature-flags", "POST",
+                null, 200, "Flag " + flagName + " changed: enabled=" + enabled);
         return saved;
+    }
+
+    private String currentUserEmail() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null ? authentication.getName() : null;
     }
 }
