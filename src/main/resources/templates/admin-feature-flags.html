@@ -107,7 +107,7 @@
                             </button>
                             <!-- Overrides panel toggle -->
                             <button type="button"
-                                    th:attr="onclick=${'toggleOverridesPanel(\'' + f.name + '\')'}"
+                                    th:attr="onclick=|var r=document.getElementById('overrides-row-${f.name}');r.style.display=r.style.display==='none'?'':'none';if(r.style.display!=='none'&&!this.dataset.loaded){this.dataset.loaded=1;loadOverrides('${f.name}');}|"
                                     class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all duration-200">
                                 <span class="material-symbols-outlined text-[16px]">tune</span>
                                 Overrides
@@ -131,11 +131,11 @@
                             <!-- Add override + rollout -->
                             <div class="flex flex-col gap-md">
                                 <form th:id="${'override-form-' + f.name}"
-                                      th:attr="onsubmit=${'submitOverride(event, \'' + f.name + '\'); return false;'}"
+                                      th:data-name="${f.name}" onsubmit="submitOverride(event, this.getAttribute('data-name')); return false;"
                                       class="flex flex-col gap-xs bg-white border border-outline-variant rounded-lg p-sm">
                                     <h3 class="font-label-md text-label-md text-on-surface">Add override</h3>
                                     <select name="targetType"
-                                            th:attr="onchange=${'toggleOverrideTargetInputs(\'' + f.name + '\')'}"
+                                            th:data-name="${f.name}" onchange="toggleOverrideTargetInputs(this.getAttribute('data-name'))"
                                             class="border border-outline-variant rounded-lg px-sm py-xs font-body-sm text-body-sm">
                                         <option value="TENANT">Tenant</option>
                                         <option value="PLAN">Plan</option>
@@ -160,7 +160,7 @@
                                 </form>
 
                                 <form th:id="${'rollout-form-' + f.name}"
-                                      th:attr="onsubmit=${'submitRollout(event, \'' + f.name + '\'); return false;'}"
+                                      th:data-name="${f.name}" onsubmit="submitRollout(event, this.getAttribute('data-name')); return false;"
                                       class="flex items-end gap-xs bg-white border border-outline-variant rounded-lg p-sm">
                                     <div class="flex flex-col gap-xs">
                                         <label class="font-body-sm text-body-sm text-on-surface-variant">Rollout %</label>
