@@ -173,13 +173,7 @@ public class LoanPolicyService {
             }
         }
 
-        // 6. No concurrent active loan
-        if (!loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId()).isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Employee already has an active loan. The existing loan must be completed or waived before a new application is submitted.");
-        }
-
-        // 7. Cooling period — count from most recent completed or cancelled loan
+        // 6. Cooling period — count from most recent completed or cancelled loan
         if (p.getCoolingPeriodDays() > 0) {
             loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId(), currentTenantId()).stream()
                     .filter(l -> l.getStatus() == LoanStatus.COMPLETED || l.getStatus() == LoanStatus.CANCELLED)
@@ -196,7 +190,7 @@ public class LoanPolicyService {
                     });
         }
 
-        // 8. Annual loan count
+        // 7. Annual loan count
         int currentYear = LocalDate.now().getYear();
         long loansThisYear = loanRepository.findByEmployeeIdOrderByCreatedAtDesc(employee.getId(), currentTenantId()).stream()
                 .filter(l -> l.getStatus() != LoanStatus.REJECTED)
@@ -207,7 +201,7 @@ public class LoanPolicyService {
                     "Annual loan limit of " + p.getMaxLoansPerYear() + " reached for " + currentYear + ".");
         }
 
-        // 9. Platform ceiling — gross multiplier
+        // 8. Platform ceiling — gross multiplier
         String ceilMultStr = platformSettingsService.get("loan_max_multiplier_ceiling");
         if (ceilMultStr != null && employee.getPayGrade() != null) {
             long gross = employee.getPayGrade().getGrossSalary();
@@ -218,7 +212,7 @@ public class LoanPolicyService {
             }
         }
 
-        // 10. Platform ceiling — tenor
+        // 9. Platform ceiling — tenor
         String ceilTenorStr = platformSettingsService.get("loan_max_tenor_months_ceiling");
         if (ceilTenorStr != null) {
             int ceilTenor = Integer.parseInt(ceilTenorStr);

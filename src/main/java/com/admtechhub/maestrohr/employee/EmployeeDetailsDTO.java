@@ -50,6 +50,10 @@ public class EmployeeDetailsDTO {
     private Long otherAllowances;
     private Long grossSalary;      // computed
 
+    // Shift (optional)
+    private UUID shiftId;
+    private String shiftName;
+
     // User (auth) info
     private String userEmail;
     private String userRole;
@@ -93,6 +97,10 @@ public class EmployeeDetailsDTO {
             this.transportAllowance = employee.getPayGrade().getTransportAllowance();
             this.otherAllowances = employee.getPayGrade().getOtherAllowances();
             this.grossSalary = employee.getPayGrade().getGrossSalary();
+        }
+        if (employee.getShift() != null) {
+            this.shiftId = employee.getShift().getId();
+            this.shiftName = employee.getShift().getName();
         }
         if (employee.getUser() != null) {
             this.userEmail = employee.getUser().getEmail();

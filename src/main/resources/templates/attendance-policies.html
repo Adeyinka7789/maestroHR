@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* attendance-policies.html — HTMX fragment for Attendance Policies management.
+        Rendered by AttendancePolicyController as "attendance-policies :: content".
+        SYSTEM_ADMIN / HR_ADMIN only — employees never see this page.
+        Structure mirrors loan-policies.html exactly (table + add/edit modal). Like
+        loan-policies.html, this does NOT show which pay grades link to each policy —
+        loan-policies.html has no such column either, so none was added here either. */-->
+
+<div th:fragment="content" class="p-lg flex flex-col gap-lg">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Attendance Policies</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">
+                Define grace periods and late/absence deduction rules for payroll. Each pay grade can be linked to a
+                specific policy; employees with no grade-level policy fall back to the first active policy.
+            </p>
+        </div>
+        <div class="page-header-actions">
+            <button onclick="document.getElementById('add-attendance-policy-modal').style.display='flex'"
+                    class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                <span class="material-symbols-outlined text-[18px]">add</span> Add Policy
+            </button>
+        </div>
+    </div>
+
+    <!-- Flash messages -->
+    <div th:if="${success}"
+         class="p-sm rounded-lg font-label-md text-label-md bg-secondary-container text-on-secondary-container"
+         th:text="${success}"></div>
+    <div th:if="${formError}"
+         class="p-sm rounded-lg font-label-md text-label-md bg-error-container text-on-error-container"
+         th:text="${formError}"></div>
+
+    <!-- Policies table -->
+    <div class="bg-surface-container rounded-xl border border-outline-variant overflow-hidden">
+        <div th:if="${policies.isEmpty()}"
+             class="p-xl text-center font-body-sm text-body-sm text-on-surface-variant">
+            No attendance policies configured yet. Click "Add Policy" to create the first one.
+        </div>
+
+        <table th:unless="${policies.isEmpty()}" class="loan-policy-table w-full text-left border-collapse">
+            <thead class="bg-surface-container-high">
+            <tr>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Name</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Grace Period</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Late Deduction</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Free Lates</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Absence Deduction</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Conversion</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="p : ${policies}" class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                <td class="px-md py-sm" data-label="Name">
+                    <p class="font-label-md text-label-md text-on-surface" th:text="${p.name}">Standard</p>
+                    <p th:if="${p.description != null and !p.description.isEmpty()}"
+                       class="font-body-sm text-body-sm text-on-surface-variant truncate max-w-[200px]"
+                       th:text="${p.description}">...</p>
+                </td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Grace Period"
+                    th:text="${p.gracePeriodMinutes + ' min'}">10 min</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Late Deduction"
+                    th:text="${p.lateDeductionType.name() == 'FLAT' ? ('₦' + #numbers.formatDecimal(p.lateDeductionValue / 100, 1, 'COMMA', 2, 'POINT') + ' flat') : (p.lateDeductionValue + '% of daily rate')}">₦500.00 flat</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Free Lates"
+                    th:text="${p.lateFreeCount}">0</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Absence Deduction"
+                    th:text="${p.absenceDeductionType.name() == 'FLAT' ? ('₦' + #numbers.formatDecimal(p.absenceDeductionValue / 100, 1, 'COMMA', 2, 'POINT') + ' flat') : (p.absenceDeductionValue + '% of daily rate')}">₦2,000.00 flat</td>
+                <td class="px-md py-sm font-body-sm text-body-sm text-on-surface-variant" data-label="Conversion"
+                    th:text="${p.lateToAbsenceConversionEnabled ? (p.lateToAbsenceConversionCount + ' lates = 1 absence') : 'Off'}">Off</td>
+                <td class="px-md py-sm" data-label="Status">
+                    <span th:if="${p.isActive}"
+                          class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-secondary-container text-on-secondary-container">Active</span>
+                    <span th:unless="${p.isActive}"
+                          class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-surface-container text-on-surface-variant">Inactive</span>
+                </td>
+                <td class="px-md py-sm" data-label="Actions">
+                    <div class="flex items-center gap-xs">
+                        <button class="text-primary font-label-sm text-label-sm hover:underline"
+                                th:hx-get="${'/htmx/attendance-policies/' + p.id + '/edit'}"
+                                hx-target="#edit-attendance-policy-container"
+                                hx-swap="innerHTML">Edit</button>
+                        <form th:action="${'/htmx/attendance-policies/' + p.id + '/delete'}" method="post"
+                              onsubmit="return confirm('Delete this policy? Pay grades linked to it will fall back to the tenant default.')">
+                            <button type="submit"
+                                    class="text-error font-label-sm text-label-sm hover:underline">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Edit modal container (populated by HTMX) -->
+    <div id="edit-attendance-policy-container"></div>
+
+    <!-- Add Policy modal -->
+    <div id="add-attendance-policy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:500;padding:16px">
+        <div style="background:#fff;border-radius:12px;max-width:660px;width:100%;max-height:90vh;display:flex;flex-direction:column;border-left:4px solid #00236f;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span class="material-symbols-outlined" style="color:#00236f;font-size:22px">schedule</span>
+                    <h2 style="margin:0;font-size:17px;font-weight:700;color:#00236f">Add Attendance Policy</h2>
+                </div>
+                <button type="button" onclick="document.getElementById('add-attendance-policy-modal').style.display='none'"
+                        style="background:none;border:none;cursor:pointer;color:#6b7280;display:flex;align-items:center;padding:4px;border-radius:6px"
+                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <!-- Scrollable form body + sticky footer inside form -->
+            <form action="/htmx/attendance-policies/create" method="post"
+                  hx-post="/htmx/attendance-policies/create" hx-target="#page-content" hx-swap="innerHTML"
+                  onsubmit="if(this.lateDeductionType.value==='FLAT'){this.lateDeductionValue.value=Math.round(parseFloat(this.lateDeductionValue.value||0)*100);}
+                            if(this.absenceDeductionType.value==='FLAT'){this.absenceDeductionValue.value=Math.round(parseFloat(this.absenceDeductionValue.value||0)*100);}"
+                  style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+                <div style="overflow-y:auto;flex:1;padding:4px 24px 8px">
+
+                    <!-- Section: Policy -->
+                    <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:18px 0 12px">Policy</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div style="grid-column:1/-1">
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Policy Name *</label>
+                            <input type="text" name="name" required maxlength="100"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   placeholder="e.g. Standard Attendance Policy"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div style="grid-column:1/-1">
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Description</label>
+                            <input type="text" name="description" maxlength="500"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Grace Period (minutes)</label>
+                            <input type="number" name="gracePeriodMinutes" min="0" max="120" value="0"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Free Late Days per Period</label>
+                            <input type="number" name="lateFreeCount" min="0" max="31" value="0"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                    </div>
+
+                    <!-- Section: Late Deduction -->
+                    <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px">Late Deduction</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Type</label>
+                            <select name="lateDeductionType"
+                                    style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none">
+                                <option value="FLAT">Flat Amount (₦ per late day)</option>
+                                <option value="PERCENTAGE">Percentage of Daily Rate</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Value</label>
+                            <input type="number" name="lateDeductionValue" min="0" step="0.01" value="0"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   placeholder="₦ if Flat, e.g. 5 for 5% if Percentage"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                            <p style="font-size:11px;color:#6b7280;margin:4px 0 0">Enter a naira amount for Flat, or a percentage number (e.g. 5) for Percentage.</p>
+                        </div>
+                    </div>
+
+                    <!-- Section: Absence Deduction (for lates converted to absences) -->
+                    <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px">Absence Deduction (Converted Lates)</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Type</label>
+                            <select name="absenceDeductionType"
+                                    style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none">
+                                <option value="FLAT">Flat Amount (₦ per absence)</option>
+                                <option value="PERCENTAGE">Percentage of Daily Rate</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Value</label>
+                            <input type="number" name="absenceDeductionValue" min="0" step="0.01" value="0"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   placeholder="₦ if Flat, e.g. 100 for 100% if Percentage"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                    </div>
+
+                    <!-- Section: Late-to-Absence Conversion -->
+                    <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px">Late-to-Absence Conversion</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:8px">
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <input type="checkbox" name="lateToAbsenceConversionEnabled" id="conv-add" value="true"
+                                   style="width:16px;height:16px;accent-color:#00236f;cursor:pointer">
+                            <label for="conv-add" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">Enable conversion</label>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">N Lates = 1 Absence</label>
+                            <input type="number" name="lateToAbsenceConversionCount" min="1" max="31"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   placeholder="e.g. 3"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <input type="checkbox" name="isActive" id="active-add" value="true" checked
+                                   style="width:16px;height:16px;accent-color:#00236f;cursor:pointer">
+                            <label for="active-add" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">Active</label>
+                        </div>
+                    </div>
+                </div>
+                <!-- Sticky footer -->
+                <div style="padding:14px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;background:#fff">
+                    <button type="button" onclick="document.getElementById('add-attendance-policy-modal').style.display='none'"
+                            style="padding:8px 20px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;color:#374151;cursor:pointer;transition:background .15s"
+                            onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">Cancel</button>
+                    <button type="submit"
+                            style="display:flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;border:none;background:#00236f;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
+                            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <span class="material-symbols-outlined" style="font-size:18px">save</span> Create Policy
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit modal (injected by HTMX into #edit-attendance-policy-container) -->
+<div th:fragment="editModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:500;padding:16px">
+    <div style="background:#fff;border-radius:12px;max-width:660px;width:100%;max-height:90vh;display:flex;flex-direction:column;border-left:4px solid #00236f;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span class="material-symbols-outlined" style="color:#00236f;font-size:22px">edit_note</span>
+                <h2 style="margin:0;font-size:17px;font-weight:700;color:#00236f">Edit Attendance Policy</h2>
+            </div>
+            <button type="button" onclick="document.getElementById('edit-attendance-policy-container').innerHTML=''"
+                    style="background:none;border:none;cursor:pointer;color:#6b7280;display:flex;align-items:center;padding:4px;border-radius:6px"
+                    onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <!-- Scrollable form body + sticky footer -->
+        <form th:action="${'/htmx/attendance-policies/' + policy.id + '/update'}" method="post"
+              th:hx-post="${'/htmx/attendance-policies/' + policy.id + '/update'}"
+              hx-target="#page-content" hx-swap="innerHTML"
+              onsubmit="if(this.lateDeductionType.value==='FLAT'){this.lateDeductionValue.value=Math.round(parseFloat(this.lateDeductionValue.value||0)*100);}
+                        if(this.absenceDeductionType.value==='FLAT'){this.absenceDeductionValue.value=Math.round(parseFloat(this.absenceDeductionValue.value||0)*100);}"
+              style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+            <div style="overflow-y:auto;flex:1;padding:4px 24px 8px">
+
+                <!-- Section: Policy -->
+                <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:18px 0 12px">Policy</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div style="grid-column:1/-1">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Policy Name *</label>
+                        <input type="text" name="name" required maxlength="100" th:value="${policy.name}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div style="grid-column:1/-1">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Description</label>
+                        <input type="text" name="description" maxlength="500" th:value="${policy.description}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Grace Period (minutes)</label>
+                        <input type="number" name="gracePeriodMinutes" min="0" max="120" th:value="${policy.gracePeriodMinutes}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Free Late Days per Period</label>
+                        <input type="number" name="lateFreeCount" min="0" max="31" th:value="${policy.lateFreeCount}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                </div>
+
+                <!-- Section: Late Deduction -->
+                <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px">Late Deduction</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Type</label>
+                        <select name="lateDeductionType"
+                                style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none">
+                            <option value="FLAT" th:selected="${policy.lateDeductionType.name() == 'FLAT'}">Flat Amount (₦ per late day)</option>
+                            <option value="PERCENTAGE" th:selected="${policy.lateDeductionType.name() == 'PERCENTAGE'}">Percentage of Daily Rate</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Value</label>
+                        <input type="number" name="lateDeductionValue" min="0" step="0.01"
+                               th:value="${policy.lateDeductionType.name() == 'FLAT' ? (policy.lateDeductionValue / 100) : policy.lateDeductionValue}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        <p style="font-size:11px;color:#6b7280;margin:4px 0 0">Enter a naira amount for Flat, or a percentage number (e.g. 5) for Percentage.</p>
+                    </div>
+                </div>
+
+                <!-- Section: Absence Deduction (for lates converted to absences) -->
+                <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px">Absence Deduction (Converted Lates)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Type</label>
+                        <select name="absenceDeductionType"
+                                style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none">
+                            <option value="FLAT" th:selected="${policy.absenceDeductionType.name() == 'FLAT'}">Flat Amount (₦ per absence)</option>
+                            <option value="PERCENTAGE" th:selected="${policy.absenceDeductionType.name() == 'PERCENTAGE'}">Percentage of Daily Rate</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Value</label>
+                        <input type="number" name="absenceDeductionValue" min="0" step="0.01"
+                               th:value="${policy.absenceDeductionType.name() == 'FLAT' ? (policy.absenceDeductionValue / 100) : policy.absenceDeductionValue}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                </div>
+
+                <!-- Section: Late-to-Absence Conversion -->
+                <div style="font-size:11px;font-weight:700;color:#00236f;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin:20px 0 12px">Late-to-Absence Conversion</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:8px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="checkbox" name="lateToAbsenceConversionEnabled" id="conv-edit" value="true"
+                               th:checked="${policy.lateToAbsenceConversionEnabled}"
+                               style="width:16px;height:16px;accent-color:#00236f;cursor:pointer">
+                        <label for="conv-edit" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">Enable conversion</label>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">N Lates = 1 Absence</label>
+                        <input type="number" name="lateToAbsenceConversionCount" min="1" max="31"
+                               th:value="${policy.lateToAbsenceConversionCount}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               placeholder="e.g. 3"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <input type="checkbox" name="isActive" id="active-edit" value="true"
+                               th:checked="${policy.isActive}"
+                               style="width:16px;height:16px;accent-color:#00236f;cursor:pointer">
+                        <label for="active-edit" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">Active</label>
+                    </div>
+                </div>
+            </div>
+            <!-- Sticky footer -->
+            <div style="padding:14px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;background:#fff">
+                <button type="button" onclick="document.getElementById('edit-attendance-policy-container').innerHTML=''"
+                        style="padding:8px 20px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;color:#374151;cursor:pointer;transition:background .15s"
+                        onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">Cancel</button>
+                <button type="submit"
+                        style="display:flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;border:none;background:#00236f;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
+                        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                    <span class="material-symbols-outlined" style="font-size:18px">save</span> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

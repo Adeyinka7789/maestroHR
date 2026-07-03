@@ -41,6 +41,8 @@ public record EmployeeDetailView(
         String employmentType,
         String startDateFormatted,
         String probationEndFormatted,
+        String shiftDisplay,          // shift name, "No shift assigned — using tenant default", or "No shift configured"
+        String estimatedRetirementDateFormatted, // or "Not available (date of birth not on file)"
 
         // Bank details
         String bankName,

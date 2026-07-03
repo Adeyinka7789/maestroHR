@@ -89,6 +89,12 @@
                         <option value="">Loading pay grades...</option>
                     </select>
                 </div>
+                <div>
+                    <label class="form-label">Shift</label>
+                    <select class="form-input" id="shiftId">
+                        <option value="">Loading shifts...</option>
+                    </select>
+                </div>
                 <div><label class="form-label">Start Date *</label><input class="form-input" type="date" id="employmentStartDate" required></div>
                 <div><label class="form-label">Probation End Date</label><input class="form-input" type="date" id="probationEndDate"></div>
             </div>
@@ -139,6 +145,7 @@
 
         let selectedDepartmentId = null;
         let selectedPayGradeId = null;
+        let selectedShiftId = null;
 
         async function loadEmployeeData() {
             try {
@@ -199,6 +206,7 @@
             // Store IDs for later selection
             if (emp.department) selectedDepartmentId = emp.department.id;
             if (emp.payGrade) selectedPayGradeId = emp.payGrade.id;
+            selectedShiftId = emp.shiftId || null;
         }
 
         async function loadDepartments() {
@@ -235,6 +243,24 @@
                 }
             } catch (error) {
                 console.error('Failed to load pay grades:', error);
+            }
+        }
+
+        async function loadShifts() {
+            try {
+                const response = await apiCall('/api/shifts');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const select = document.getElementById('shiftId');
+                    let options = '<option value="">No shift assigned</option>';
+                    result.data.forEach(shift => {
+                        const selected = (selectedShiftId === shift.id) ? 'selected' : '';
+                        options += `<option value="${shift.id}" ${selected}>${escapeHtml(shift.name)} (${shift.startTime.slice(0,5)}–${shift.endTime.slice(0,5)})</option>`;
+                    });
+                    select.innerHTML = options;
+                }
+            } catch (error) {
+                console.error('Failed to load shifts:', error);
             }
         }
 
@@ -282,6 +308,7 @@
                 role: document.getElementById('role').value,
                 departmentId: document.getElementById('departmentId').value,
                 payGradeId: document.getElementById('payGradeId').value,
+                shiftId: document.getElementById('shiftId').value || null,
                 employmentStartDate: document.getElementById('employmentStartDate').value,
                 probationEndDate: document.getElementById('probationEndDate').value || null,
                 bankName: document.getElementById('bankName').value.trim(),
@@ -323,5 +350,6 @@
         loadEmployeeData();
         loadDepartments();
         loadPayGrades();
+        loadShifts();
     })();
 </script>

@@ -32,11 +32,11 @@ class PayGradesTemplateRenderTest {
         PayGradeListView.Row senior = new PayGradeListView.Row(
                 UUID.randomUUID(), "Senior Engineer", true, 12,
                 30_000_000L, 10_000_000L, 5_000_000L, 0L,
-                "₦300,000", "₦100,000", "₦50,000", "₦0", "₦450,000", 100, null);
+                "₦300,000", "₦100,000", "₦50,000", "₦0", "₦450,000", 100, null, null);
         PayGradeListView.Row junior = new PayGradeListView.Row(
                 UUID.randomUUID(), "Junior Analyst", false, 1,
                 8_000_000L, 2_000_000L, 1_000_000L, 0L,
-                "₦80,000", "₦20,000", "₦10,000", "₦0", "₦110,000", 24, null);
+                "₦80,000", "₦20,000", "₦10,000", "₦0", "₦110,000", 24, null, null);
         return new PayGradeListView(List.of(senior, junior), 2, "₦450,000", "₦280,000", null);
     }
 
@@ -45,6 +45,7 @@ class PayGradesTemplateRenderTest {
         Context ctx = new Context();
         ctx.setVariable("view", viewWithRows());
         ctx.setVariable("loanPolicies", List.of());
+        ctx.setVariable("attendancePolicies", List.of());
 
         String html = templateEngine.process("pay-grades", Set.of("content"), ctx);
 

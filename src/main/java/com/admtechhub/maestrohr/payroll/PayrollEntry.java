@@ -77,6 +77,11 @@ public class PayrollEntry extends BaseEntity {
     @Builder.Default
     private Long attendanceDeduction = 0L;
 
+    /** Late-arrival deduction for the period (kobo), from the effective AttendancePolicy — separate from attendanceDeduction (absence-only). */
+    @Column(name = "late_deduction", nullable = false)
+    @Builder.Default
+    private Long lateDeduction = 0L;
+
     /** Active-loan repayment deducted this period (kobo) — post-statutory line item. */
     @Column(name = "loan_deduction", nullable = false)
     @Builder.Default

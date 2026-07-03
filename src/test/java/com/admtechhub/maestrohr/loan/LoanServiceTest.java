@@ -124,6 +124,24 @@ class LoanServiceTest {
     }
 
     @Test
+    void applyForLoan_rejectsWhenActiveLoanExists_evenWithoutPolicy() {
+        // setUp() stubs loanPolicyService.getPolicyForEmployee(...) to Optional.empty() —
+        // the "no LoanPolicy configured for this tenant" scenario. The concurrent-active-loan
+        // check must still fire since it's no longer nested inside validateLoanRequest's
+        // policy-gated block.
+        UUID empId = UUID.randomUUID();
+        Employee emp = mockEmployee(empId, "Test Employee");
+        when(employeeRepository.findById(empId)).thenReturn(Optional.of(emp));
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
+                .thenReturn(List.of(loan(25_000L, 100_000L, 0, 6, LoanStatus.ACTIVE)));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> loanService.applyForLoan(empId, 12_000_000L, 12, LocalDate.now(), "Second loan"));
+
+        verify(loanRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
     void applyForLoan_nonDivisibleAmount_installmentIsFloorDivision() {
         UUID empId = UUID.randomUUID();
         Employee emp = mockEmployee(empId, "Test Employee");
@@ -153,15 +171,55 @@ class LoanServiceTest {
     @Test
     void resumeLoan_changesStatusToActive() {
         UUID loanId = UUID.randomUUID();
-        when(loanRepository.findById(loanId))
-                .thenReturn(Optional.of(loan(25_000L, 100_000L, 2, 6, LoanStatus.PAUSED)));
-        when(loanRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        UUID empId = UUID.randomUUID();
+        Employee emp = mockEmployee(empId, "Test Employee");
+        EmployeeLoan pausedLoan = loan(25_000L, 100_000L, 2, 6, LoanStatus.PAUSED);
+        pausedLoan.setEmployee(emp);
+
+        when(loanRepository.findById(loanId)).thenReturn(Optional.of(pausedLoan));
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
+                .thenReturn(List.of());
+        when(loanRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
 
         loanService.resumeLoan(loanId);
 
         ArgumentCaptor<EmployeeLoan> cap = ArgumentCaptor.forClass(EmployeeLoan.class);
-        verify(loanRepository).save(cap.capture());
+        verify(loanRepository).saveAndFlush(cap.capture());
         assertThat(cap.getValue().getStatus()).isEqualTo(LoanStatus.ACTIVE);
+    }
+
+    @Test
+    void resumeLoan_rejectsWhenAnotherLoanAlreadyActive() {
+        UUID loanId = UUID.randomUUID();
+        UUID empId = UUID.randomUUID();
+        Employee emp = mockEmployee(empId, "Test Employee");
+        EmployeeLoan pausedLoan = loan(25_000L, 100_000L, 2, 6, LoanStatus.PAUSED);
+        pausedLoan.setEmployee(emp);
+
+        when(loanRepository.findById(loanId)).thenReturn(Optional.of(pausedLoan));
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
+                .thenReturn(List.of(loan(20_000L, 80_000L, 1, 6, LoanStatus.ACTIVE)));
+
+        assertThrows(IllegalArgumentException.class, () -> loanService.resumeLoan(loanId));
+
+        verify(loanRepository, org.mockito.Mockito.never()).saveAndFlush(any());
+    }
+
+    @Test
+    void approveLoan_rejectsWhenAnotherLoanAlreadyActive() {
+        UUID loanId = UUID.randomUUID();
+        UUID empId = UUID.randomUUID();
+        Employee emp = mockEmployee(empId, "Test Employee");
+        EmployeeLoan pendingLoan = loan(25_000L, 150_000L, 0, 6, LoanStatus.PENDING);
+        pendingLoan.setEmployee(emp);
+
+        when(loanRepository.findById(loanId)).thenReturn(Optional.of(pendingLoan));
+        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
+                .thenReturn(List.of(loan(20_000L, 80_000L, 1, 6, LoanStatus.ACTIVE)));
+
+        assertThrows(IllegalArgumentException.class, () -> loanService.approveLoan(loanId));
+
+        verify(loanRepository, org.mockito.Mockito.never()).saveAndFlush(any());
     }
 
     @Test

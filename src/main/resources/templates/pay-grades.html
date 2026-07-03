@@ -175,6 +175,20 @@
                         </select>
                     </div>
 
+                    <!-- Attendance policy -->
+                    <div class="mb-md">
+                        <label class="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Attendance Policy (optional)</label>
+                        <select id="pg-attendance-policy" name="attendancePolicyId"
+                                class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                            <option value="">None — use company default</option>
+                            <option th:each="policy : ${attendancePolicies}"
+                                    th:value="${policy.id}"
+                                    th:text="${policy.name}"
+                                    th:selected="${formValues != null and formValues.attendancePolicyId != null and formValues.attendancePolicyId == policy.id}">
+                            </option>
+                        </select>
+                    </div>
+
                     <!-- Salary components -->
                     <div class="grid grid-cols-2 gap-sm">
                         <div>
@@ -274,6 +288,7 @@
                 pg('pg-transport').value = '';
                 pg('pg-other').value     = '';
                 pg('pg-loan-policy').value = '';
+                pg('pg-attendance-policy').value = '';
                 updateGross();
                 pg('pg-modal').style.display = 'flex';
                 setTimeout(function () { pg('pg-name').focus(); }, 50);
@@ -288,6 +303,7 @@
                 pg('pg-transport').value = btn.dataset.transport? btn.dataset.transport / 100 : '';
                 pg('pg-other').value     = btn.dataset.other    ? btn.dataset.other    / 100 : '';
                 pg('pg-loan-policy').value = btn.dataset.loanPolicyId || '';
+                pg('pg-attendance-policy').value = btn.dataset.attendancePolicyId || '';
                 updateGross();
                 pg('pg-modal').style.display = 'flex';
                 setTimeout(function () { pg('pg-name').focus(); }, 50);
@@ -448,7 +464,7 @@
         <!-- action buttons — exact same HTMX / onclick attrs as original -->
         <div class="flex gap-sm mt-md">
             <button type="button" onclick="openPGEdit(this)"
-                    th:attr="data-id=${row.id},data-name=${row.name},data-basic=${row.basicSalary},data-housing=${row.housingAllowance},data-transport=${row.transportAllowance},data-other=${row.otherAllowances},data-loan-policy-id=${row.loanPolicyId}"
+                    th:attr="data-id=${row.id},data-name=${row.name},data-basic=${row.basicSalary},data-housing=${row.housingAllowance},data-transport=${row.transportAllowance},data-other=${row.otherAllowances},data-loan-policy-id=${row.loanPolicyId},data-attendance-policy-id=${row.attendancePolicyId}"
                     class="inline-flex items-center gap-xs px-3 py-2 rounded-lg border border-outline text-on-surface font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
                 <span class="material-symbols-outlined text-[16px]">edit</span> Edit
             </button>

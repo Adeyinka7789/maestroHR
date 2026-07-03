@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.loan.LoanPolicyService;
@@ -32,6 +33,7 @@ class PayrollIntegrationTest {
     @Mock private NSITFCalculator    nsitfCalculator;
     @Mock private PAYECalculator     payeCalculator;
     @Mock private LoanPolicyService  loanPolicyService;
+    @Mock private AttendanceService  attendanceService;
 
     @InjectMocks private PayrollEngine payrollEngine;
 
@@ -97,6 +99,8 @@ class PayrollIntegrationTest {
         when(nsitfCalculator.calculateEmployerContribution(GROSS)).thenReturn(NSITF_ER);
         // No policy configured — net-floor cap is inactive for these arithmetic tests.
         when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
+        // No attendance policy configured — late deduction is inactive for these arithmetic tests.
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.empty());
     }
 
     // ── Test 1 ────────────────────────────────────────────────────────────────
@@ -104,7 +108,7 @@ class PayrollIntegrationTest {
     @Test
     void threeUnpaidLeaveDays_deductedAsSeperateLineItemFromNet() {
         PayrollEngine.PayrollResult result =
-                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 3, 0, 0L);
+                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 3, 0, 0, 0L);
 
         long expected = DAILY_RATE * 3; // 36,363 × 3 = 108,989 kobo
         assertEquals(expected,         result.getUnpaidLeaveDeduction(),
@@ -120,7 +124,7 @@ class PayrollIntegrationTest {
     @Test
     void twoAbsentDays_deductedAsSeperateLineItemFromNet() {
         PayrollEngine.PayrollResult result =
-                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 2, 0L);
+                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 2, 0, 0L);
 
         long expected = DAILY_RATE * 2; // 36,363 × 2 = 72,726 kobo
         assertEquals(expected, result.getAttendanceDeduction(),
@@ -137,7 +141,7 @@ class PayrollIntegrationTest {
     @Test
     void noDeductions_netPayIsGrossMinusStatutoryOnly() {
         PayrollEngine.PayrollResult result =
-                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 0, 0L);
+                payrollEngine.calculateEmployeePayroll(employee, WORKING_DAYS, WORKING_DAYS, 0, 0, 0, 0L);
 
         assertEquals(0L,              result.getUnpaidLeaveDeduction());
         assertEquals(0L,              result.getAttendanceDeduction());

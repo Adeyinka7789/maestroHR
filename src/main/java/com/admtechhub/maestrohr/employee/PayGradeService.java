@@ -1,5 +1,7 @@
 package com.admtechhub.maestrohr.employee;
 
+import com.admtechhub.maestrohr.attendance.AttendancePolicy;
+import com.admtechhub.maestrohr.attendance.AttendancePolicyRepository;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.loan.LoanPolicy;
 import com.admtechhub.maestrohr.loan.LoanPolicyRepository;
@@ -24,10 +26,12 @@ public class PayGradeService {
     private final TenantRepository tenantRepository;
     private final EmployeeRepository employeeRepository;  // soft-delete guard: live employees still on this grade
     private final LoanPolicyRepository loanPolicyRepository;
+    private final AttendancePolicyRepository attendancePolicyRepository;
 
     @Transactional
     public PayGrade create(String name, Long basicSalary, Long housingAllowance,
-                           Long transportAllowance, Long otherAllowances, UUID loanPolicyId) {
+                           Long transportAllowance, Long otherAllowances, UUID loanPolicyId,
+                           UUID attendancePolicyId) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
 
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -42,6 +46,9 @@ public class PayGradeService {
         LoanPolicy loanPolicy = loanPolicyId != null
                 ? loanPolicyRepository.findById(loanPolicyId).orElse(null)
                 : null;
+        AttendancePolicy attendancePolicy = attendancePolicyId != null
+                ? attendancePolicyRepository.findById(attendancePolicyId).orElse(null)
+                : null;
 
         PayGrade grade = PayGrade.builder()
                 .tenant(tenant)
@@ -51,6 +58,7 @@ public class PayGradeService {
                 .transportAllowance(transportAllowance)
                 .otherAllowances(otherAllowances)
                 .loanPolicy(loanPolicy)
+                .attendancePolicy(attendancePolicy)
                 .build();
 
         return payGradeRepository.save(grade);
@@ -88,7 +96,8 @@ public class PayGradeService {
     @Transactional
     public PayGradeDTO update(UUID id, String name, Long basicSalary,
                               Long housingAllowance, Long transportAllowance,
-                              Long otherAllowances, UUID loanPolicyId) {
+                              Long otherAllowances, UUID loanPolicyId,
+                              UUID attendancePolicyId) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         if (payGradeRepository.existsByNameAndTenantIdAndIdNot(name, tenantId, id)) {
             throw new IllegalArgumentException("Pay grade '" + name + "' already exists");
@@ -103,6 +112,10 @@ public class PayGradeService {
                 ? loanPolicyRepository.findById(loanPolicyId).orElse(null)
                 : null;
         grade.setLoanPolicy(loanPolicy);
+        AttendancePolicy attendancePolicy = attendancePolicyId != null
+                ? attendancePolicyRepository.findById(attendancePolicyId).orElse(null)
+                : null;
+        grade.setAttendancePolicy(attendancePolicy);
         PayGrade saved = payGradeRepository.save(grade);
         return toDto(saved);
     }

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* shifts.html — HTMX fragment for Shift management. Rendered by ShiftController as
+        "shifts :: content". SYSTEM_ADMIN / HR_ADMIN only. Own page (not a tab inside
+        attendance-policies.html) — every other tenant-config concept in this codebase
+        (Loan Policies, Pay Grades, Departments, Attendance Policies) gets its own page and
+        nav entry, and there's no existing tabbed-multi-entity page pattern to mirror instead,
+        so a separate page keeps ShiftController / this template single-responsibility,
+        matching LoanPolicyController's shape exactly as instructed. */-->
+
+<div th:fragment="content" class="p-lg flex flex-col gap-lg">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Shifts</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">
+                Define working shifts (start/end time). Employees can be assigned a shift on their profile;
+                employees with no shift assigned fall back to the tenant's default shift, if one is set.
+            </p>
+        </div>
+        <div class="page-header-actions">
+            <button onclick="document.getElementById('add-shift-modal').style.display='flex'"
+                    class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
+                <span class="material-symbols-outlined text-[18px]">add</span> Add Shift
+            </button>
+        </div>
+    </div>
+
+    <!-- Flash messages -->
+    <div th:if="${success}"
+         class="p-sm rounded-lg font-label-md text-label-md bg-secondary-container text-on-secondary-container"
+         th:text="${success}"></div>
+    <div th:if="${formError}"
+         class="p-sm rounded-lg font-label-md text-label-md bg-error-container text-on-error-container"
+         th:text="${formError}"></div>
+
+    <!-- Shifts table -->
+    <div class="bg-surface-container rounded-xl border border-outline-variant overflow-hidden">
+        <div th:if="${shifts.isEmpty()}"
+             class="p-xl text-center font-body-sm text-body-sm text-on-surface-variant">
+            No shifts configured yet. Click "Add Shift" to create the first one.
+        </div>
+
+        <table th:unless="${shifts.isEmpty()}" class="loan-policy-table w-full text-left border-collapse">
+            <thead class="bg-surface-container-high">
+            <tr>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Name</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Start Time</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">End Time</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Default</th>
+                <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${shifts}" class="border-t border-outline-variant hover:bg-surface-container-low transition-colors">
+                <td class="px-md py-sm" data-label="Name">
+                    <p class="font-label-md text-label-md text-on-surface" th:text="${s.name}">Day Shift</p>
+                </td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="Start Time"
+                    th:text="${#temporals.format(s.startTime, 'HH:mm')}">09:00</td>
+                <td class="px-md py-sm font-body-md text-body-md text-on-surface" data-label="End Time"
+                    th:text="${#temporals.format(s.endTime, 'HH:mm')}">17:00</td>
+                <td class="px-md py-sm" data-label="Default">
+                    <span th:if="${s.isDefault()}"
+                          class="px-xs py-[2px] rounded font-label-sm text-label-sm bg-secondary-container text-on-secondary-container">Default</span>
+                    <span th:unless="${s.isDefault()}" class="font-body-sm text-body-sm text-on-surface-variant">—</span>
+                </td>
+                <td class="px-md py-sm" data-label="Actions">
+                    <div class="flex items-center gap-xs">
+                        <button class="text-primary font-label-sm text-label-sm hover:underline"
+                                th:hx-get="${'/htmx/shifts/' + s.id + '/edit'}"
+                                hx-target="#edit-shift-container"
+                                hx-swap="innerHTML">Edit</button>
+                        <form th:action="${'/htmx/shifts/' + s.id + '/delete'}" method="post"
+                              onsubmit="return confirm('Delete this shift? Employees assigned to it must be reassigned first.')">
+                            <button type="submit"
+                                    class="text-error font-label-sm text-label-sm hover:underline">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Edit modal container (populated by HTMX) -->
+    <div id="edit-shift-container"></div>
+
+    <!-- Add Shift modal -->
+    <div id="add-shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:500;padding:16px">
+        <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:90vh;display:flex;flex-direction:column;border-left:4px solid #00236f;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span class="material-symbols-outlined" style="color:#00236f;font-size:22px">schedule</span>
+                    <h2 style="margin:0;font-size:17px;font-weight:700;color:#00236f">Add Shift</h2>
+                </div>
+                <button type="button" onclick="document.getElementById('add-shift-modal').style.display='none'"
+                        style="background:none;border:none;cursor:pointer;color:#6b7280;display:flex;align-items:center;padding:4px;border-radius:6px"
+                        onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <!-- Form body + sticky footer -->
+            <form action="/htmx/shifts/create" method="post"
+                  hx-post="/htmx/shifts/create" hx-target="#page-content" hx-swap="innerHTML"
+                  style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+                <div style="overflow-y:auto;flex:1;padding:4px 24px 8px">
+                    <div style="grid-column:1/-1;margin:18px 0 12px">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Shift Name *</label>
+                        <input type="text" name="name" required maxlength="100"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               placeholder="e.g. Day Shift"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Start Time *</label>
+                            <input type="time" name="startTime" required value="09:00"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">End Time *</label>
+                            <input type="time" name="endTime" required value="17:00"
+                                   style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                                   onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px">
+                        <input type="checkbox" name="isDefault" id="default-add" value="true"
+                               style="width:16px;height:16px;accent-color:#00236f;cursor:pointer">
+                        <label for="default-add" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">
+                            Make this the tenant default shift (used when an employee has no shift assigned)
+                        </label>
+                    </div>
+                </div>
+                <!-- Sticky footer -->
+                <div style="padding:14px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;background:#fff">
+                    <button type="button" onclick="document.getElementById('add-shift-modal').style.display='none'"
+                            style="padding:8px 20px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;color:#374151;cursor:pointer;transition:background .15s"
+                            onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">Cancel</button>
+                    <button type="submit"
+                            style="display:flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;border:none;background:#00236f;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
+                            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <span class="material-symbols-outlined" style="font-size:18px">save</span> Create Shift
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit modal (injected by HTMX into #edit-shift-container) -->
+<div th:fragment="editModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:500;padding:16px">
+    <div style="background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:90vh;display:flex;flex-direction:column;border-left:4px solid #00236f;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span class="material-symbols-outlined" style="color:#00236f;font-size:22px">edit_note</span>
+                <h2 style="margin:0;font-size:17px;font-weight:700;color:#00236f">Edit Shift</h2>
+            </div>
+            <button type="button" onclick="document.getElementById('edit-shift-container').innerHTML=''"
+                    style="background:none;border:none;cursor:pointer;color:#6b7280;display:flex;align-items:center;padding:4px;border-radius:6px"
+                    onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <!-- Form body + sticky footer -->
+        <form th:action="${'/htmx/shifts/' + shift.id + '/update'}" method="post"
+              th:hx-post="${'/htmx/shifts/' + shift.id + '/update'}"
+              hx-target="#page-content" hx-swap="innerHTML"
+              style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+            <div style="overflow-y:auto;flex:1;padding:4px 24px 8px">
+                <div style="grid-column:1/-1;margin:18px 0 12px">
+                    <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Shift Name *</label>
+                    <input type="text" name="name" required maxlength="100" th:value="${shift.name}"
+                           style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                           onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">Start Time *</label>
+                        <input type="time" name="startTime" required th:value="${#temporals.format(shift.startTime, 'HH:mm')}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px">End Time *</label>
+                        <input type="time" name="endTime" required th:value="${#temporals.format(shift.endTime, 'HH:mm')}"
+                               style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:14px;box-sizing:border-box;outline:none;transition:border-color .15s"
+                               onfocus="this.style.borderColor='#00236f'" onblur="this.style.borderColor='#e2e8f0'">
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px">
+                    <input type="checkbox" name="isDefault" id="default-edit" value="true"
+                           th:checked="${shift.isDefault()}"
+                           style="width:16px;height:16px;accent-color:#00236f;cursor:pointer">
+                    <label for="default-edit" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">
+                        Make this the tenant default shift (used when an employee has no shift assigned)
+                    </label>
+                </div>
+            </div>
+            <!-- Sticky footer -->
+            <div style="padding:14px 24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;background:#fff">
+                <button type="button" onclick="document.getElementById('edit-shift-container').innerHTML=''"
+                        style="padding:8px 20px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:14px;font-weight:600;color:#374151;cursor:pointer;transition:background .15s"
+                        onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='#fff'">Cancel</button>
+                <button type="submit"
+                        style="display:flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;border:none;background:#00236f;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s"
+                        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                    <span class="material-symbols-outlined" style="font-size:18px">save</span> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

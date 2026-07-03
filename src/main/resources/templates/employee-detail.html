@@ -154,6 +154,14 @@
                         <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Probation End</p>
                         <p class="font-body-md text-body-md text-on-surface" th:text="${detail.probationEndFormatted}">Completed</p>
                     </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Shift</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.shiftDisplay}">No shift configured</p>
+                    </div>
+                    <div>
+                        <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Estimated Retirement Date</p>
+                        <p class="font-body-md text-body-md text-on-surface" th:text="${detail.estimatedRetirementDateFormatted}">Not available (date of birth not on file)</p>
+                    </div>
                 </div>
             </div>
 

@@ -29,4 +29,5 @@ public class PayGradeListRow {
     private Boolean isActive;
     private Long employeeCount;
     private UUID loanPolicyId;
+    private UUID attendancePolicyId;
 }

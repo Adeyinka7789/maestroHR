@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.employee;
 
+import com.admtechhub.maestrohr.attendance.AttendancePolicy;
 import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.loan.LoanPolicy;
 import com.admtechhub.maestrohr.tenant.Tenant;
@@ -58,6 +59,12 @@ public class PayGrade extends BaseEntity {
     @JoinColumn(name = "loan_policy_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "tenant", "deletedAt"})
     private LoanPolicy loanPolicy;
+
+    /** Optional policy link; null means the tenant-default active attendance policy is used. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attendance_policy_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "tenant", "deletedAt"})
+    private AttendancePolicy attendancePolicy;
 
     public Long getGrossSalary() {
         return basicSalary + housingAllowance + transportAllowance + otherAllowances;

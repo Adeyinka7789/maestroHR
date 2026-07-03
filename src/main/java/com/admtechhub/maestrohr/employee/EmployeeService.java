@@ -6,6 +6,8 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.auth.UserRole;
 import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.attendance.AttendanceRepository;
+import com.admtechhub.maestrohr.attendance.Shift;
+import com.admtechhub.maestrohr.attendance.ShiftRepository;
 import com.admtechhub.maestrohr.document.OnboardingService;
 import com.admtechhub.maestrohr.employee.event.EmployeeCreatedEvent;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
@@ -54,6 +56,7 @@ public class EmployeeService {
     private final TenantRepository tenantRepository;
     private final DepartmentRepository departmentRepository;
     private final PayGradeRepository payGradeRepository;
+    private final ShiftRepository shiftRepository;
     private final PaystackClient paystackClient;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -245,6 +248,12 @@ public class EmployeeService {
         PayGrade payGrade = payGradeRepository.findById(request.getPayGradeId())
                 .orElseThrow(() -> new IllegalArgumentException("Pay grade not found: " + request.getPayGradeId()));
 
+        // Optional: null clears the assignment (falls back to the tenant default shift at check-in time).
+        Shift shift = request.getShiftId() != null
+                ? shiftRepository.findById(request.getShiftId())
+                        .orElseThrow(() -> new IllegalArgumentException("Shift not found: " + request.getShiftId()))
+                : null;
+
         if (!employee.getEmail().equals(request.getEmail()) &&
                 employeeRepository.existsByEmail(request.getEmail(), tenantId)) {
             throw new IllegalArgumentException("Employee with email " + request.getEmail() + " already exists");
@@ -293,6 +302,7 @@ public class EmployeeService {
         }
         employee.setDepartment(department);
         employee.setPayGrade(payGrade);
+        employee.setShift(shift);
         employee.setJobTitle(request.getJobTitle());
         employee.setEmploymentType(request.getEmploymentType());
         employee.setEmploymentStartDate(request.getEmploymentStartDate());

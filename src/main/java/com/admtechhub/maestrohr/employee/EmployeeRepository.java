@@ -32,6 +32,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     boolean existsByPayGradeId(UUID payGradeId);
 
+    boolean existsByShiftId(UUID shiftId);
+
     Page<Employee> findByStatus(EmployeeStatus status, Pageable pageable);
 
     // Search by name (case insensitive)

@@ -5,6 +5,7 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.TransferStatus;
+import com.admtechhub.maestrohr.retirement.RetirementPolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import java.util.Locale;
 public class PayslipGenerator {
 
     private final TemplateEngine templateEngine;
+    private final RetirementPolicyService retirementPolicyService;
 
     public byte[] generatePayslip(PayrollEntry entry, Employee employee, String period) {
         try {
@@ -34,6 +36,10 @@ public class PayslipGenerator {
             context.setVariable("bankName", employee.getBankName() != null ? employee.getBankName() : "-");
             context.setVariable("accountNumber", employee.getBankAccountNumber() != null ? employee.getBankAccountNumber() : "-");
             context.setVariable("period", period);
+            context.setVariable("estimatedRetirementDate",
+                    retirementPolicyService.getEstimatedRetirementDate(employee)
+                            .map(date -> date.format(DateTimeFormatter.ofPattern("dd MMM yyyy").withLocale(Locale.ENGLISH)))
+                            .orElse("Not available (date of birth not on file)"));
 
             // Department
             if (employee.getDepartment() != null) {

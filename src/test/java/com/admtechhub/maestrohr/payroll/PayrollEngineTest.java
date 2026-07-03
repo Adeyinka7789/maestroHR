@@ -1,5 +1,8 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.attendance.AttendancePolicy;
+import com.admtechhub.maestrohr.attendance.AttendanceService;
+import com.admtechhub.maestrohr.attendance.DeductionType;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.loan.LoanPolicy;
@@ -43,6 +46,7 @@ class PayrollEngineTest {
     private PayrollEngine engine;
     private PlatformSettingsService platformSettingsService;
     private LoanPolicyService loanPolicyService;
+    private AttendanceService attendanceService;
 
     // Standard pay grade (kobo)
     private static final long BASIC      = 25_000_000L;
@@ -70,13 +74,18 @@ class PayrollEngineTest {
 
         loanPolicyService = mock(LoanPolicyService.class);
         when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
+
+        attendanceService = mock(AttendanceService.class);
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.empty());
+
         engine = new PayrollEngine(
                 new PensionCalculator(platformSettingsService),
                 new NHFCalculator(platformSettingsService),
                 new NSITFCalculator(platformSettingsService),
                 new PAYECalculator(platformSettingsService),
                 loanPolicyService,
-                platformSettingsService);
+                platformSettingsService,
+                attendanceService);
     }
 
     private Employee standardEmployee() {
@@ -98,7 +107,7 @@ class PayrollEngineTest {
     @Test
     void d1_standardEmployee_noDeductions_allFieldsCorrect() {
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 0L);
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 0, 0L);
 
         assertThat(r.getGrossSalary()).isEqualTo(GROSS);
         assertThat(r.getIsProrated()).isFalse();
@@ -116,7 +125,7 @@ class PayrollEngineTest {
     @Test
     void d2_midMonthJoiner_11of22Days_grossHalved() {
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(standardEmployee(), 11, 22, 0, 0, 0L);
+                engine.calculateEmployeePayroll(standardEmployee(), 11, 22, 0, 0, 0, 0L);
 
         assertThat(r.getIsProrated()).isTrue();
         assertThat(r.getGrossSalary()).isEqualTo(GROSS / 2);          // 17_500_000
@@ -145,7 +154,7 @@ class PayrollEngineTest {
                 .build();
 
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(minWage, 22, 22, 0, 0, 0L);
+                engine.calculateEmployeePayroll(minWage, 22, 22, 0, 0, 0, 0L);
 
         assertThat(r.getPayeTax()).isEqualTo(0L);
         assertThat(r.getPensionEmployee()).isEqualTo(560_000L);
@@ -160,7 +169,7 @@ class PayrollEngineTest {
         long loanDeduction = 5_000_000L;
 
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, loanDeduction);
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 0, loanDeduction);
 
         assertThat(r.getPayeTax()).isEqualTo(PAYE);
         assertThat(r.getLoanDeduction()).isEqualTo(loanDeduction);
@@ -175,7 +184,7 @@ class PayrollEngineTest {
         long expectedDeduction = DAILY_RATE * 3; // 4_772_727
 
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 3, 0, 0L);
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 3, 0, 0, 0L);
 
         assertThat(r.getUnpaidLeaveDeduction()).isEqualTo(expectedDeduction);
         assertThat(r.getAttendanceDeduction()).isEqualTo(0L);
@@ -191,7 +200,7 @@ class PayrollEngineTest {
         long loanDeduction = 2_000_000L;
 
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 1, 1, loanDeduction);
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 1, 1, 0, loanDeduction);
 
         assertThat(r.getUnpaidLeaveDeduction()).isEqualTo(DAILY_RATE);
         assertThat(r.getAttendanceDeduction()).isEqualTo(DAILY_RATE);
@@ -221,7 +230,7 @@ class PayrollEngineTest {
                 .build();
 
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(highEarner, 22, 22, 0, 0, 0L);
+                engine.calculateEmployeePayroll(highEarner, 22, 22, 0, 0, 0, 0L);
 
         assertThat(r.getPayeTax()).isGreaterThan(0L);
         // Annual taxable > ₦11,200,000 confirms Band 6 is reached
@@ -253,10 +262,127 @@ class PayrollEngineTest {
         when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.of(lowFloorPolicy));
 
         PayrollEngine.PayrollResult r =
-                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 5_000_000L);
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 0, 5_000_000L);
 
         assertThat(r.isLoanDeductionCapped()).isTrue();
         assertThat(r.getLoanDeduction()).isEqualTo(441_500L);
         assertThat(r.getNetSalary()).isEqualTo(27_000_000L);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Late deduction (Stage 3) — AttendancePolicy resolved internally via
+    // attendanceService.getEffectivePolicy(employee), mirroring loanPolicyService.
+    // ════════════════════════════════════════════════════════════════════════
+
+    // L1 — FLAT type, no free days, no conversion: 4 late days × ₦500 flat = 200,000 kobo
+    @Test
+    void l1_lateDeduction_flatType_noFreeDays_noConversion() {
+        AttendancePolicy policy = AttendancePolicy.builder()
+                .name("Standard")
+                .lateDeductionType(DeductionType.FLAT)
+                .lateDeductionValue(new BigDecimal("50000"))
+                .lateFreeCount(0)
+                .build();
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.of(policy));
+
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 4, 0L);
+
+        assertThat(r.getLateDeduction()).isEqualTo(200_000L);
+        assertThat(r.getAttendanceDeduction()).isEqualTo(0L);
+        assertThat(r.getNetSalary()).isEqualTo(NET_FULL - 200_000L);
+    }
+
+    // L2 — PERCENTAGE type, no free days, no conversion: 3 late days × (dailyRate × 5%)
+    //   perDay = (long) (1_590_909 × 5.0 / 100.0) = (long) 79_545.45 = 79_545
+    //   total = 3 × 79_545 = 238_635
+    @Test
+    void l2_lateDeduction_percentageType_noFreeDays_noConversion() {
+        AttendancePolicy policy = AttendancePolicy.builder()
+                .name("Standard")
+                .lateDeductionType(DeductionType.PERCENTAGE)
+                .lateDeductionValue(new BigDecimal("5.00"))
+                .lateFreeCount(0)
+                .build();
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.of(policy));
+
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 3, 0L);
+
+        assertThat(r.getLateDeduction()).isEqualTo(238_635L);
+        assertThat(r.getNetSalary()).isEqualTo(NET_FULL - 238_635L);
+    }
+
+    // L3 — free count fully absorbs late days: 3 lates <= 5 free -> billableLateDays = 0 -> 0 deduction
+    @Test
+    void l3_lateDeduction_freeCountFullyAbsorbsLateDays_zeroDeduction() {
+        AttendancePolicy policy = AttendancePolicy.builder()
+                .name("Standard")
+                .lateDeductionType(DeductionType.FLAT)
+                .lateDeductionValue(new BigDecimal("100000"))
+                .lateFreeCount(5)
+                .build();
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.of(policy));
+
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 3, 0L);
+
+        assertThat(r.getLateDeduction()).isEqualTo(0L);
+        assertThat(r.getNetSalary()).isEqualTo(NET_FULL);
+    }
+
+    // L4 — free count partially absorbs: 5 lates - 2 free = 3 billable × ₦500 flat = 150,000
+    @Test
+    void l4_lateDeduction_freeCountPartiallyAbsorbs_onlyExcessBilled() {
+        AttendancePolicy policy = AttendancePolicy.builder()
+                .name("Standard")
+                .lateDeductionType(DeductionType.FLAT)
+                .lateDeductionValue(new BigDecimal("50000"))
+                .lateFreeCount(2)
+                .build();
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.of(policy));
+
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 5, 0L);
+
+        assertThat(r.getLateDeduction()).isEqualTo(150_000L);
+        assertThat(r.getNetSalary()).isEqualTo(NET_FULL - 150_000L);
+    }
+
+    // L5 — conversion enabled, 3 lates = 1 absence: 7 billable late days (0 free) ->
+    //   convertedAbsenceDays = 7 / 3 = 2, remainingLateDays = 7 % 3 = 1
+    //   lateOnlyDeduction        = 1 × ₦300 flat  = 30_000
+    //   convertedAbsenceDeduction = 2 × ₦2,000 flat = 400_000
+    //   total = 430_000
+    @Test
+    void l5_lateDeduction_conversionEnabled_splitsIntoAbsencesAndRemainder() {
+        AttendancePolicy policy = AttendancePolicy.builder()
+                .name("Standard")
+                .lateDeductionType(DeductionType.FLAT)
+                .lateDeductionValue(new BigDecimal("30000"))
+                .lateFreeCount(0)
+                .absenceDeductionType(DeductionType.FLAT)
+                .absenceDeductionValue(new BigDecimal("200000"))
+                .lateToAbsenceConversionEnabled(true)
+                .lateToAbsenceConversionCount(3)
+                .build();
+        when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.of(policy));
+
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 7, 0L);
+
+        assertThat(r.getLateDeduction()).isEqualTo(430_000L);
+        assertThat(r.getNetSalary()).isEqualTo(NET_FULL - 430_000L);
+    }
+
+    // L6 — no AttendancePolicy resolves: 0 late deduction (graceful fallback, mirrors
+    // getEffectivePolicy's Optional.empty() precedent — setUp() already stubs this default).
+    @Test
+    void l6_lateDeduction_noPolicyResolves_zeroDeduction() {
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 5, 0L);
+
+        assertThat(r.getLateDeduction()).isEqualTo(0L);
+        assertThat(r.getNetSalary()).isEqualTo(NET_FULL);
     }
 }

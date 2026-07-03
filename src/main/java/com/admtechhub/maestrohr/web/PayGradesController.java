@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.attendance.AttendancePolicyRepository;
 import com.admtechhub.maestrohr.employee.PayGradeService;
 import com.admtechhub.maestrohr.loan.LoanPolicyRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,11 +40,12 @@ public class PayGradesController {
     private final PayGradeListService payGradeListService;
     private final PayGradeService payGradeService;
     private final LoanPolicyRepository loanPolicyRepository;
+    private final AttendancePolicyRepository attendancePolicyRepository;
 
     /** Carries submitted form values back into the template on validation error. */
     record PayGradeForm(UUID id, String name, String basicSalary,
                         String housingAllowance, String transportAllowance,
-                        String otherAllowances, UUID loanPolicyId) {}
+                        String otherAllowances, UUID loanPolicyId, UUID attendancePolicyId) {}
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/pay-grades")
@@ -58,6 +60,7 @@ public class PayGradesController {
 
         model.addAttribute("view", payGradeListService.buildList(q));
         model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
+        model.addAttribute("attendancePolicies", attendancePolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 
@@ -87,13 +90,15 @@ public class PayGradesController {
             @RequestParam(value = "transportAllowance", defaultValue = "0") String transportStr,
             @RequestParam(value = "otherAllowances", defaultValue = "0") String otherStr,
             @RequestParam(value = "loanPolicyId", defaultValue = "") String loanPolicyIdStr,
+            @RequestParam(value = "attendancePolicyId", defaultValue = "") String attendancePolicyIdStr,
             Model model) {
 
         String trimmedName = name.trim();
         boolean isEdit = !idStr.isBlank();
         UUID id = isEdit ? UUID.fromString(idStr) : null;
         UUID loanPolicyId = loanPolicyIdStr.isBlank() ? null : UUID.fromString(loanPolicyIdStr);
-        PayGradeForm form = new PayGradeForm(id, name, basicStr, housingStr, transportStr, otherStr, loanPolicyId);
+        UUID attendancePolicyId = attendancePolicyIdStr.isBlank() ? null : UUID.fromString(attendancePolicyIdStr);
+        PayGradeForm form = new PayGradeForm(id, name, basicStr, housingStr, transportStr, otherStr, loanPolicyId, attendancePolicyId);
 
         if (trimmedName.isBlank()) {
             return modalError(model, form, "Grade name is required.");
@@ -115,10 +120,10 @@ public class PayGradesController {
 
         try {
             if (isEdit) {
-                payGradeService.update(id, trimmedName, basic, housing, transport, other, loanPolicyId);
+                payGradeService.update(id, trimmedName, basic, housing, transport, other, loanPolicyId, attendancePolicyId);
                 model.addAttribute("success", "Pay grade updated.");
             } else {
-                payGradeService.create(trimmedName, basic, housing, transport, other, loanPolicyId);
+                payGradeService.create(trimmedName, basic, housing, transport, other, loanPolicyId, attendancePolicyId);
                 model.addAttribute("success", "Pay grade created.");
             }
         } catch (IllegalArgumentException ex) {
@@ -127,6 +132,7 @@ public class PayGradesController {
 
         model.addAttribute("view", payGradeListService.buildList(null));
         model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
+        model.addAttribute("attendancePolicies", attendancePolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 
@@ -147,6 +153,7 @@ public class PayGradesController {
         }
         model.addAttribute("view", payGradeListService.buildList(null));
         model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
+        model.addAttribute("attendancePolicies", attendancePolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 
@@ -155,6 +162,7 @@ public class PayGradesController {
         model.addAttribute("modalError", message);
         model.addAttribute("view", payGradeListService.buildList(null));
         model.addAttribute("loanPolicies", loanPolicyRepository.findAllByOrderByCreatedAtAsc());
+        model.addAttribute("attendancePolicies", attendancePolicyRepository.findAllByOrderByCreatedAtAsc());
         return "pay-grades :: content";
     }
 }

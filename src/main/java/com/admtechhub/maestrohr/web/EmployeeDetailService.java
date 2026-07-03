@@ -1,11 +1,14 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.attendance.AttendanceService;
+import com.admtechhub.maestrohr.attendance.Shift;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.loan.EmployeeLoan;
 import com.admtechhub.maestrohr.loan.LoanService;
+import com.admtechhub.maestrohr.retirement.RetirementPolicyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -36,6 +39,8 @@ public class EmployeeDetailService {
 
     private final EmployeeService employeeService;
     private final LoanService loanService;
+    private final AttendanceService attendanceService;
+    private final RetirementPolicyService retirementPolicyService;
 
     /**
      * Builds the detail view for {@code employeeId}, or {@code null} if no such
@@ -85,6 +90,10 @@ public class EmployeeDetailService {
                 e.getEmploymentType() != null ? humanize(e.getEmploymentType().name()) : "—",
                 formatDate(e.getEmploymentStartDate()),
                 e.getProbationEndDate() != null ? formatDate(e.getProbationEndDate()) : "Completed",
+                shiftDisplay(e),
+                retirementPolicyService.getEstimatedRetirementDate(e)
+                        .map(this::formatDate)
+                        .orElse("Not available (date of birth not on file)"),
 
                 // Bank details
                 orDash(e.getBankName()),
@@ -111,6 +120,21 @@ public class EmployeeDetailService {
 
                 // Loans
                 buildLoanSummaries(e.getId()));
+    }
+
+    /**
+     * Shift display text for the Employment Details card: the employee's own shift name when
+     * assigned; otherwise, whether a tenant default shift exists (checked via
+     * {@link AttendanceService#getEffectiveShift}, which is what actually drives lateness
+     * resolution) determines between the "using tenant default" and "no shift configured" states.
+     */
+    private String shiftDisplay(Employee e) {
+        Shift ownShift = e.getShift();
+        if (ownShift != null) {
+            return ownShift.getName();
+        }
+        boolean hasTenantDefault = attendanceService.getEffectiveShift(e).isPresent();
+        return hasTenantDefault ? "No shift assigned — using tenant default" : "No shift configured";
     }
 
     /** Read-only loan summaries for the employee, newest first (empty when none). */

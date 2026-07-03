@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.employee;
 
+import com.admtechhub.maestrohr.attendance.Shift;
 import com.admtechhub.maestrohr.auth.User;
 import com.admtechhub.maestrohr.common.BaseEntity;
 import com.admtechhub.maestrohr.tenant.Tenant;
@@ -73,6 +74,11 @@ public class Employee extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pay_grade_id", nullable = false)
     private PayGrade payGrade;
+
+    /** Optional working shift; null means the employee has no shift assigned yet. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shift_id")
+    private Shift shift;
 
     @Column(name = "job_title", nullable = false)
     private String jobTitle;

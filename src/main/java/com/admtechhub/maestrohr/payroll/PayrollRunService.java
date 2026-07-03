@@ -180,7 +180,7 @@ public class PayrollRunService {
             long loanDeduction  = loanDeductionMap.getOrDefault(employee.getId(), 0L);
 
             PayrollEngine.PayrollResult result = payrollEngine.calculateEmployeePayroll(
-                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays, loanDeduction);
+                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays, lateDays, loanDeduction);
 
             PayrollEntry entry = PayrollEntry.builder()
                     .tenant(employee.getTenant())
@@ -198,6 +198,7 @@ public class PayrollRunService {
                     .otherDeductions(result.getOtherDeductions())
                     .unpaidLeaveDeduction(result.getUnpaidLeaveDeduction())
                     .attendanceDeduction(result.getAttendanceDeduction())
+                    .lateDeduction(result.getLateDeduction())
                     .loanDeduction(result.getLoanDeduction())
                     .loanDeductionCapped(result.isLoanDeductionCapped())
                     .lateDaysInPeriod(lateDays)
@@ -572,6 +573,7 @@ public class PayrollRunService {
                         .payeTax(entry.getPayeTax())
                         .unpaidLeaveDeduction(entry.getUnpaidLeaveDeduction())
                         .attendanceDeduction(entry.getAttendanceDeduction())
+                        .lateDeduction(entry.getLateDeduction())
                         .loanDeduction(entry.getLoanDeduction())
                         .lateDaysInPeriod(entry.getLateDaysInPeriod())
                         .netSalary(entry.getNetSalary())
@@ -644,6 +646,7 @@ public class PayrollRunService {
                 .payeTax(entry.getPayeTax())
                 .unpaidLeaveDeduction(entry.getUnpaidLeaveDeduction())
                 .attendanceDeduction(entry.getAttendanceDeduction())
+                .lateDeduction(entry.getLateDeduction())
                 .lateDaysInPeriod(entry.getLateDaysInPeriod())
                 .netSalary(entry.getNetSalary())
                 .employeeName(entry.getEmployee().getFullName())

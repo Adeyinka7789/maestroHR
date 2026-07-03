@@ -40,6 +40,7 @@ public record PayGradeListView(
             String otherFormatted,
             String grossFormatted,
             int relativePct,            // gross as a % of the highest gross in this view (0–100)
-            UUID loanPolicyId           // null when no policy is linked to this grade
+            UUID loanPolicyId,          // null when no loan policy is linked to this grade
+            UUID attendancePolicyId     // null when no attendance policy is linked to this grade
     ) {}
 }

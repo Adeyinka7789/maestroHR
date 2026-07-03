@@ -7,6 +7,7 @@ import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -77,6 +79,10 @@ public class LoanService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + employeeId));
 
+        // Platform-wide invariant — one active loan per employee — enforced unconditionally,
+        // independent of whether a LoanPolicy is configured for this tenant/employee.
+        assertNoActiveLoan(employee);
+
         // Policy validation — throws IllegalArgumentException on violation
         loanPolicyService.validateLoanRequest(employee, loanAmountKobo, repaymentMonths);
 
@@ -124,11 +130,15 @@ public class LoanService {
         if (loan.getStatus() != LoanStatus.PENDING) {
             throw new IllegalStateException("Only a PENDING loan request can be approved.");
         }
+        // The application-time check in applyForLoan only sees ACTIVE loans, so two requests
+        // filed while both were PENDING would otherwise both pass — re-check here, right
+        // before the state flip that actually produces a second ACTIVE loan.
+        assertNoActiveLoan(loan.getEmployee());
         loan.setStatus(LoanStatus.ACTIVE);
         loan.setDecidedBy(currentUserEmail());
         loan.setDecidedAt(java.time.OffsetDateTime.now());
         loan.setRejectionReason(null);
-        EmployeeLoan saved = loanRepository.save(loan);
+        EmployeeLoan saved = saveActiveLoan(loan);
         auditTrailService.record(loan.getEmployee().getTenant().getId(), currentUserEmail(), "LOAN_APPROVED",
                 "LOAN", loanId.toString(), "/api/loans/" + loanId + "/approve", "POST",
                 null, 200, "Loan approved for " + loan.getEmployee().getFullName());
@@ -173,8 +183,11 @@ public class LoanService {
         if (loan.getStatus() != LoanStatus.PAUSED) {
             throw new IllegalStateException("Only a PAUSED loan can be resumed.");
         }
+        // Resuming flips a loan back to ACTIVE without going through applyForLoan/approveLoan,
+        // so it needs its own re-check: the employee could have another loan ACTIVE by now.
+        assertNoActiveLoan(loan.getEmployee());
         loan.setStatus(LoanStatus.ACTIVE);
-        return loanRepository.save(loan);
+        return saveActiveLoan(loan);
     }
 
     /** Cancel/write off a loan. Terminal: a COMPLETED or already-CANCELLED loan cannot be cancelled. */
@@ -314,49 +327,47 @@ public class LoanService {
             if (employee == null) {
                 continue;
             }
-            List<EmployeeLoan> activeLoans =
-                    loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId());
+            // idx_employee_loans_one_active (V48) plus the assertNoActiveLoan checks in
+            // applyForLoan/approveLoan/resumeLoan guarantee at most one ACTIVE loan per
+            // employee, so there is nothing left to iterate here.
+            Optional<EmployeeLoan> activeLoan =
+                    loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId())
+                            .stream().findFirst();
+            if (activeLoan.isEmpty()) {
+                continue;
+            }
+            EmployeeLoan loan = activeLoan.get();
+
+            if (repaymentRepository.existsByLoanIdAndPayrollRunId(loan.getId(), run.getId(), currentTenantId())) {
+                continue; // already applied for this run — idempotent skip
+            }
 
             // When the net-floor cap was applied at compute time, entry.loanDeduction is the
-            // capped budget. Apply loans in creation order up to that budget so the ledger
-            // matches the payslip deduction exactly.
+            // capped budget so the ledger matches the payslip deduction exactly.
             long budget = (entry.getLoanDeduction() != null) ? entry.getLoanDeduction() : Long.MAX_VALUE;
-            long budgetUsed = 0L;
-
-            for (EmployeeLoan loan : activeLoans) {
-                if (budgetUsed >= budget) {
-                    break; // net-floor cap exhausted — remaining loans deferred to next run
-                }
-                if (repaymentRepository.existsByLoanIdAndPayrollRunId(loan.getId(), run.getId(), currentTenantId())) {
-                    budgetUsed += installmentFor(loan);
-                    continue; // already applied for this run — idempotent skip
-                }
-                long rawAmount = installmentFor(loan);
-                long amount = Math.min(rawAmount, budget - budgetUsed);
-                if (amount <= 0) {
-                    continue;
-                }
-
-                repaymentRepository.save(LoanRepayment.builder()
-                        .tenant(loan.getTenant())
-                        .loan(loan)
-                        .payrollRun(run)
-                        .amount(amount)
-                        .repaymentType(RepaymentType.STANDARD)
-                        .build());
-
-                loan.setRemainingBalance(loan.getRemainingBalance() - amount);
-                loan.setMonthsPaid(loan.getMonthsPaid() + 1);
-                if (loan.getRemainingBalance() <= 0) {
-                    loan.setRemainingBalance(0L);
-                    loan.setStatus(LoanStatus.COMPLETED);
-                }
-                loanRepository.save(loan);
-                budgetUsed += amount;
-
-                log.info("Applied loan repayment: loan={} run={} amount={} remaining={} status={}",
-                        loan.getId(), run.getId(), amount, loan.getRemainingBalance(), loan.getStatus());
+            long amount = Math.min(installmentFor(loan), budget);
+            if (amount <= 0) {
+                continue;
             }
+
+            repaymentRepository.save(LoanRepayment.builder()
+                    .tenant(loan.getTenant())
+                    .loan(loan)
+                    .payrollRun(run)
+                    .amount(amount)
+                    .repaymentType(RepaymentType.STANDARD)
+                    .build());
+
+            loan.setRemainingBalance(loan.getRemainingBalance() - amount);
+            loan.setMonthsPaid(loan.getMonthsPaid() + 1);
+            if (loan.getRemainingBalance() <= 0) {
+                loan.setRemainingBalance(0L);
+                loan.setStatus(LoanStatus.COMPLETED);
+            }
+            loanRepository.save(loan);
+
+            log.info("Applied loan repayment: loan={} run={} amount={} remaining={} status={}",
+                    loan.getId(), run.getId(), amount, loan.getRemainingBalance(), loan.getStatus());
         }
     }
 
@@ -420,6 +431,36 @@ public class LoanService {
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    private static final String ACTIVE_LOAN_CONFLICT_MESSAGE =
+            "Employee already has an active loan. The existing loan must be completed or waived before a new application is submitted.";
+
+    /**
+     * Platform-wide invariant — at most one ACTIVE loan per employee. Enforced unconditionally
+     * (independent of whether a LoanPolicy is configured) from every path that can produce a
+     * second ACTIVE loan: new applications, approvals, and resumes.
+     */
+    private void assertNoActiveLoan(Employee employee) {
+        if (!loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(employee.getId(), LoanStatus.ACTIVE, currentTenantId()).isEmpty()) {
+            throw new IllegalArgumentException(ACTIVE_LOAN_CONFLICT_MESSAGE);
+        }
+    }
+
+    /**
+     * Saves a loan whose status was just flipped to ACTIVE, flushing immediately so the
+     * {@code idx_employee_loans_one_active} partial unique index is checked synchronously here.
+     * This is the backstop for the race {@link #assertNoActiveLoan} can't close on its own
+     * (two concurrent approve/resume calls both passing the pre-check before either commits) —
+     * translates the resulting constraint violation into the same user-facing message instead
+     * of letting a raw SQL exception surface.
+     */
+    private EmployeeLoan saveActiveLoan(EmployeeLoan loan) {
+        try {
+            return loanRepository.saveAndFlush(loan);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException(ACTIVE_LOAN_CONFLICT_MESSAGE);
+        }
+    }
 
     private EmployeeLoan requireLoan(UUID loanId) {
         return loanRepository.findById(loanId)

@@ -53,6 +53,9 @@ public class UpdateEmployeeRequest {
     @NotNull(message = "Pay grade ID is required")
     private UUID payGradeId;
 
+    /** Optional; null means no shift assigned (falls back to the tenant default at check-in time). */
+    private UUID shiftId;
+
     @NotBlank(message = "Job title is required")
     @Size(max = 150)
     private String jobTitle;

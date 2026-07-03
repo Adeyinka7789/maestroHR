@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -18,6 +19,7 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -29,6 +31,9 @@ public class AttendanceService {
     private final AttendanceRepository attendanceRepository;
     private final EmployeeRepository employeeRepository;
     private final TenantRepository tenantRepository;
+    private final ShiftRepository shiftRepository;
+    private final AttendancePolicyRepository attendancePolicyRepository;
+    private final Clock clock;
 
     // Helper method to convert entity to DTO
     private AttendanceRecordDTO toDto(AttendanceRecord record) {
@@ -198,6 +203,54 @@ public class AttendanceService {
     }
 
     /**
+     * Resolves the effective shift for an employee: {@code employee.getShift()} → the
+     * tenant's default shift (RLS-scoped via {@link ShiftRepository#findFirstByIsDefaultTrue})
+     * → empty when neither exists. Mirrors {@code LoanPolicyService.getPolicyForEmployee}'s shape.
+     */
+    @Transactional(readOnly = true)
+    public Optional<Shift> getEffectiveShift(Employee employee) {
+        if (employee != null && employee.getShift() != null) {
+            return Optional.of(employee.getShift());
+        }
+        return shiftRepository.findFirstByIsDefaultTrue();
+    }
+
+    /**
+     * Resolves the effective attendance policy for an employee: pay-grade-linked policy (if
+     * active) → first active tenant policy → empty. Exact mirror of
+     * {@code LoanPolicyService.getPolicyForEmployee}'s resolution order.
+     */
+    @Transactional(readOnly = true)
+    public Optional<AttendancePolicy> getEffectivePolicy(Employee employee) {
+        if (employee != null && employee.getPayGrade() != null) {
+            AttendancePolicy gradePolicy = employee.getPayGrade().getAttendancePolicy();
+            if (gradePolicy != null && Boolean.TRUE.equals(gradePolicy.getIsActive())) {
+                return Optional.of(gradePolicy);
+            }
+        }
+        return attendancePolicyRepository.findFirstByIsActiveTrueOrderByCreatedAtAsc();
+    }
+
+    /**
+     * PRESENT/LATE determination for a check-in. Without a resolvable shift there is nothing
+     * to compare the clock-in against, so this keeps the pre-existing always-PRESENT behavior.
+     * With a shift, the grace period comes from the effective {@link AttendancePolicy}
+     * (0 minutes when no policy resolves) and lateness is a strict "after threshold" comparison
+     * — a clock-in exactly at the threshold still counts as on time.
+     */
+    private AttendanceStatus resolveCheckInStatus(Employee employee, LocalTime clockInTime) {
+        Optional<Shift> shift = getEffectiveShift(employee);
+        if (shift.isEmpty()) {
+            return AttendanceStatus.PRESENT;
+        }
+        int graceMinutes = getEffectivePolicy(employee)
+                .map(AttendancePolicy::getGracePeriodMinutes)
+                .orElse(0);
+        LocalTime threshold = shift.get().getStartTime().plusMinutes(graceMinutes);
+        return clockInTime.isAfter(threshold) ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
+    }
+
+    /**
      * Self check-in for the given employee on the current day. Single source of truth for
      * both the server-rendered web flow ({@code AttendanceSelfController}) and the REST
      * endpoint ({@code AttendanceController.selfCheckIn}); the caller is responsible for
@@ -208,11 +261,11 @@ public class AttendanceService {
      * record already has a clock-in — controllers render that in-place (web) or as a 400
      * (REST) rather than creating a duplicate.
      *
-     * KNOWN ITEM (intentional, not redesigned here — mirrors {@link #markAttendance} and the
-     * negative-balance leave follow-up): when a record already exists for today without a
-     * clock-in (e.g. an admin pre-marked the employee ABSENT), self check-in flips the status
-     * to PRESENT. That can erase an absent-day payroll deduction. Carried over deliberately;
-     * any policy change belongs in a dedicated step.
+     * ABSENT PRESERVATION: when a record already exists for today with status ABSENT (HR
+     * pre-marked the day), self check-in records the clock-in time and method for visibility
+     * but does NOT flip the status away from ABSENT — only an explicit HR action via
+     * {@link #markAttendance} can do that. For every other case (new record or an existing
+     * non-ABSENT record), status is resolved via {@link #resolveCheckInStatus}.
      */
     @Transactional
     public AttendanceRecordDTO checkIn(UUID employeeId, String notes) {
@@ -222,7 +275,7 @@ public class AttendanceService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         AttendanceRecord record = attendanceRepository
                 .findByEmployeeIdAndAttendanceDate(employeeId, today, currentTenantId())
                 .orElse(null);
@@ -231,20 +284,22 @@ public class AttendanceService {
             throw new IllegalStateException("Already checked in today");
         }
 
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(clock);
         if (record == null) {
             record = AttendanceRecord.builder()
                     .tenant(tenant)
                     .employee(employee)
                     .attendanceDate(today)
                     .clockInTime(now)
-                    .status(AttendanceStatus.PRESENT)
+                    .status(resolveCheckInStatus(employee, now))
                     .checkInMethod("SELF_SERVICE")
                     .build();
-        } else {
-            // Existing record without a clock-in — see KNOWN ITEM above (flips to PRESENT).
+        } else if (record.getStatus() == AttendanceStatus.ABSENT) {
             record.setClockInTime(now);
-            record.setStatus(AttendanceStatus.PRESENT);
+            record.setCheckInMethod("SELF_SERVICE");
+        } else {
+            record.setClockInTime(now);
+            record.setStatus(resolveCheckInStatus(employee, now));
             record.setCheckInMethod("SELF_SERVICE");
         }
         if (notes != null && !notes.isBlank()) {
@@ -264,7 +319,7 @@ public class AttendanceService {
      */
     @Transactional
     public AttendanceRecordDTO checkOut(UUID employeeId, String notes) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         AttendanceRecord record = attendanceRepository
                 .findByEmployeeIdAndAttendanceDate(employeeId, today, currentTenantId())
                 .orElseThrow(() -> new IllegalStateException("You haven't checked in today"));
@@ -276,7 +331,7 @@ public class AttendanceService {
             throw new IllegalStateException("Already checked out today");
         }
 
-        LocalTime now = LocalTime.now();
+        LocalTime now = LocalTime.now(clock);
         record.setClockOutTime(now);
         long minutes = ChronoUnit.MINUTES.between(record.getClockInTime(), now);
         record.setHoursWorked(BigDecimal.valueOf(minutes / 60.0).setScale(2, java.math.RoundingMode.HALF_UP));
@@ -300,7 +355,9 @@ public class AttendanceService {
      * Biometric device check-in for the given employee at a caller-supplied timestamp (which may
      * be a past time when the device is pushing offline records). Guards are the same as
      * {@link #checkIn}: throws {@link IllegalStateException} on double check-in so the device
-     * service can classify the outcome as DUPLICATE rather than ERROR.
+     * service can classify the outcome as DUPLICATE rather than ERROR. Applies the same
+     * ABSENT-preservation rule and grace-period lateness resolution as {@link #checkIn} — see
+     * {@link #resolveCheckInStatus}.
      */
     @Transactional
     public AttendanceRecordDTO processDeviceCheckIn(UUID employeeId, LocalDateTime timestamp) {
@@ -311,7 +368,7 @@ public class AttendanceService {
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
 
         LocalDate date = timestamp.toLocalDate();
-        if (date.isAfter(LocalDate.now())) {
+        if (date.isAfter(LocalDate.now(clock))) {
             throw new IllegalStateException("Cannot record attendance for a future date");
         }
 
@@ -330,12 +387,15 @@ public class AttendanceService {
                     .employee(employee)
                     .attendanceDate(date)
                     .clockInTime(clockIn)
-                    .status(AttendanceStatus.PRESENT)
+                    .status(resolveCheckInStatus(employee, clockIn))
                     .checkInMethod("BIOMETRIC")
                     .build();
+        } else if (record.getStatus() == AttendanceStatus.ABSENT) {
+            record.setClockInTime(clockIn);
+            record.setCheckInMethod("BIOMETRIC");
         } else {
             record.setClockInTime(clockIn);
-            record.setStatus(AttendanceStatus.PRESENT);
+            record.setStatus(resolveCheckInStatus(employee, clockIn));
             record.setCheckInMethod("BIOMETRIC");
         }
 
