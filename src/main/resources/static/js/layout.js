@@ -141,6 +141,14 @@
         if (auditLink) auditLink.style.display = 'none';
     }
 
+    // Hide the help-panel "Settings" link for non‑authorized roles. layout.html is served as a
+    // static resource (never passed through Thymeleaf), so role gating here MUST be done in JS,
+    // not via sec:authorize.
+    if (userRole !== 'HR_ADMIN' && userRole !== 'SUPER_ADMIN' && userRole !== 'SYSTEM_ADMIN') {
+        const settingsLink = document.getElementById('help-settings-link');
+        if (settingsLink) settingsLink.style.display = 'none';
+    }
+
     // ── Impersonation banner (Feature 4) ───────────────────────────
     // When the active token carries impersonation=true, show the red banner and wire Exit to
     // restore the admin session stashed in sessionStorage by the impersonation picker.

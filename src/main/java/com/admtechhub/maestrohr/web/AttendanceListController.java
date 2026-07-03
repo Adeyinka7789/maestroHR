@@ -7,7 +7,11 @@ import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -45,6 +49,16 @@ import java.util.UUID;
  * {@link com.admtechhub.maestrohr.attendance.AttendanceController} already owns the
  * default {@code attendanceController} bean name; a second bean with that name would
  * fail context startup.
+ *
+ * ACCESS: the two read routes below ({@link #attendance} / {@link #table}) use the exact same
+ * role list as the {@link #mark} write's {@code @PreAuthorize} — reads and writes on this
+ * feature aren't split. The check is manual rather than {@code @PreAuthorize} (see
+ * {@link #hasAnyRole}) so a denial is a plain {@link AccessDeniedException} caught locally by
+ * {@link #handleAccessDenied} and rendered as an in-place fragment (HTTP 200), not a raw 403
+ * that would trip layout.js's {@code htmx:responseError} logout redirect. Because the manual
+ * check does a plain string match with no {@code RoleHierarchy} expansion, {@code SYSTEM_ADMIN}
+ * is listed explicitly even though it isn't in {@code mark}'s {@code @PreAuthorize} string
+ * (there it's covered for free via SUPER_ADMIN &gt; SYSTEM_ADMIN &gt; HR_ADMIN).
  */
 @Controller
 @RequiredArgsConstructor
@@ -52,6 +66,11 @@ public class AttendanceListController {
 
     private final AttendanceListService attendanceListService;
     private final AttendanceService attendanceService;
+
+    private static final String[] READ_ROLES = {
+            "ROLE_HR_ADMIN", "ROLE_FINANCE_OFFICER", "ROLE_DEPT_MANAGER",
+            "ROLE_SUPER_ADMIN", "ROLE_SYSTEM_ADMIN"
+    };
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/attendance")
@@ -67,6 +86,10 @@ public class AttendanceListController {
             return "forward:/layout.html";
         }
 
+        if (!hasAnyRole(READ_ROLES)) {
+            throw new AccessDeniedException("You don't have access to this page.");
+        }
+
         model.addAttribute("view",
                 attendanceListService.buildList(parseDate(date), q, parseStatus(status)));
         return "attendance :: content";
@@ -79,6 +102,10 @@ public class AttendanceListController {
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "status", required = false) String status,
             Model model) {
+
+        if (!hasAnyRole(READ_ROLES)) {
+            throw new AccessDeniedException("You don't have access to this page.");
+        }
 
         model.addAttribute("view",
                 attendanceListService.buildList(parseDate(date), q, parseStatus(status)));
@@ -140,6 +167,18 @@ public class AttendanceListController {
     }
 
     /**
+     * Renders access-denial as a data-free fragment (HTTP 200). Deliberately does NOT call
+     * {@link AttendanceListService#buildList} like {@link #handleMarkFailure} does — that would
+     * query and render the company-wide roster this gate exists to keep away from
+     * unauthorized roles.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public String handleAccessDenied(AccessDeniedException ex, Model model) {
+        model.addAttribute("errorMessage", ex.getMessage());
+        return "access-denied :: content";
+    }
+
+    /**
      * Parses the selected day from the date-picker param. Absent, blank, or unparseable
      * values fall back to today (the service also defaults null to today) so a malformed
      * param shows today's roster rather than a 400.
@@ -170,5 +209,21 @@ public class AttendanceListController {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    /** True when the authenticated caller holds any of the given ROLE_* authorities. */
+    private boolean hasAnyRole(String... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        for (GrantedAuthority granted : auth.getAuthorities()) {
+            for (String role : roles) {
+                if (role.equals(granted.getAuthority())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

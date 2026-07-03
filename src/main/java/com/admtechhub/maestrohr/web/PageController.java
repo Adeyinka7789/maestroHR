@@ -1,6 +1,12 @@
 package com.admtechhub.maestrohr.web;
 
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 
@@ -56,9 +62,27 @@ public class PageController {
         return htmxRequest != null ? "forward:/audit.html" : "forward:/layout.html";
     }
 
+    /**
+     * Restricted to SYSTEM_ADMIN (tenant owner), HR_ADMIN, and SUPER_ADMIN — same gate as
+     * {@link AttendancePolicyController} / {@link LoanPolicyController} / {@link ShiftController}.
+     * Only the HTMX fragment fetch (which actually forwards to the billing/plan content in
+     * settings.html) is gated; the cold, non-HTMX visit still returns the generic app shell like
+     * every other route, since that response carries no tenant-specific content.
+     *
+     * The role check is manual (not {@code @PreAuthorize}) so the denial is a plain
+     * {@link AccessDeniedException} caught by {@link #handleAccessDenied} below and rendered as
+     * an in-place HTML fragment (HTTP 200) — a raw 403 here would trip layout.js's
+     * {@code htmx:responseError} handler, which clears localStorage and bounces to login.
+     */
     @GetMapping("/htmx/settings")
     public String settings(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/settings.html" : "forward:/layout.html";
+        if (htmxRequest == null) {
+            return "forward:/layout.html";
+        }
+        if (!hasAnyRole("ROLE_SYSTEM_ADMIN", "ROLE_HR_ADMIN", "ROLE_SUPER_ADMIN")) {
+            throw new AccessDeniedException("You don't have access to this page.");
+        }
+        return "forward:/settings.html";
     }
 
     // NOTE: /htmx/admin is owned by SuperAdminDashboardController (server-rendered platform
@@ -111,4 +135,32 @@ public class PageController {
     //       filters). static/subscribers.html remains on disk as the legacy fallback until the
     //       new fragment is browser-verified.
 
+    /** True when the authenticated caller holds any of the given ROLE_* authorities. */
+    private boolean hasAnyRole(String... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        for (GrantedAuthority granted : auth.getAuthorities()) {
+            for (String role : roles) {
+                if (role.equals(granted.getAuthority())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Renders access-denial as an in-place HTML fragment (HTTP 200, so HTMX still performs the
+     * swap — it skips swaps on 4xx/5xx by default) instead of letting a raw 403 reach
+     * layout.js's {@code htmx:responseError} handler, which would clear localStorage and bounce
+     * the user to login. Mirrors the write-failure handlers in {@code LeaveListController} /
+     * {@code ShiftController} / {@code LoanPolicyController}, applied here to a read-access denial.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public String handleAccessDenied(AccessDeniedException ex, Model model) {
+        model.addAttribute("errorMessage", ex.getMessage());
+        return "access-denied :: content";
+    }
 }

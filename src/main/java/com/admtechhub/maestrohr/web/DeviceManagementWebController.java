@@ -7,7 +7,10 @@ import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -18,17 +21,42 @@ import java.util.UUID;
 /**
  * Server-rendered HTMX device management page (Attendance → Device Sync).
  * Handles both the shell GET (tab-based view) and all write actions via HTMX POST.
- * HR_ADMIN / SUPER_ADMIN only.
+ * Restricted to SYSTEM_ADMIN (tenant owner), HR_ADMIN, and SUPER_ADMIN — same gate as
+ * {@link AttendancePolicyController} / {@link LoanPolicyController} / {@link ShiftController}.
+ *
+ * The gate used to be {@code @PreAuthorize("hasAnyAuthority('HR_ADMIN', 'SUPER_ADMIN')")},
+ * commented out. That expression was also broken independently of being disabled:
+ * {@code hasAnyAuthority} does a raw string match against the granted authority, but every
+ * authority in this app carries a {@code ROLE_} prefix (see {@code JwtAuthFilter}), so it would
+ * have matched no one even if re-enabled. Replaced with a manual check (see
+ * {@link #checkAccess()}) so a denial is a plain {@link AccessDeniedException} caught locally by
+ * {@link #handleAccessDenied} and rendered as an in-place fragment (HTTP 200) — a raw 403 here
+ * would trip layout.js's {@code htmx:responseError} handler, which clears localStorage and
+ * bounces the user to login.
  */
 @Controller
 @RequiredArgsConstructor
-//@RequiresFeature(SubscriptionFeature.HARDWARE_SYNC)
-//@PreAuthorize("hasAnyAuthority('HR_ADMIN', 'SUPER_ADMIN')")
 public class DeviceManagementWebController {
 
     private final DeviceApiKeyService deviceApiKeyService;
     private final DeviceEmployeeEnrollmentRepository enrollmentRepository;
     private final EmployeeRepository employeeRepository;
+
+    /**
+     * Runs before every handler in this controller (a plain Spring MVC per-request hook, not
+     * Spring Security AOP) — checked unconditionally, including the cold shell GET and every
+     * write, so a caller can't bypass it by omitting the {@code HX-Request} header on a direct
+     * POST. Using {@code @ModelAttribute} instead of a class-level {@code @PreAuthorize} avoids
+     * that annotation also covering {@link #handleAccessDenied} below (a class-level security
+     * annotation applies to every public method, including the exception handler, which would
+     * re-deny the handler itself and produce the exact raw-403 this fix exists to avoid).
+     */
+    @ModelAttribute
+    public void checkAccess() {
+        if (!hasAnyRole("ROLE_SYSTEM_ADMIN", "ROLE_HR_ADMIN", "ROLE_SUPER_ADMIN")) {
+            throw new AccessDeniedException("You don't have access to this page.");
+        }
+    }
 
     // ── Page shell ────────────────────────────────────────────────────────────
 
@@ -121,7 +149,34 @@ public class DeviceManagementWebController {
         return "attendance-devices :: content";
     }
 
+    /**
+     * Renders access-denial as a data-free fragment (HTTP 200). Deliberately does NOT call
+     * {@link #populateModel} like {@link #handleError} does — that would query and render the
+     * device/employee data this gate exists to keep away from unauthorized roles.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public String handleAccessDenied(AccessDeniedException ex, Model model) {
+        model.addAttribute("errorMessage", ex.getMessage());
+        return "access-denied :: content";
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** True when the authenticated caller holds any of the given ROLE_* authorities. */
+    private boolean hasAnyRole(String... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        for (GrantedAuthority granted : auth.getAuthorities()) {
+            for (String role : roles) {
+                if (role.equals(granted.getAuthority())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     private void populateModel(Model model, String tab, String error, String success,
                                DeviceKeyCreatedDTO newKey) {

@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content" class="p-lg flex flex-col gap-lg">
+    <div class="p-sm rounded-lg font-label-md text-label-md bg-error-container text-on-error-container"
+         th:text="${errorMessage}"></div>
+</div>
+</body>
+</html>
