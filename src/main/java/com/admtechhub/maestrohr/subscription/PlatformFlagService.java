@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,10 +22,11 @@ import java.util.stream.Collectors;
  * {@link FeatureFlagOverride}s and rollout-percentage bucketing layered on top. Platform-wide
  * (not tenant-scoped): a SUPER_ADMIN toggles a flag/override and it takes effect immediately.
  *
- * <p><b>Default-enabled semantics:</b> a flag with no row is treated as enabled. This keeps
- * every existing feature working unchanged — only features explicitly seeded/flagged (today
- * just {@code LOAN_MANAGEMENT}) are subject to a global switch. {@link #enable}/{@link #disable}
- * create the row on first toggle so a never-seeded feature can still be switched off.
+ * <p><b>Fail-safe-disabled semantics:</b> a flag with no {@code platform_flags} row is treated
+ * as disabled — see {@link #isEnabledForTenant}. In practice {@link PlatformFlagSeeder} seeds
+ * every {@code SubscriptionFeature} at boot, so this only bites a genuinely unregistered flag
+ * name (typo, stale reference, or a pre-seed boot race), which should fail closed rather than
+ * silently open. {@link #enable}/{@link #disable} create the row on first toggle.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 public class PlatformFlagService {
 
     private static final String FLAG_CACHE_ATTR = "PlatformFlagService.flagCache";
+    private static final String OVERRIDE_CACHE_ATTR = "PlatformFlagService.overrideCache";
 
     private final PlatformFlagRepository flagRepository;
     private final FeatureFlagOverrideRepository overrideRepository;
@@ -40,8 +43,7 @@ public class PlatformFlagService {
     /**
      * Whether the named flag is on, with no tenant/plan context. Backward-compatible entry
      * point: delegates to {@link #isEnabledForTenant} with a null tenant and plan, which skips
-     * the override and rollout layers and falls straight through to the global default.
-     * Absent flag → {@code true} (unchanged historical behavior).
+     * the override and rollout layers. Absent flag → {@code false} (fail-safe-disabled).
      */
     @Transactional(readOnly = true)
     public boolean isEnabled(String flagName) {
@@ -49,52 +51,56 @@ public class PlatformFlagService {
     }
 
     /**
-     * Layered resolution, short-circuiting on the first layer that applies. Tenant/plan
-     * overrides are targeting rules and take precedence over the global kill switch (e.g. an
-     * early-access tenant can be force-enabled while a feature is globally killed for an
-     * incident):
+     * Layered resolution, short-circuiting on the first layer that applies:
      * <ol>
+     *   <li>No {@code platform_flags} row for this name → log a warning and return
+     *       {@code false} (fail-safe-disabled; see class Javadoc)</li>
+     *   <li>Global kill switch off → {@code false}, <b>absolute</b> — no override of any kind
+     *       can revive a globally-killed flag, so neither override lookup even runs</li>
      *   <li>Tenant override exists → that override's value</li>
      *   <li>Plan override exists → that override's value</li>
-     *   <li>Global kill switch off → {@code false}</li>
      *   <li>Rollout percentage &lt; 100 (requires a tenant) → consistent-hash bucket test</li>
-     *   <li>Global default (flag's {@code enabled}, or {@code true} if no row)</li>
+     *   <li>Global default → {@code true} (the flag row exists and is enabled, by this point)</li>
      * </ol>
      * {@code tenantId}/{@code planName} may be null, in which case the corresponding override
      * layers (and rollout, which requires a tenant) are skipped.
      */
     @Transactional(readOnly = true)
     public boolean isEnabledForTenant(String flagName, UUID tenantId, String planName) {
+        Map<String, PlatformFlag> cache = requestScopedFlagCache();
+        PlatformFlag flag = cache != null ? cache.get(flagName) : flagRepository.findByName(flagName).orElse(null);
+
+        if (flag == null) {
+            log.warn("Feature flag '{}' has no platform_flags row; defaulting to disabled", flagName);
+            return false;
+        }
+
+        if (!flag.isEnabled()) {
+            return false;
+        }
+
         if (tenantId != null) {
-            Optional<FeatureFlagOverride> tenantOverride = overrideRepository
-                    .findByFlagNameAndTargetTypeAndTargetValue(flagName, TargetType.TENANT, tenantId.toString());
+            Optional<FeatureFlagOverride> tenantOverride =
+                    cachedOverride(flagName, TargetType.TENANT, tenantId.toString());
             if (tenantOverride.isPresent()) {
                 return tenantOverride.get().isEnabled();
             }
         }
 
         if (planName != null) {
-            Optional<FeatureFlagOverride> planOverride = overrideRepository
-                    .findByFlagNameAndTargetTypeAndTargetValue(flagName, TargetType.PLAN, planName);
+            Optional<FeatureFlagOverride> planOverride = cachedOverride(flagName, TargetType.PLAN, planName);
             if (planOverride.isPresent()) {
                 return planOverride.get().isEnabled();
             }
         }
 
-        Map<String, PlatformFlag> cache = requestScopedFlagCache();
-        PlatformFlag flag = cache != null ? cache.get(flagName) : flagRepository.findByName(flagName).orElse(null);
-
-        if (flag != null && !flag.isEnabled()) {
-            return false;
-        }
-
-        int rolloutPercentage = flag != null ? flag.getRolloutPercentage() : 100;
+        int rolloutPercentage = flag.getRolloutPercentage();
         if (tenantId != null && rolloutPercentage < 100) {
             int bucket = Math.floorMod((tenantId.toString() + flagName).hashCode(), 100);
             return bucket < rolloutPercentage;
         }
 
-        return flag == null || flag.isEnabled();
+        return true;
     }
 
     /**
@@ -118,6 +124,31 @@ public class PlatformFlagService {
             attrs.setAttribute(FLAG_CACHE_ATTR, cache, RequestAttributes.SCOPE_REQUEST);
         }
         return cache;
+    }
+
+    /**
+     * Request-scoped cache for individual override lookups, keyed by (flagName, targetType,
+     * targetValue) — a request checking several flags for the same tenant/plan combination
+     * doesn't re-query an override it has already fetched. Unlike {@link #requestScopedFlagCache},
+     * this is filled lazily per key rather than preloaded, since eagerly loading every override
+     * row would defeat the point of scoping the cache to just what a request actually looks up.
+     * Falls back to a direct query when there is no request context, same as the flag cache.
+     */
+    @SuppressWarnings("unchecked")
+    private Optional<FeatureFlagOverride> cachedOverride(String flagName, TargetType targetType, String targetValue) {
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs == null) {
+            return overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(flagName, targetType, targetValue);
+        }
+        Map<String, Optional<FeatureFlagOverride>> cache = (Map<String, Optional<FeatureFlagOverride>>)
+                attrs.getAttribute(OVERRIDE_CACHE_ATTR, RequestAttributes.SCOPE_REQUEST);
+        if (cache == null) {
+            cache = new HashMap<>();
+            attrs.setAttribute(OVERRIDE_CACHE_ATTR, cache, RequestAttributes.SCOPE_REQUEST);
+        }
+        String key = flagName + '|' + targetType + '|' + targetValue;
+        return cache.computeIfAbsent(key, k ->
+                overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(flagName, targetType, targetValue));
     }
 
     /** Turn the flag on, creating it if it does not yet exist. */

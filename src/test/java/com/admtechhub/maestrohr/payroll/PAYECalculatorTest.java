@@ -1,9 +1,16 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * NTA 2025 PAYE band-boundary tests. Real calculator, no mocks. All amounts in kobo.
@@ -21,11 +28,19 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class PAYECalculatorTest {
 
+    private PlatformSettingsService platformSettingsService;
     private PAYECalculator calculator;
 
     @BeforeEach
     void setUp() {
-        calculator = new PAYECalculator();
+        // Passthrough stub: any key falls back to the caller's default unless a test
+        // overrides that specific key below — mirrors "no settings row configured".
+        platformSettingsService = mock(PlatformSettingsService.class);
+        when(platformSettingsService.getLongOrDefault(anyString(), anyLong()))
+                .thenAnswer(inv -> inv.getArgument(1));
+        when(platformSettingsService.getDoubleOrDefault(anyString(), anyDouble()))
+                .thenAnswer(inv -> inv.getArgument(1));
+        calculator = new PAYECalculator(platformSettingsService);
     }
 
     // A1 ── exactly ₦70,000/month → exempt, zero PAYE on all fields
@@ -136,5 +151,23 @@ class PAYECalculatorTest {
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(2_400_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(532_000_000L);
         assertThat(r.getMonthlyPAYE()).isEqualTo(44_333_333L);
+    }
+
+    // A9 ── platform_settings override for min_wage_kobo changes the exemption threshold,
+    // proving the calculator reads config rather than the hardcoded 7_000_000 constant.
+    //   Override min wage to ₦100,000/month (10_000_000 kobo). An employee nominally earning
+    //   ₦90,000/month (9_000_000 kobo) is above the OLD hardcoded threshold (would be taxed
+    //   under the pre-wiring behaviour) but below the NEW configured threshold → must be exempt.
+    @Test
+    void a9_minWageOverride_changesExemptionThreshold() {
+        when(platformSettingsService.getLongOrDefault(eq("min_wage_kobo"), anyLong()))
+                .thenReturn(10_000_000L);
+
+        PAYECalculator.PAYEResult r =
+                calculator.calculate(9_000_000L, 0L, 0L, 9_000_000L, 9_000_000L);
+
+        assertThat(r.getAnnualTaxableIncome()).isEqualTo(0L);
+        assertThat(r.getAnnualPAYE()).isEqualTo(0L);
+        assertThat(r.getMonthlyPAYE()).isEqualTo(0L);
     }
 }

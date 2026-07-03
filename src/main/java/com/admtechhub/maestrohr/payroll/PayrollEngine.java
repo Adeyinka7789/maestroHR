@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.loan.LoanPolicy;
 import com.admtechhub.maestrohr.loan.LoanPolicyService;
+import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public class PayrollEngine {
     private final NSITFCalculator nsitfCalculator;
     private final PAYECalculator payeCalculator;
     private final LoanPolicyService loanPolicyService;
+    private final PlatformSettingsService platformSettingsService;
 
     /**
      * Calculate complete payroll for a single employee.
@@ -94,7 +96,8 @@ public class PayrollEngine {
         if (policyOpt.isPresent()) {
             LoanPolicy policy = policyOpt.get();
             long policyFloor = (long) (grossSalary * policy.getNetFloorPct().doubleValue() / 100.0);
-            long minNet = Math.max(policyFloor, 7_000_000L); // NMW = ₦70,000 = 7,000,000 kobo
+            long minWageKobo = platformSettingsService.getLongOrDefault("min_wage_kobo", 7_000_000L); // NMW default = ₦70,000
+            long minNet = Math.max(policyFloor, minWageKobo);
             long afterStatutory = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction;
             if (afterStatutory - effectiveLoanDeduction < minNet) {
                 effectiveLoanDeduction = Math.max(0L, afterStatutory - minNet);

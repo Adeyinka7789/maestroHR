@@ -163,6 +163,12 @@
                                    class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
                                    th:value="${settings['nhf_rate_pct']}">
                         </div>
+                        <div>
+                            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-xs">NSITF Rate %</label>
+                            <input type="number" name="nsitf_rate_pct" min="0" max="100" step="0.1"
+                                   class="w-full border border-outline-variant rounded-lg px-sm py-xs font-body-md text-body-md bg-surface-container-low focus:outline-none focus:border-primary"
+                                   th:value="${settings['nsitf_rate_pct']}">
+                        </div>
                     </div>
                     <div class="flex justify-end">
                         <button type="submit" class="flex items-center gap-xs bg-primary text-white px-md py-xs rounded-lg font-label-md text-label-md hover:opacity-90 transition-all duration-300">
@@ -320,7 +326,8 @@
                 min_wage_kobo: String(Math.round(naira * 100)),
                 pension_employee_pct: form.querySelector('[name="pension_employee_pct"]').value.trim(),
                 pension_employer_pct: form.querySelector('[name="pension_employer_pct"]').value.trim(),
-                nhf_rate_pct: form.querySelector('[name="nhf_rate_pct"]').value.trim()
+                nhf_rate_pct: form.querySelector('[name="nhf_rate_pct"]').value.trim(),
+                nsitf_rate_pct: form.querySelector('[name="nsitf_rate_pct"]').value.trim()
             };
             fetch('/api/admin/platform-settings', {
                 method: 'POST',

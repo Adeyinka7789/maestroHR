@@ -4,12 +4,14 @@ import com.admtechhub.maestrohr.payroll.PayrollEntry;
 import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
+import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,9 +25,15 @@ public class NsitfReportService {
 
     private final PayrollRunRepository payrollRunRepository;
     private final PayrollEntryRepository payrollEntryRepository;
+    private final PlatformSettingsService platformSettingsService;
 
-    private static final double NSITF_RATE = 0.01;
+    // Fallback used only when the platform_settings row is missing or unparseable.
+    private static final double NSITF_RATE_PCT_DEFAULT = 1.0;
 
+    // NOTE: payroll_entries has no nsitf column (NSITFCalculator's output is never persisted
+    // on PayrollEntry — confirmed no "nsitf" column exists in any migration), so unlike the
+    // other schedules in this package this report cannot read a stored value; it recomputes
+    // from gross salary using the same settings key as NSITFCalculator so the two stay in sync.
     @Transactional(readOnly = true)
     public Map<String, Object> generateNsitfData(Integer month, Integer year, UUID tenantId) {
         PayrollRun payrollRun = payrollRunRepository
@@ -35,6 +43,9 @@ public class NsitfReportService {
         List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRun.getId(), tenantId);
         Tenant tenant = payrollRun.getTenant();
 
+        double nsitfRatePct = platformSettingsService.getDoubleOrDefault("nsitf_rate_pct", NSITF_RATE_PCT_DEFAULT);
+        double nsitfRate = nsitfRatePct / 100.0;
+
         List<String> headers = List.of("Employee Number", "Employee Name", "Gross Salary (₦)", "NSITF Contribution (₦)");
         List<List<String>> rows = new ArrayList<>();
         long totalGross = 0;
@@ -42,7 +53,7 @@ public class NsitfReportService {
 
         for (PayrollEntry entry : entries) {
             long gross = entry.getGrossSalary();
-            long nsitf = Math.round(gross * NSITF_RATE);
+            long nsitf = Math.round(gross * nsitfRate);
             totalGross += gross;
             totalNsitf += nsitf;
             rows.add(List.of(
@@ -57,10 +68,15 @@ public class NsitfReportService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("title", "NSITF Contribution Report");
-        result.put("subtitle", tenant.getCompanyName() + " – " + getMonthName(month) + " " + year + " (Rate: 1%)");
+        result.put("subtitle", tenant.getCompanyName() + " – " + getMonthName(month) + " " + year
+                + " (Rate: " + formatRate(nsitfRatePct) + "%)");
         result.put("headers", headers);
         result.put("rows", rows);
         return result;
+    }
+
+    private String formatRate(double ratePct) {
+        return new DecimalFormat("0.##").format(ratePct);
     }
 
     private String getMonthName(int month) {

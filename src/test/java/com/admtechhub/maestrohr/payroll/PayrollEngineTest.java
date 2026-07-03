@@ -2,14 +2,21 @@ package com.admtechhub.maestrohr.payroll;
 
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
+import com.admtechhub.maestrohr.loan.LoanPolicy;
 import com.admtechhub.maestrohr.loan.LoanPolicyService;
+import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +41,8 @@ import static org.mockito.Mockito.when;
 class PayrollEngineTest {
 
     private PayrollEngine engine;
+    private PlatformSettingsService platformSettingsService;
+    private LoanPolicyService loanPolicyService;
 
     // Standard pay grade (kobo)
     private static final long BASIC      = 25_000_000L;
@@ -51,14 +60,23 @@ class PayrollEngineTest {
 
     @BeforeEach
     void setUp() {
-        LoanPolicyService loanPolicyService = mock(LoanPolicyService.class);
+        // Passthrough stub: any key falls back to the caller's default unless a test
+        // overrides that specific key below — mirrors "no settings row configured".
+        platformSettingsService = mock(PlatformSettingsService.class);
+        when(platformSettingsService.getLongOrDefault(anyString(), anyLong()))
+                .thenAnswer(inv -> inv.getArgument(1));
+        when(platformSettingsService.getDoubleOrDefault(anyString(), anyDouble()))
+                .thenAnswer(inv -> inv.getArgument(1));
+
+        loanPolicyService = mock(LoanPolicyService.class);
         when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
         engine = new PayrollEngine(
-                new PensionCalculator(),
-                new NHFCalculator(),
-                new NSITFCalculator(),
-                new PAYECalculator(),
-                loanPolicyService);
+                new PensionCalculator(platformSettingsService),
+                new NHFCalculator(platformSettingsService),
+                new NSITFCalculator(platformSettingsService),
+                new PAYECalculator(platformSettingsService),
+                loanPolicyService,
+                platformSettingsService);
     }
 
     private Employee standardEmployee() {
@@ -210,5 +228,35 @@ class PayrollEngineTest {
         assertThat(r.getTaxableIncome()).isGreaterThan(1_120_000_000L);
         assertThat(r.getTaxableIncome()).isEqualTo(3_031_200_000L);
         assertThat(r.getPayeTax()).isEqualTo(57_483_333L);
+    }
+
+    // D8 ── loan net-floor branch (previously untested: setUp always mocked
+    // getPolicyForEmployee to Optional.empty(), so lines 93-105 in PayrollEngine had zero
+    // coverage). A real LoanPolicy is present here with a low netFloorPct (1%, i.e.
+    // policyFloor = 350_000), so the binding floor is the platform minimum wage — and
+    // min_wage_kobo is overridden to ₦270,000 (27_000_000 kobo), far from both the real
+    // ₦70,000 default and the old hardcoded 7_000_000L constant. If the engine still read
+    // the hardcoded constant, this loan would NOT be capped (afterStatutory - loan =
+    // 22_441_500 > 7_000_000); capping only happens if minNet is sourced from settings.
+    //   afterStatutory = NET_FULL = 27_441_500; minNet = max(350_000, 27_000_000) = 27_000_000
+    //   effectiveLoanDeduction = 27_441_500 − 27_000_000 = 441_500; netSalary = 27_000_000
+    @Test
+    void d8_loanFloor_boundBySettingsMinWage_notHardcodedConstant() {
+        when(platformSettingsService.getLongOrDefault(eq("min_wage_kobo"), anyLong()))
+                .thenReturn(27_000_000L);
+
+        LoanPolicy lowFloorPolicy = LoanPolicy.builder()
+                .name("Low Floor")
+                .maxAmountKobo(50_000_000L)
+                .netFloorPct(new BigDecimal("1.0"))
+                .build();
+        when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.of(lowFloorPolicy));
+
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 0, 0, 5_000_000L);
+
+        assertThat(r.isLoanDeductionCapped()).isTrue();
+        assertThat(r.getLoanDeduction()).isEqualTo(441_500L);
+        assertThat(r.getNetSalary()).isEqualTo(27_000_000L);
     }
 }

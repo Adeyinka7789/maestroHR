@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -156,6 +158,18 @@ class FeatureCheckAspectTest {
         GatedService svc = proxy(new GatedService());
 
         assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
+    }
+
+    // ── Global platform kill-switch off → 402, subscription never consulted ────
+    @Test
+    void globalFlagDisabled_throws402_subscriptionNeverConsulted() {
+        when(platformFlagService.isEnabledForTenant(eq(SubscriptionFeature.LEAVE_MANAGEMENT.name()), any(), any()))
+                .thenReturn(false);
+        GatedService svc = proxy(new GatedService());
+
+        assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
+        // The global flag short-circuits before the per-tenant plan check.
+        verify(subscriptionService, never()).hasFeature(any(), any());
     }
 
     // ── 402 mapping in the global handler ──────────────────────────────────────

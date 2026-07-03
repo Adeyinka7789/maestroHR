@@ -1,5 +1,7 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.platform.PlatformSettingsService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -16,18 +18,24 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class PAYECalculator {
 
-    // Minimum-wage exemption: employees earning ≤ ₦70,000/month pay no PAYE.
-    // Tested against NOMINAL monthly pay (pre-proration) so a higher earner who
-    // worked a partial month is still taxed on their prorated gross.
-    private static final long MIN_WAGE_EXEMPTION_MONTHLY = 7_000_000L;   // ₦70,000
+    private final PlatformSettingsService platformSettingsService;
 
-    // Rent Relief: 20% of annual rent paid, capped at ₦500,000/yr.
-    private static final double RENT_RELIEF_RATE = 0.20;
-    private static final long   RENT_RELIEF_CAP  = 50_000_000L;          // ₦500,000
+    // Fallback values used only when the platform_settings row is missing or unparseable —
+    // see PlatformSettingsService#getLongOrDefault / #getDoubleOrDefault.
+    // Minimum-wage exemption: employees earning <= the threshold pay no PAYE. Tested against
+    // NOMINAL monthly pay (pre-proration) so a higher earner who worked a partial month is
+    // still taxed on their prorated gross.
+    private static final long MIN_WAGE_EXEMPTION_MONTHLY_DEFAULT = 7_000_000L;   // ₦70,000
 
-    // Progressive band widths for ANNUAL taxable income (kobo)
+    // Rent Relief: a percentage of annual rent paid, capped at an annual ceiling.
+    private static final double RENT_RELIEF_RATE_PCT_DEFAULT = 20.0;            // 20%
+    private static final long   RENT_RELIEF_CAP_KOBO_DEFAULT = 50_000_000L;     // ₦500,000
+
+    // Progressive band widths for ANNUAL taxable income (kobo) — not yet settings-backed;
+    // needs a dedicated effective-dated band table, tracked as a separate follow-up.
     private static final long BAND_TAX_FREE = 80_000_000L;    // first ₦800,000 @ 0%
     private static final long BAND_2_WIDTH  = 140_000_000L;   // next ₦1,400,000 (→ ₦2,200,000)
     private static final long BAND_3_WIDTH  = 200_000_000L;   // next ₦2,000,000 (→ ₦4,200,000)
@@ -55,10 +63,13 @@ public class PAYECalculator {
                                 Long basicSalary, Long nominalMonthlyGross) {
         long annualGross = grossSalary * 12;
 
+        long minWageExemptionMonthly = platformSettingsService.getLongOrDefault(
+                "min_wage_kobo", MIN_WAGE_EXEMPTION_MONTHLY_DEFAULT);
+
         // Step 0: Minimum-wage exemption — judged on nominal (un-prorated) monthly pay.
-        if (nominalMonthlyGross <= MIN_WAGE_EXEMPTION_MONTHLY) {
+        if (nominalMonthlyGross <= minWageExemptionMonthly) {
             log.debug("Min-wage exempt: nominalMonthlyGross={} <= {}",
-                    nominalMonthlyGross, MIN_WAGE_EXEMPTION_MONTHLY);
+                    nominalMonthlyGross, minWageExemptionMonthly);
             return zeroResult(annualGross);
         }
 
@@ -66,10 +77,15 @@ public class PAYECalculator {
         long annualPension = pensionEmployee * 12;
         long annualNhf = nhfDeduction * 12;
 
-        // Step 2: Rent Relief = 20% of annual rent paid, capped at ₦500,000.
-        // TODO: source annual rent paid from the employee profile (follow-up). 0 for now.
+        // Step 2: Rent Relief = a settings-configured % of annual rent paid, capped at a
+        // settings-configured ceiling. TODO: source annual rent paid from the employee
+        // profile (follow-up). 0 for now, so this branch is currently a no-op in practice.
+        double rentReliefRate = platformSettingsService.getDoubleOrDefault(
+                "rent_relief_rate_pct", RENT_RELIEF_RATE_PCT_DEFAULT) / 100.0;
+        long rentReliefCap = platformSettingsService.getLongOrDefault(
+                "rent_relief_cap_kobo", RENT_RELIEF_CAP_KOBO_DEFAULT);
         long annualRentPaid = 0L;
-        long annualRentRelief = Math.min(Math.round(annualRentPaid * RENT_RELIEF_RATE), RENT_RELIEF_CAP);
+        long annualRentRelief = Math.min(Math.round(annualRentPaid * rentReliefRate), rentReliefCap);
 
         // Step 3: Taxable income = gross − pension − NHF − rent relief
         long annualGrossTaxable = annualGross - annualPension - annualNhf;
