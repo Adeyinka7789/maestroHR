@@ -113,6 +113,7 @@ management:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 # Public base URL used to build links embedded in outgoing emails (login link,
 # password-reset link). Override per environment via APP_URL.
@@ -210,3 +211,4 @@ resilience4j:
         # ONLY retry on genuine network-level drops for read endpoints
         retryExceptions:
           - com.admtechhub.maestrohr.paystack.PaystackClient.PaystackNetworkException
+
