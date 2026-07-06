@@ -15,10 +15,14 @@ import com.admtechhub.maestrohr.tenant.TenantRepository;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
 import com.admtechhub.maestrohr.kafka.PayrollEventProducer;
 import com.admtechhub.maestrohr.notification.NotificationService;
+import com.admtechhub.maestrohr.payroll.event.PayrollApprovedAppEvent;
+import com.admtechhub.maestrohr.payroll.event.PayrollMarkedPaidAppEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,8 +47,10 @@ public class PayrollRunService {
     private final LeaveService leaveService;
     private final AttendanceService attendanceService;
     private final LoanService loanService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    private static final int DEFAULT_WORKING_DAYS = 22;
+    private static final String PAYROLL_PERIOD_CONFLICT_MESSAGE_TEMPLATE =
+            "Payroll for %d/%d already exists";
 
     /**
      * Initiate a new payroll run
@@ -56,7 +62,7 @@ public class PayrollRunService {
         log.info("Initiating payroll for {}-{} for tenant: {}", month, year, tenantId);
 
         if (payrollRunRepository.existsByTenant_IdAndPayrollMonthAndPayrollYear(tenantId, month, year)) {
-            throw new IllegalStateException("Payroll for " + month + "/" + year + " already exists");
+            throw new IllegalStateException(String.format(PAYROLL_PERIOD_CONFLICT_MESSAGE_TEMPLATE, month, year));
         }
 
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -73,7 +79,7 @@ public class PayrollRunService {
                 .initiatedBy(initiatedBy)
                 .build();
 
-        PayrollRun saved = payrollRunRepository.save(payrollRun);
+        PayrollRun saved = savePayrollRun(payrollRun, month, year);
         notificationService.createInAppNotification(
                 initiatedBy.getEmail(),
                 "PAYROLL_INITIATED",
@@ -201,7 +207,9 @@ public class PayrollRunService {
                     .lateDeduction(result.getLateDeduction())
                     .loanDeduction(result.getLoanDeduction())
                     .loanDeductionCapped(result.isLoanDeductionCapped())
+                    .netFloorClamped(result.isNetFloorClamped())
                     .lateDaysInPeriod(lateDays)
+                    .deductionSnapshot(buildDeductionSnapshot(unpaidLeaveDays, absentDays, lateDays, loanDeduction))
                     .netSalary(result.getNetSalary())
                     .daysWorked(result.getDaysWorked())
                     .workingDays(result.getWorkingDays())
@@ -293,12 +301,13 @@ public class PayrollRunService {
         User approvedBy = userRepository.findById(approvedByUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + approvedByUserId));
 
-        // Guard: the loan deductions locked onto the entries at compute must still match the
-        // current loan state, or the payslip total and the ledger about to be written would
-        // disagree (a loan was paused / cancelled / added between compute and approval). On a
-        // mismatch this throws → the run stays PENDING_APPROVAL and finance is told to reject &
-        // recompute. Checked before any state change so nothing is half-applied.
-        loanService.verifyDeductionsCurrent(payrollRun.getEntries());
+        // Guard: the deduction inputs (unpaid leave/absence/late days, loan deduction) locked
+        // onto the entries at compute must still match what they'd compute to now, or the
+        // payslip total and the about-to-be-written loan ledger would disagree (a leave/
+        // attendance record changed, or a loan was paused/cancelled/added, between compute and
+        // approval). On a mismatch this throws → the run stays PENDING_APPROVAL and finance is
+        // told to reject & recompute. Checked before any state change so nothing is half-applied.
+        verifyDeductionSnapshotsCurrent(payrollRun);
 
         payrollRun.setStatus(PayrollStatus.APPROVED);
 
@@ -313,33 +322,17 @@ public class PayrollRunService {
 
         PayrollRun updated = payrollRunRepository.save(payrollRun);
 
-        // Publish event so PayrollNotificationConsumer generates + dispatches payslips async.
-        // Falls back to the synchronous per-entry loop when Kafka is unavailable.
-        try {
-            payrollEventProducer.publishPayrollApproved(payrollRunId, currentTenantId());
-        } catch (Exception e) {
-            log.warn("Kafka unavailable; sending payslip notifications synchronously: {}", e.getMessage());
-            for (PayrollEntry entry : payrollRun.getEntries()) {
-                notificationService.sendPayslipNotification(
-                        entry, entry.getEmployee(), payrollRun.getPeriod());
-            }
-        }
-        notificationService.createInAppNotification(
+        // Side effects (Kafka publish, payslip dispatch fallback, in-app notifications) fire
+        // AFTER this transaction commits - mirrors EmployeePostCommitProcessor's pattern, so a
+        // rollback (or a race with the async consumer reading pre-commit state) can never
+        // dispatch payslips for a payroll run that wasn't actually approved.
+        eventPublisher.publishEvent(new PayrollApprovedAppEvent(
+                payrollRunId,
+                currentTenantId(),
+                payrollRun.getPeriod(),
                 approvedBy.getEmail(),
-                "PAYROLL_APPROVED",
-                "Payroll approved",
-                "Payroll run " + payrollRun.getPeriod() + " has been approved.",
-                "/payroll/" + payrollRunId
-        );
-        if (payrollRun.getInitiatedBy() != null && !payrollRun.getInitiatedBy().getEmail().equalsIgnoreCase(approvedBy.getEmail())) {
-            notificationService.createInAppNotification(
-                    payrollRun.getInitiatedBy().getEmail(),
-                    "PAYROLL_APPROVED",
-                    "Payroll approved",
-                    "Payroll run " + payrollRun.getPeriod() + " was approved by " + approvedBy.getEmail() + ".",
-                    "/payroll/" + payrollRunId
-            );
-        }
+                payrollRun.getInitiatedBy() != null ? payrollRun.getInitiatedBy().getEmail() : null));
+
         log.info("Payroll run {} approved by {}", payrollRunId, approvedByUserId);
 
         return toResponse(updated);
@@ -400,23 +393,18 @@ public class PayrollRunService {
         }
         payrollEntryRepository.saveAll(entries);
 
-        for (PayrollEntry entry : entries) {
-            notificationService.sendSalaryProcessedNotification(
-                    entry, entry.getEmployee(), period, companyName);
-        }
-
         payrollRun.setStatus(PayrollStatus.COMPLETED);
         PayrollRun updated = payrollRunRepository.save(payrollRun);
 
-        if (payrollRun.getInitiatedBy() != null) {
-            notificationService.createInAppNotification(
-                    payrollRun.getInitiatedBy().getEmail(),
-                    "PAYROLL_COMPLETED",
-                    "Payroll completed",
-                    "Payroll run " + period + " has been marked as paid.",
-                    "/payroll/" + payrollRunId
-            );
-        }
+        // Side effects (per-entry salary-processed notifications, in-app notification) fire
+        // AFTER this transaction commits - same AFTER_COMMIT pattern as approvePayroll above.
+        eventPublisher.publishEvent(new PayrollMarkedPaidAppEvent(
+                payrollRunId,
+                currentTenantId(),
+                period,
+                companyName,
+                payrollRun.getInitiatedBy() != null ? payrollRun.getInitiatedBy().getEmail() : null));
+
         log.info("Payroll run {} marked as paid (COMPLETED), {} employees notified", payrollRunId, entries.size());
 
         return toResponse(updated);
@@ -533,6 +521,89 @@ public class PayrollRunService {
             throw new IllegalStateException("No tenant context available for payroll operation");
         }
         return UUID.fromString(tenantIdStr);
+    }
+
+    /**
+     * Saves a newly initiated payroll run, flushing immediately so the
+     * idx_payroll_runs_one_active_period partial unique index (V53) is checked synchronously
+     * here. This is the backstop for the race the existsBy... pre-check above can't close on
+     * its own (two concurrent initiatePayroll calls for the same tenant/month/year both
+     * passing the pre-check before either commits) — translates the resulting constraint
+     * violation into the same user-facing message instead of letting a raw SQL exception
+     * surface. Mirrors LoanService.saveActiveLoan's exact pattern for the equivalent
+     * one-ACTIVE-loan-per-employee race.
+     */
+    private PayrollRun savePayrollRun(PayrollRun payrollRun, Integer month, Integer year) {
+        try {
+            return payrollRunRepository.saveAndFlush(payrollRun);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException(String.format(PAYROLL_PERIOD_CONFLICT_MESSAGE_TEMPLATE, month, year));
+        }
+    }
+
+    /**
+     * Consistency guard run at approval, before repayments are applied. Verifies each entry's
+     * compute-time snapshot of (unpaidLeaveDays, absentDays, lateDays, loanDeduction) — the raw
+     * inputs the payroll formulas were computed from — still matches what would be computed now.
+     * They diverge only when a leave/attendance record changed, or a loan was paused / cancelled
+     * / added, between this run's compute and its approval — in which case the payslip and the
+     * about-to-be-written loan ledger would disagree.
+     *
+     * <p>Replaces the narrower, loan-only {@code LoanService.verifyDeductionsCurrent}: this
+     * covers all four drift-sensitive inputs and does NOT skip capped entries — a loan cancelled
+     * after compute on a capped entry used to slip through silently (the stored loanDeduction was
+     * already reduced by the net-floor cap, so it "matched" a since-cancelled loan's now-zero
+     * deduction only by coincidence of the cap, not because nothing had actually changed); it is
+     * now caught like any other drift, since the snapshot records the RAW loanDeduction input,
+     * not the capped value actually charged.
+     *
+     * <p>Throws {@link IllegalStateException} on the first mismatch so the caller can surface a
+     * "reject and recompute" message; recompute (available while DRAFT) refreshes the stored
+     * snapshot and the next approval passes.
+     */
+    private void verifyDeductionSnapshotsCurrent(PayrollRun payrollRun) {
+        List<PayrollEntry> checkable = payrollRun.getEntries().stream()
+                .filter(e -> e.getEmployee() != null)
+                .toList();
+        if (checkable.isEmpty()) {
+            return;
+        }
+
+        LocalDate periodStart = LocalDate.of(payrollRun.getPayrollYear(), payrollRun.getPayrollMonth(), 1);
+        LocalDate periodEnd = periodStart.plusMonths(1).minusDays(1);
+        List<UUID> employeeIds = checkable.stream().map(e -> e.getEmployee().getId()).toList();
+
+        Map<UUID, Integer> unpaidLeaveDaysMap = leaveService.getUnpaidLeaveDaysBatch(employeeIds, periodStart, periodEnd);
+        Map<UUID, Integer> absentDaysMap = attendanceService.getAbsentDaysBatch(employeeIds, periodStart, periodEnd);
+        Map<UUID, Integer> lateDaysMap = attendanceService.getLateDaysBatch(employeeIds, periodStart, periodEnd);
+        Map<UUID, Long> loanDeductionMap = loanService.computeLoanDeductionsBatch(employeeIds);
+
+        for (PayrollEntry entry : checkable) {
+            Employee employee = entry.getEmployee();
+            String storedSnapshot = entry.getDeductionSnapshot();
+            if (storedSnapshot == null) {
+                log.warn("Payroll entry {} for {} has no deduction snapshot (computed before this "
+                        + "drift guard existed); skipping drift check for this entry",
+                        entry.getId(), employee.getFullName());
+                continue;
+            }
+
+            int unpaidLeaveDays = unpaidLeaveDaysMap.getOrDefault(employee.getId(), 0);
+            int absentDays = absentDaysMap.getOrDefault(employee.getId(), 0);
+            int lateDays = lateDaysMap.getOrDefault(employee.getId(), 0);
+            long loanDeduction = loanDeductionMap.getOrDefault(employee.getId(), 0L);
+
+            String currentSnapshot = buildDeductionSnapshot(unpaidLeaveDays, absentDays, lateDays, loanDeduction);
+            if (!storedSnapshot.equals(currentSnapshot)) {
+                throw new IllegalStateException(
+                        "Payroll inputs for " + employee.getFullName() + " changed since this payroll "
+                                + "was computed. Reject the run and recompute before approving.");
+            }
+        }
+    }
+
+    private static String buildDeductionSnapshot(int unpaidLeaveDays, int absentDays, int lateDays, long loanDeduction) {
+        return unpaidLeaveDays + ":" + absentDays + ":" + lateDays + ":" + loanDeduction;
     }
 
     private int getWorkingDays(int month, int year) {

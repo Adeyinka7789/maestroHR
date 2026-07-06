@@ -61,7 +61,12 @@ public class PAYECalculator {
      */
     public PAYEResult calculate(Long grossSalary, Long pensionEmployee, Long nhfDeduction,
                                 Long basicSalary, Long nominalMonthlyGross) {
-        long annualGross = grossSalary * 12;
+        // Annualize off the NOMINAL (un-prorated) monthly gross, not the period's already-
+        // prorated grossSalary — otherwise a mid-month joiner/leaver would be banded as if
+        // their diluted partial-month gross were their true annual run-rate, understating
+        // their real bracket. PayrollEngine prorates the resulting monthlyPAYE afterward so
+        // the amount actually withheld this period still reflects days worked.
+        long annualGross = nominalMonthlyGross * 12;
 
         long minWageExemptionMonthly = platformSettingsService.getLongOrDefault(
                 "min_wage_kobo", MIN_WAGE_EXEMPTION_MONTHLY_DEFAULT);

@@ -7,6 +7,7 @@ import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,8 +20,11 @@ public class PayrollNotificationConsumer {
     private final PayrollEntryRepository payrollEntryRepository;
     private final NotificationService notificationService;
 
+    // Manual-ack: offset is committed only after this method returns (success or handled
+    // failure), so a mid-processing crash replays the event instead of silently losing it.
+    // Global spring.kafka.listener.ack-mode: manual applies to this (default) container factory.
     @KafkaListener(topics = "maestrohr.payroll.approved", groupId = "${spring.kafka.consumer.group-id}")
-    public void processPayrollApproved(PayrollApprovedEvent event) {
+    public void processPayrollApproved(PayrollApprovedEvent event, Acknowledgment ack) {
         log.info("Processing PayrollApprovedEvent for run {}", event.getPayrollRunId());
         TenantContext.setCurrentTenant(event.getTenantId().toString());
         try {
@@ -42,6 +46,7 @@ public class PayrollNotificationConsumer {
                     event.getPayrollRunId(), e.getMessage(), e);
         } finally {
             TenantContext.clear();
+            ack.acknowledge();
         }
     }
 }

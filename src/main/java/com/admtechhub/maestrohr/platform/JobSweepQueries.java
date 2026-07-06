@@ -34,6 +34,8 @@ public class JobSweepQueries {
     public record StalePayrollRow(UUID tenantId, UUID runId, int payrollMonth, int payrollYear,
                                   LocalDateTime approvedAt) {}
 
+    public record DisbursingUnknownRow(UUID tenantId, UUID runId, String batchReference) {}
+
     public record BirthdayRow(UUID tenantId, UUID employeeId, String firstName, String lastName) {}
 
     public record ProbationRow(UUID tenantId, UUID employeeId, String firstName, String lastName) {}
@@ -87,6 +89,22 @@ public class JobSweepQueries {
                             approvedAt != null ? approvedAt.toLocalDateTime() : null);
                 },
                 staleDays);
+    }
+
+    /**
+     * Payroll runs stuck in DISBURSING_UNKNOWN, across all tenants — feeds
+     * DisbursementService.reconcileUnknownDisbursements. batch_reference may be null (a run
+     * that reached DISBURSING_UNKNOWN without ever getting one); the caller decides how to
+     * handle that case.
+     */
+    public List<DisbursingUnknownRow> findDisbursingUnknownRuns() {
+        return jdbc.query(
+                "SELECT tenant_id, id AS run_id, batch_reference "
+                        + "FROM payroll_runs WHERE status = 'DISBURSING_UNKNOWN'",
+                (rs, n) -> new DisbursingUnknownRow(
+                        rs.getObject("tenant_id", UUID.class),
+                        rs.getObject("run_id", UUID.class),
+                        rs.getString("batch_reference")));
     }
 
     /** Active employees across all tenants whose date_of_birth month and day match the given values. */

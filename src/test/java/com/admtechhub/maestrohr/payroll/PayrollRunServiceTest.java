@@ -15,6 +15,8 @@ import com.admtechhub.maestrohr.loan.LoanService;
 import com.admtechhub.maestrohr.notification.NotificationService;
 import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
 import com.admtechhub.maestrohr.platform.PlatformSettingsService;
+import com.admtechhub.maestrohr.payroll.event.PayrollApprovedAppEvent;
+import com.admtechhub.maestrohr.payroll.event.PayrollMarkedPaidAppEvent;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import com.admtechhub.maestrohr.tenant.TenantRepository;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,8 +28,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +57,7 @@ class PayrollRunServiceTest {
     @Mock LeaveService leaveService;
     @Mock AttendanceService attendanceService;
     @Mock LoanService loanService;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     @InjectMocks PayrollRunService payrollRunService;
 
@@ -79,6 +85,38 @@ class PayrollRunServiceTest {
         verify(payrollRunRepository, never()).save(any());
     }
 
+    /**
+     * Simulates the race idx_payroll_runs_one_active_period (V53) closes: the existsBy...
+     * pre-check passes (returns false — the race window between two concurrent
+     * initiatePayroll calls for the same tenant/month/year), but the subsequent
+     * saveAndFlush collides with the unique index and Postgres raises a constraint
+     * violation. initiatePayroll must translate that into a clean IllegalStateException
+     * rather than letting the raw DataIntegrityViolationException surface, and must not
+     * have sent any notification (the failure happens before that side effect).
+     */
+    @Test
+    void initiatePayroll_raceLosesToUniqueIndex_translatesToCleanIllegalStateException() {
+        when(payrollRunRepository.existsByTenant_IdAndPayrollMonthAndPayrollYear(TENANT, 6, 2026))
+                .thenReturn(false);
+
+        Tenant tenant = Tenant.builder().companyName("Acme Ltd").build();
+        tenant.setId(TENANT);
+        when(tenantRepository.findById(TENANT)).thenReturn(Optional.of(tenant));
+
+        User initiator = User.builder().email("hr@company.com").role(UserRole.HR_ADMIN).build();
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(initiator));
+
+        when(payrollRunRepository.saveAndFlush(any(PayrollRun.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key value violates unique constraint \"idx_payroll_runs_one_active_period\""));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> payrollRunService.initiatePayroll(6, 2026, USER_ID));
+
+        assertEquals("Payroll for 6/2026 already exists", ex.getMessage());
+        verify(notificationService, never()).createInAppNotification(any(), any(), any(), any(), any());
+    }
+
     @Test
     void approvePayroll_wrongStatus_throws() {
         UUID runId = UUID.randomUUID();
@@ -89,31 +127,144 @@ class PayrollRunServiceTest {
                 () -> payrollRunService.approvePayroll(runId, USER_ID));
     }
 
+    /**
+     * Replaces the old approvePayroll_loanDriftDetected_throws: the drift guard moved from
+     * LoanService.verifyDeductionsCurrent (loan-only) to PayrollRunService's snapshot-based
+     * check, which covers unpaidLeaveDays/absentDays/lateDays/loanDeduction together. This
+     * simulates a loan deduction that changed since compute (e.g. paused/cancelled) on an
+     * otherwise-ordinary, non-capped entry.
+     */
     @Test
-    void approvePayroll_loanDriftDetected_throws() {
+    void approvePayroll_deductionSnapshotDrifted_throws() {
         UUID runId = UUID.randomUUID();
-        User initiator = User.builder()
-                .email("hr@company.com")
-                .role(UserRole.HR_ADMIN)
-                .build();
+        UUID empId = UUID.randomUUID();
+        User initiator = User.builder().email("hr@company.com").role(UserRole.HR_ADMIN).build();
+
+        Employee emp = mock(Employee.class);
+        when(emp.getId()).thenReturn(empId);
+        when(emp.getFullName()).thenReturn("Jane Doe");
+
+        PayrollEntry entry = mock(PayrollEntry.class);
+        when(entry.getEmployee()).thenReturn(emp);
+        // Snapshot recorded at compute time: 0 unpaid/absent/late days, loanDeduction=25,000.
+        when(entry.getDeductionSnapshot()).thenReturn("0:0:0:25000");
+
         PayrollRun run = PayrollRun.builder()
                 .status(PayrollStatus.PENDING_APPROVAL)
                 .initiatedBy(initiator)
+                .payrollMonth(6)
+                .payrollYear(2026)
+                .entries(new ArrayList<>(List.of(entry)))
                 .build();
 
         when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
         when(userRepository.findById(USER_ID))
-                .thenReturn(Optional.of(User.builder()
-                        .email("mgr@company.com")
-                        .role(UserRole.DEPT_MANAGER)
-                        .build()));
-        doThrow(new IllegalStateException("Loan deductions have changed since payroll was computed"))
-                .when(loanService).verifyDeductionsCurrent(any());
+                .thenReturn(Optional.of(User.builder().email("mgr@company.com").role(UserRole.DEPT_MANAGER).build()));
 
-        assertThrows(IllegalStateException.class,
+        when(leaveService.getUnpaidLeaveDaysBatch(any(), any(), any())).thenReturn(Map.of());
+        when(attendanceService.getAbsentDaysBatch(any(), any(), any())).thenReturn(Map.of());
+        when(attendanceService.getLateDaysBatch(any(), any(), any())).thenReturn(Map.of());
+        // The loan's installment changed since compute (e.g. it was paused then resumed at a
+        // different amount) - re-querying now gives 0, which no longer matches the snapshot.
+        when(loanService.computeLoanDeductionsBatch(any())).thenReturn(Map.of(empId, 0L));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> payrollRunService.approvePayroll(runId, USER_ID));
+        assertTrue(ex.getMessage().contains("recompute"));
 
+        verify(loanService, never()).applyRepaymentsForRun(any(), any());
         verify(payrollRunRepository, never()).save(any());
+    }
+
+    /**
+     * The specific gap the old LoanService.verifyDeductionsCurrent left open: it unconditionally
+     * skipped any entry where loanDeductionCapped=true, so a loan cancelled after compute on a
+     * capped entry silently passed approval. The new snapshot stores the RAW loanDeduction input
+     * (not the capped value actually charged on the payslip), so it still detects this drift even
+     * though the entry is capped.
+     */
+    @Test
+    void approvePayroll_cancelledLoanOnCappedEntry_stillTripsDriftGuard() {
+        UUID runId = UUID.randomUUID();
+        UUID empId = UUID.randomUUID();
+        User initiator = User.builder().email("hr@company.com").role(UserRole.HR_ADMIN).build();
+
+        Employee emp = mock(Employee.class);
+        when(emp.getId()).thenReturn(empId);
+        when(emp.getFullName()).thenReturn("Capped Employee");
+
+        PayrollEntry entry = mock(PayrollEntry.class);
+        when(entry.getEmployee()).thenReturn(emp);
+        // Computed with a raw loan deduction input of 500,000, net-floor-capped down to a
+        // lower amount on the actual payslip. loanDeductionCapped=true (implied by the stored
+        // snapshot recording the RAW, pre-cap input) is exactly the condition the OLD
+        // LoanService.verifyDeductionsCurrent used to skip entirely - the new guard never even
+        // reads loanDeductionCapped/loanDeduction, so those fields aren't stubbed here.
+        when(entry.getDeductionSnapshot()).thenReturn("0:0:0:500000");
+
+        PayrollRun run = PayrollRun.builder()
+                .status(PayrollStatus.PENDING_APPROVAL)
+                .initiatedBy(initiator)
+                .payrollMonth(6)
+                .payrollYear(2026)
+                .entries(new ArrayList<>(List.of(entry)))
+                .build();
+
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
+        when(userRepository.findById(USER_ID))
+                .thenReturn(Optional.of(User.builder().email("mgr@company.com").role(UserRole.DEPT_MANAGER).build()));
+
+        when(leaveService.getUnpaidLeaveDaysBatch(any(), any(), any())).thenReturn(Map.of());
+        when(attendanceService.getAbsentDaysBatch(any(), any(), any())).thenReturn(Map.of());
+        when(attendanceService.getLateDaysBatch(any(), any(), any())).thenReturn(Map.of());
+        // The loan was cancelled between compute and approval - it no longer contributes.
+        when(loanService.computeLoanDeductionsBatch(any())).thenReturn(Map.of(empId, 0L));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> payrollRunService.approvePayroll(runId, USER_ID));
+        assertTrue(ex.getMessage().contains("recompute"));
+
+        verify(loanService, never()).applyRepaymentsForRun(any(), any());
+        verify(payrollRunRepository, never()).save(any());
+    }
+
+    /**
+     * Fix B: approvePayroll must publish a PayrollApprovedAppEvent for the AFTER_COMMIT
+     * listener to pick up, instead of calling NotificationService/PayrollEventProducer
+     * directly inside the approval transaction.
+     */
+    @Test
+    void approvePayroll_success_publishesAppEvent_doesNotCallNotificationDirectly() {
+        UUID runId = UUID.randomUUID();
+        User initiator = User.builder().email("hr@company.com").role(UserRole.HR_ADMIN).build();
+        User approver = User.builder().email("mgr@company.com").role(UserRole.DEPT_MANAGER).build();
+        Tenant tenant = Tenant.builder().companyName("Acme Ltd").build();
+        tenant.setId(TENANT);
+
+        PayrollRun run = PayrollRun.builder()
+                .status(PayrollStatus.PENDING_APPROVAL)
+                .initiatedBy(initiator)
+                .tenant(tenant)
+                .payrollMonth(6)
+                .payrollYear(2026)
+                .entries(new ArrayList<>())
+                .build();
+
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(approver));
+        when(payrollRunRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        payrollRunService.approvePayroll(runId, USER_ID);
+
+        ArgumentCaptor<PayrollApprovedAppEvent> eventCap = ArgumentCaptor.forClass(PayrollApprovedAppEvent.class);
+        verify(eventPublisher).publishEvent(eventCap.capture());
+        assertEquals(runId, eventCap.getValue().payrollRunId());
+        assertEquals("mgr@company.com", eventCap.getValue().approvedByEmail());
+        assertEquals("hr@company.com", eventCap.getValue().initiatedByEmail());
+
+        verify(payrollEventProducer, never()).publishPayrollApproved(any(), any());
+        verify(notificationService, never()).createInAppNotification(any(), any(), any(), any(), any());
+        verify(notificationService, never()).sendPayslipNotification(any(), any(), any());
     }
 
     @Test
@@ -124,6 +275,41 @@ class PayrollRunServiceTest {
 
         assertThrows(IllegalStateException.class,
                 () -> payrollRunService.markAsPaid(runId));
+    }
+
+    /**
+     * Fix B: markAsPaid must publish a PayrollMarkedPaidAppEvent for the AFTER_COMMIT listener
+     * to pick up, instead of calling NotificationService directly inside the completion
+     * transaction.
+     */
+    @Test
+    void markAsPaid_success_publishesAppEvent_doesNotCallNotificationDirectly() {
+        UUID runId = UUID.randomUUID();
+        User initiator = User.builder().email("hr@company.com").role(UserRole.HR_ADMIN).build();
+        Tenant tenant = Tenant.builder().companyName("Acme Ltd").build();
+        tenant.setId(TENANT);
+
+        PayrollRun run = PayrollRun.builder()
+                .status(PayrollStatus.APPROVED)
+                .initiatedBy(initiator)
+                .tenant(tenant)
+                .payrollMonth(6)
+                .payrollYear(2026)
+                .build();
+
+        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
+        when(payrollEntryRepository.findByPayrollRunId(eq(runId), any(UUID.class))).thenReturn(List.of());
+        when(payrollRunRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        payrollRunService.markAsPaid(runId);
+
+        ArgumentCaptor<PayrollMarkedPaidAppEvent> eventCap = ArgumentCaptor.forClass(PayrollMarkedPaidAppEvent.class);
+        verify(eventPublisher).publishEvent(eventCap.capture());
+        assertEquals(runId, eventCap.getValue().payrollRunId());
+        assertEquals("hr@company.com", eventCap.getValue().initiatedByEmail());
+
+        verify(notificationService, never()).createInAppNotification(any(), any(), any(), any(), any());
+        verify(notificationService, never()).sendSalaryProcessedNotification(any(), any(), any(), any());
     }
 
     @Test
@@ -379,8 +565,9 @@ class PayrollRunServiceTest {
         assertEquals(0, daysWorkedCap.getValue());
     }
 
-    // 7 — Combined with the PAYE minimum-wage exemption: a partial-month employee must still
-    // be taxed correctly, because the exemption is judged on NOMINAL (not prorated) gross.
+    // 7 — Combined with the PAYE minimum-wage exemption AND the nominal-gross annualization
+    // (Fix C.4): a partial-month employee must still be taxed at their true (nominal) bracket,
+    // then have that tax proportionally withheld for the days actually worked.
     //
     // Reuses the mid-month-hire scenario from test 2 (hired 2026-06-15 → daysWorked=14,
     // workingDays=26 — independently re-verified there via the system calendar) so this test
@@ -391,17 +578,28 @@ class PayrollRunServiceTest {
     // → nominal gross = 13,000,000 kobo (₦130,000/month), almost all of it in otherAllowances
     // (which pension/NHF are NOT calculated on) to keep statutory deductions negligible.
     // 13,000,000 × 14/26 = 7,000,000 kobo exactly — the ₦70,000 minimum-wage threshold.
-    // Verified independently (Python, not the code under test):
-    //   prorated basic=53,846, otherAllowances=6,946,154 → prorated gross=7,000,000
-    //   pension=4,308 (8% of prorated basic; housing/transport are 0), NHF=1,346 (2.5% of
-    //   prorated basic) → annualGrossTaxable = 7,000,000×12 − 4,308×12 − 1,346×12 = 83,932,152
-    //   → Band 1 (first 80,000,000 @ 0%) absorbs 80,000,000, leaving 3,932,152 in Band 2 @ 15%
-    //   → annualPAYE = round(3,932,152 × 0.15) = 589,823 → monthlyPAYE = 589,823 / 12 = 49,151
     //
-    // If the exemption were (incorrectly) judged on this PRORATED gross, "7,000,000 <=
-    // 7,000,000" would be true and PAYE would be wrongly forced to 0. Judged correctly on the
-    // NOMINAL ₦130,000 gross (well above ₦70,000), the exemption must NOT trigger, and PAYE
-    // must come out to exactly 49,151 kobo — small, but non-zero.
+    // If either the exemption OR the tax banding were (incorrectly) judged on this PRORATED
+    // gross, "7,000,000 <= 7,000,000" would exempt this employee entirely (PAYE = 0). Judged
+    // correctly on the NOMINAL ₦130,000 gross, the exemption must NOT trigger and the employee
+    // must be banded at their true bracket, then have that tax proportionally withheld for the
+    // days actually worked. Verified independently (not the code under test):
+    //   prorated basic=53,846, otherAllowances=6,946,154 (already proven above via test 2's
+    //   date math); pension=4,308 (8% of prorated basic), NHF=1,346 (2.5% of prorated basic)
+    //   — these three are UNCHANGED by Fix C.4, which only touches annualization.
+    //   NEW annualGross = nominalMonthlyGross × 12 = 13,000,000 × 12 = 156,000,000
+    //   annualGrossTaxable = 156,000,000 − 4,308×12 − 1,346×12 = 155,932,152
+    //   Band 1 (first 80,000,000 @ 0%) absorbs 80,000,000, leaving 75,932,152 in Band 2 @ 15%
+    //   annualPAYE = round(75,932,152 × 0.15) = 11,389,823 → full-month monthlyPAYE (pre-
+    //   proration) = 11,389,823 / 12 = 949,151 (integer division)
+    //   PayrollEngine then prorates THIS tax by daysWorked/workingDays (14/26):
+    //   payeTax = round(949,151 × 14 / 26) = round(511,081.3...) = 511,081
+    //
+    // (Note: a "call PayrollEngine again with daysWorked==workingDays and prorate that result"
+    // shortcut does NOT reproduce this exactly — that reference call would compute pension/NHF
+    // off the FULL nominal basic rather than THIS period's prorated basic, giving a slightly
+    // different annualTaxableIncome. The hand-derived value above matches what the engine
+    // actually computes for this specific prorated call.)
     @Test
     void computePayroll_partialMonthEmployee_stillTaxedOnNominalGross_notProratedGross() {
         UUID runId = UUID.randomUUID();
@@ -459,9 +657,10 @@ class PayrollRunServiceTest {
 
         assertEquals(7_000_000L, result.getGrossSalary(),
                 "prorated gross must land exactly at the ₦70,000 exemption threshold for this scenario");
-        assertEquals(49_151L, result.getPayeTax(),
-                "nominal (un-prorated) gross of ₦130,000 must still be taxed, not exempted, even though "
-                        + "the prorated gross itself sits exactly at the minimum-wage boundary");
+        assertEquals(511_081L, result.getPayeTax(),
+                "nominal (un-prorated) gross of ₦130,000 must still be taxed at its true bracket - not the "
+                        + "exemption the prorated ₦70,000 gross alone would trigger - then proportionally "
+                        + "withheld for the days actually worked this period");
     }
 
     // 8 — Batch-prefetch mapping: each employee's own unpaid-leave/absent/late/loan data must

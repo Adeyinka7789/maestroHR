@@ -269,6 +269,36 @@ class PayrollEngineTest {
         assertThat(r.getNetSalary()).isEqualTo(27_000_000L);
     }
 
+    // D9 — Fix: heavy unpaid-leave deductions alone (no loan, no LoanPolicy configured — the
+    // default in setUp()) must never drive net salary negative. The minimum-wage floor
+    // previously only protected the LOAN portion (nested inside if(policyOpt.isPresent())), so
+    // a heavily-absent employee with zero loan involvement, at a tenant with no LoanPolicy at
+    // all, could still see netSalary go negative. The final non-negative clamp now catches
+    // this unconditionally.
+    @Test
+    void d9_noPolicy_heavyUnpaidLeaveAlone_netSalaryFlooredAtZero_notNegative() {
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 22, 22, 30, 0, 0, 0L);
+
+        assertThat(r.getNetSalary()).isEqualTo(0L);
+        assertThat(r.isNetFloorClamped()).isTrue();
+    }
+
+    // D10 — Fix: absence/late/unpaid-leave deductions must use the NOMINAL (un-prorated) daily
+    // rate, not the period's already-prorated gross - otherwise a mid-month joiner's absence
+    // deduction would be computed off a diluted daily rate instead of their real one.
+    //   Nominal daily rate = GROSS / 22 = 1_590_909 (DAILY_RATE)
+    //   Buggy (prorated-gross) daily rate would have been (GROSS/2) / 22 = 795_454 instead.
+    @Test
+    void d10_midMonthJoiner_absenceDeduction_usesNominalDailyRate_notProratedDailyRate() {
+        PayrollEngine.PayrollResult r =
+                engine.calculateEmployeePayroll(standardEmployee(), 11, 22, 0, 2, 0, 0L);
+
+        assertThat(r.getIsProrated()).isTrue();
+        assertThat(r.getGrossSalary()).isEqualTo(GROSS / 2); // prorated gross - unaffected by this fix
+        assertThat(r.getAttendanceDeduction()).isEqualTo(DAILY_RATE * 2); // 3_181_818, not 1_590_908
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // Late deduction (Stage 3) — AttendancePolicy resolved internally via
     // attendanceService.getEffectivePolicy(employee), mirroring loanPolicyService.

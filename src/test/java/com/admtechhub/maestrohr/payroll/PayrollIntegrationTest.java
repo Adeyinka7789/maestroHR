@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.PayGrade;
 import com.admtechhub.maestrohr.loan.LoanPolicyService;
+import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 /**
@@ -34,6 +36,7 @@ class PayrollIntegrationTest {
     @Mock private PAYECalculator     payeCalculator;
     @Mock private LoanPolicyService  loanPolicyService;
     @Mock private AttendanceService  attendanceService;
+    @Mock private PlatformSettingsService platformSettingsService;
 
     @InjectMocks private PayrollEngine payrollEngine;
 
@@ -97,7 +100,12 @@ class PayrollIntegrationTest {
                         .build());
 
         when(nsitfCalculator.calculateEmployerContribution(GROSS)).thenReturn(NSITF_ER);
-        // No policy configured — net-floor cap is inactive for these arithmetic tests.
+        // Platform-wide minimum-wage floor is now looked up unconditionally (Fix C.1), even
+        // with no LoanPolicy configured. Passthrough stub keeps it at the caller's default
+        // (₦70,000) — GROSS here (800,000) is comfortably above that, so it never binds.
+        when(platformSettingsService.getLongOrDefault(anyString(), anyLong()))
+                .thenAnswer(inv -> inv.getArgument(1));
+        // No policy configured — the policy's OWN (stricter) floor is inactive for these tests.
         when(loanPolicyService.getPolicyForEmployee(any())).thenReturn(Optional.empty());
         // No attendance policy configured — late deduction is inactive for these arithmetic tests.
         when(attendanceService.getEffectivePolicy(any())).thenReturn(Optional.empty());

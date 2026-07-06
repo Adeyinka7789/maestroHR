@@ -5,6 +5,7 @@ import com.admtechhub.maestrohr.notification.TermiiClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -17,8 +18,11 @@ public class NotificationConsumer {
     private final Optional<EmailService> emailService;
     private final TermiiClient termiiClient;
 
+    // Manual-ack: offset is committed only after this method returns (success or handled
+    // failure), so a mid-processing crash replays the event instead of silently losing it.
+    // Global spring.kafka.listener.ack-mode: manual applies to this (default) container factory.
     @KafkaListener(topics = "maestrohr.notifications.send", groupId = "${spring.kafka.consumer.group-id}")
-    public void processNotification(NotificationEvent event) {
+    public void processNotification(NotificationEvent event, Acknowledgment ack) {
         try {
             switch (event.getType()) {
                 case "EMAIL" -> emailService.ifPresentOrElse(
@@ -42,6 +46,8 @@ public class NotificationConsumer {
         } catch (Exception e) {
             log.error("Failed to process {} notification to {}: {}",
                     event.getType(), event.getTo(), e.getMessage());
+        } finally {
+            ack.acknowledge();
         }
     }
 }

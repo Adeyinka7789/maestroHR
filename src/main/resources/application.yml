@@ -83,6 +83,7 @@ spring:
         acks: all
         retries: 3
         enable.idempotence: true        # prevents duplicates on retries
+        max.block.ms: 3000               # send() must not block indefinitely on metadata/buffer
     consumer:
       group-id: maestrohr
       auto-offset-reset: earliest

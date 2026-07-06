@@ -278,42 +278,6 @@ public class LoanService {
     }
 
     /**
-     * Consistency guard run at approval, before {@link #applyRepaymentsForRun}. Verifies each
-     * entry's stored {@code loanDeduction} (locked at compute) still equals what the employee's
-     * ACTIVE loans would produce now. They diverge only when a loan was paused / cancelled / added
-     * (or another run completed one) between this run's compute and its approval — in which case
-     * the payslip total and the about-to-be-written ledger would disagree, leaving the employee
-     * short-paid or the company under-recovered.
-     *
-     * <p>Throws {@link IllegalStateException} on the first mismatch so the caller can surface a
-     * "reject and recompute" message; recompute (available while DRAFT) refreshes the stored
-     * figures and the next approval passes. Checking the per-entry total is sufficient: the
-     * payslip shows a single loan line and the ledger sum equals that total, so offsetting
-     * per-loan changes that leave the total unchanged are harmless and correctly pass.
-     */
-    @Transactional(readOnly = true)
-    public void verifyDeductionsCurrent(List<PayrollEntry> entries) {
-        for (PayrollEntry entry : entries) {
-            Employee employee = entry.getEmployee();
-            if (employee == null) {
-                continue;
-            }
-            // When the net-floor cap was applied, the stored amount is intentionally lower than
-            // what uncapped installments would sum to — skip the check in that case.
-            if (Boolean.TRUE.equals(entry.getLoanDeductionCapped())) {
-                continue;
-            }
-            long stored = entry.getLoanDeduction() != null ? entry.getLoanDeduction() : 0L;
-            long current = computeLoanDeductionForEmployee(employee.getId());
-            if (stored != current) {
-                throw new IllegalStateException(
-                        "Loan details for " + employee.getFullName() + " changed since this payroll "
-                                + "was computed. Reject the run and recompute before approving.");
-            }
-        }
-    }
-
-    /**
      * Phase 2 (apply). Called once when a payroll run is approved. For every entry's employee,
      * deducts each ACTIVE loan's installment from its balance and records a ledger row. The
      * {@code loan_repayments} unique constraint (loan, run) plus the

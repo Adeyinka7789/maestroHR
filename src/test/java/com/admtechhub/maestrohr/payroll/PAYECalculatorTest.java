@@ -69,17 +69,22 @@ class PAYECalculatorTest {
         assertThat(r.getMonthlyPAYE()).isEqualTo(50_000L);
     }
 
-    // A3 ── annual taxable < ₦800,000 (fully inside Band 1 free zone) → zero PAYE
-    //   nominalMonthlyGross = ₦100,000 → not exempt; grossSalary = ₦60,000 (prorated example)
-    //   annualTaxable = 72_000_000 < 80_000_000 → all absorbed by Band 1
+    // A3 ── Fix C.4: annualization bands off nominalMonthlyGross, NOT the (possibly prorated)
+    //   grossSalary — grossSalary = ₦60,000 (a prorated-period example), nominalMonthlyGross =
+    //   ₦100,000 (the employee's true un-prorated monthly rate). Before the fix, annualizing off
+    //   the prorated grossSalary (6_000_000 × 12 = 72_000_000) would land entirely inside the
+    //   Band 1 free zone → zero PAYE, understating this employee's true bracket. Banding
+    //   correctly off nominalMonthlyGross (10_000_000 × 12 = 120_000_000) spills into Band 2:
+    //   Band 1: 80_000_000 → 0; Band 2: 40_000_000 × 15% = 6_000_000
+    //   monthlyPAYE = 6_000_000 / 12 = 500_000
     @Test
-    void a3_entirelyInBand1FreeZone_zeroPaye() {
+    void a3_annualizesOffNominalGross_notProratedGrossSalary() {
         PAYECalculator.PAYEResult r =
                 calculator.calculate(6_000_000L, 0L, 0L, 6_000_000L, 10_000_000L);
 
-        assertThat(r.getAnnualTaxableIncome()).isEqualTo(72_000_000L);
-        assertThat(r.getAnnualPAYE()).isEqualTo(0L);
-        assertThat(r.getMonthlyPAYE()).isEqualTo(0L);
+        assertThat(r.getAnnualTaxableIncome()).isEqualTo(120_000_000L);
+        assertThat(r.getAnnualPAYE()).isEqualTo(6_000_000L);
+        assertThat(r.getMonthlyPAYE()).isEqualTo(500_000L);
     }
 
     // A4 ── taxable income within Band 2 (15%)

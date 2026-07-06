@@ -1,55 +1,72 @@
 package com.admtechhub.maestrohr.disbursement;
 
-import com.admtechhub.maestrohr.disbursement.provider.CSVDisbursementProvider;
-import com.admtechhub.maestrohr.employee.Department;
-import com.admtechhub.maestrohr.employee.Employee;
-import com.admtechhub.maestrohr.employee.PayGrade;
-import com.admtechhub.maestrohr.payroll.DisbursementService;
-import com.admtechhub.maestrohr.payroll.PayrollEntry;
-import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
-import com.admtechhub.maestrohr.payroll.PayrollRun;
-import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
-import com.admtechhub.maestrohr.payroll.PayrollStatus;
-import com.admtechhub.maestrohr.payroll.TransferStatus;
-import com.admtechhub.maestrohr.paystack.PaystackClient;
 import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.disbursement.provider.CSVDisbursementProvider;
+import com.admtechhub.maestrohr.payroll.DisbursementService;
+import com.admtechhub.maestrohr.payroll.DisbursementTransactionPhases;
+import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
+import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
+import com.admtechhub.maestrohr.paystack.PaystackClient;
+import com.admtechhub.maestrohr.paystack.PaystackClient.PaystackApiException;
+import com.admtechhub.maestrohr.paystack.PaystackClient.PaystackUnknownStateException;
+import com.admtechhub.maestrohr.paystack.dto.PaystackRequest;
+import com.admtechhub.maestrohr.paystack.dto.PaystackResponse;
+import com.admtechhub.maestrohr.platform.JobSweepQueries;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import com.admtechhub.maestrohr.paystack.dto.PaystackResponse;
-import com.admtechhub.maestrohr.tenant.Tenant;
-import static org.mockito.ArgumentMatchers.eq;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import java.lang.reflect.Method;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+/**
+ * Orchestration-level tests for {@link DisbursementService}. As of the self-invocation fix,
+ * DisbursementService no longer implements the 3 disbursement phases itself — it calls into
+ * {@link DisbursementTransactionPhases} (a separate bean, so @Transactional genuinely applies)
+ * and makes the Paystack HTTP calls itself, with no open transaction while it does. These tests
+ * verify the orchestration sequencing (which phase runs when, in response to which outcome) with
+ * both dependencies mocked. Phase-1 validation logic and generateReference moved to
+ * {@code DisbursementTransactionPhasesTest} along with their tests. Real-DB proof that Phase 1
+ * actually commits independently of what Phase 2 does lives in
+ * {@code DisbursementPhaseCommitDurabilityTest}; real-DB proof of the reconciler's per-tenant
+ * correctness lives in {@code DisbursementReconciliationCrossTenantIsolationTest}.
+ */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DisbursementServiceTest {
 
-    @Mock PayrollRunRepository      payrollRunRepository;
-    @Mock PayrollEntryRepository    payrollEntryRepository;
-    @Mock PaystackClient            paystackClient;
-    @Mock CSVDisbursementProvider   csvDisbursementProvider;
-    @InjectMocks DisbursementService disbursementService;
+    @Mock PayrollRunRepository payrollRunRepository;
+    @Mock PayrollEntryRepository payrollEntryRepository;
+    @Mock PaystackClient paystackClient;
+    @Mock CSVDisbursementProvider csvDisbursementProvider;
+    @Mock DisbursementTransactionPhases transactionPhases;
+    @Mock JobSweepQueries jobSweepQueries;
+
+    DisbursementService disbursementService;
+
+    private static final UUID TENANT_ID = UUID.randomUUID();
+    private static final UUID RUN_ID = UUID.randomUUID();
 
     @BeforeEach
-    void bindTenant() {
-        TenantContext.setCurrentTenant(UUID.randomUUID().toString());
+    void setUp() {
+        TenantContext.setCurrentTenant(TENANT_ID.toString());
+        disbursementService = new DisbursementService(
+                payrollRunRepository, payrollEntryRepository, paystackClient,
+                csvDisbursementProvider, transactionPhases, jobSweepQueries);
     }
 
     @AfterEach
@@ -57,121 +74,157 @@ class DisbursementServiceTest {
         TenantContext.clear();
     }
 
-    // ── disburseSalaries tests ────────────────────────────────────────────────────────────
+    private DisbursementTransactionPhases.DisbursementAttempt oneTransferAttempt() {
+        PaystackRequest.Transfer transfer = PaystackRequest.Transfer.builder()
+                .amount(500_000).recipient("RCP_1").reference("SAL-REF-1").reason("Salary").build();
+        return new DisbursementTransactionPhases.DisbursementAttempt("BATCH-abc-123", List.of(transfer));
+    }
+
+    // ── disburseSalaries orchestration ───────────────────────────────────────────────────────
 
     @Test
-    void disburseSalaries_wrongStatus_throws() {
+    void disburseSalaries_success_recordsSuccessOutcomeOnly() {
+        var attempt = oneTransferAttempt();
+        when(transactionPhases.markRunDisbursing(RUN_ID, TENANT_ID)).thenReturn(attempt);
+
+        PaystackResponse response = PaystackResponse.builder().status(true).build();
+        when(paystackClient.initiateBulkTransfer(attempt.transfers())).thenReturn(response);
+
+        disbursementService.disburseSalaries(RUN_ID);
+
+        verify(transactionPhases).recordSuccessOutcome(RUN_ID, TENANT_ID, response);
+        verify(transactionPhases, never()).rollbackRunToFailed(any(), any());
+        verify(transactionPhases, never()).recordReconciliationResult(any(), any(), any());
+    }
+
+    @Test
+    void disburseSalaries_phase1Throws_paystackNeverCalledAndNoPhase3() {
+        when(transactionPhases.markRunDisbursing(RUN_ID, TENANT_ID))
+                .thenThrow(new IllegalStateException("Payroll must be APPROVED or FAILED before disbursement. Current status: DRAFT"));
+
+        assertThrows(IllegalStateException.class, () -> disbursementService.disburseSalaries(RUN_ID));
+
+        verify(paystackClient, never()).initiateBulkTransfer(any());
+        verify(transactionPhases, never()).recordSuccessOutcome(any(), any(), any());
+        verify(transactionPhases, never()).rollbackRunToFailed(any(), any());
+        verify(transactionPhases, never()).recordReconciliationResult(any(), any(), any());
+    }
+
+    @Test
+    void disburseSalaries_paystackRejectsOutright_rollsBackToFailed() {
+        var attempt = oneTransferAttempt();
+        when(transactionPhases.markRunDisbursing(RUN_ID, TENANT_ID)).thenReturn(attempt);
+        when(paystackClient.initiateBulkTransfer(attempt.transfers()))
+                .thenThrow(new PaystackApiException("Insufficient balance"));
+
+        disbursementService.disburseSalaries(RUN_ID);
+
+        verify(transactionPhases).rollbackRunToFailed(RUN_ID, TENANT_ID);
+        verify(transactionPhases, never()).recordSuccessOutcome(any(), any(), any());
+        verify(transactionPhases, never()).recordReconciliationResult(any(), any(), any());
+    }
+
+    @Test
+    void disburseSalaries_networkTimeout_attemptsImmediateVerificationThenRecordsReconciliation() {
+        var attempt = oneTransferAttempt();
+        when(transactionPhases.markRunDisbursing(RUN_ID, TENANT_ID)).thenReturn(attempt);
+        when(paystackClient.initiateBulkTransfer(attempt.transfers()))
+                .thenThrow(new PaystackUnknownStateException("timed out", new RuntimeException("boom")));
+
+        PaystackResponse.Data data = PaystackResponse.Data.builder().status("success").build();
+        PaystackResponse verification = PaystackResponse.builder().status(true).data(data).build();
+        when(paystackClient.verifyBulkTransfer(attempt.batchReference())).thenReturn(verification);
+
+        disbursementService.disburseSalaries(RUN_ID);
+
+        verify(paystackClient).verifyBulkTransfer(attempt.batchReference());
+        verify(transactionPhases).recordReconciliationResult(RUN_ID, TENANT_ID, "success");
+        verify(transactionPhases, never()).recordSuccessOutcome(any(), any(), any());
+        verify(transactionPhases, never()).rollbackRunToFailed(any(), any());
+    }
+
+    @Test
+    void disburseSalaries_networkTimeoutThenVerificationItselfFails_recordsReconciliationWithNullStatus() {
+        var attempt = oneTransferAttempt();
+        when(transactionPhases.markRunDisbursing(RUN_ID, TENANT_ID)).thenReturn(attempt);
+        when(paystackClient.initiateBulkTransfer(attempt.transfers()))
+                .thenThrow(new PaystackUnknownStateException("timed out", new RuntimeException("boom")));
+        when(paystackClient.verifyBulkTransfer(attempt.batchReference()))
+                .thenThrow(new RuntimeException("verification call also failed"));
+
+        disbursementService.disburseSalaries(RUN_ID);
+
+        verify(transactionPhases).recordReconciliationResult(RUN_ID, TENANT_ID, null);
+    }
+
+    // ── reconcileUnknownDisbursements tenant-context handling ────────────────────────────────
+
+    @Test
+    void reconcileUnknownDisbursements_noBatchReference_rollsBackWithoutCallingPaystack() {
+        UUID tenantId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        PayrollRun run = mock(PayrollRun.class);
-        when(run.getStatus()).thenReturn(PayrollStatus.DRAFT);
-        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
+        when(jobSweepQueries.findDisbursingUnknownRuns())
+                .thenReturn(List.of(new JobSweepQueries.DisbursingUnknownRow(tenantId, runId, null)));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> disbursementService.disburseSalaries(runId));
+        disbursementService.reconcileUnknownDisbursements();
 
-        assertTrue(ex.getMessage().contains("APPROVED"),
-                "Exception message must mention the required APPROVED status");
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    void disburseSalaries_noRecipientCode_skipsEmployee() {
-        UUID runId = UUID.randomUUID();
-
-        PayrollRun run = mock(PayrollRun.class);
-        when(run.getId()).thenReturn(runId);
-        when(run.getStatus()).thenReturn(PayrollStatus.APPROVED);
-        when(payrollRunRepository.findById(eq(runId))).thenReturn(Optional.of(run));
-
-        Employee emp = mock(Employee.class);
-        when(emp.getPaystackRecipientCode()).thenReturn(null);
-        when(emp.getEmployeeNumber()).thenReturn("EMP-NOCODE");
-        Department dept = mock(Department.class);
-        when(dept.getName()).thenReturn("Engineering");
-        when(emp.getDepartment()).thenReturn(dept);
-        PayGrade pg = mock(PayGrade.class);
-        when(pg.getName()).thenReturn("Grade-A");
-        when(emp.getPayGrade()).thenReturn(pg);
-
-        PayrollEntry entry = mock(PayrollEntry.class);
-        when(entry.getTransferStatus()).thenReturn(TransferStatus.PENDING);
-        when(entry.getEmployee()).thenReturn(emp);
-        when(entry.getNetSalary()).thenReturn(100_000L);
-
-        when(payrollEntryRepository.findByPayrollRunId(eq(runId), any(UUID.class))).thenReturn(List.of(entry));
-
-        assertThrows(IllegalStateException.class,
-                () -> disbursementService.disburseSalaries(runId));
-    }
-    // ── generateReference tests (via reflection — method is private) ──────────────────────
-
-    @Test
-    void generateReference_includesTenantPrefix() throws Exception {
-        UUID tenantId = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-
-        Tenant tenant = mock(Tenant.class);
-        when(tenant.getId()).thenReturn(tenantId);
-
-        PayrollRun run = mock(PayrollRun.class);
-        when(run.getTenant()).thenReturn(tenant);
-        when(run.getPeriod()).thenReturn("2025-01");
-
-        Employee emp = mock(Employee.class);
-        when(emp.getEmployeeNumber()).thenReturn("EMP-001");
-
-        PayrollEntry entry = mock(PayrollEntry.class);
-        when(entry.getPayrollRun()).thenReturn(run);
-        when(entry.getEmployee()).thenReturn(emp);
-
-        String ref = callGenerateReference(entry);
-
-        assertEquals("SAL-a1b2c3d4-2025-01-EMP-001", ref,
-                "Reference must follow SAL-{tenantPrefix8}-{period}-{empNumber} pattern");
+        verify(transactionPhases).rollbackRunToFailed(runId, tenantId);
+        verify(paystackClient, never()).verifyBulkTransfer(anyString());
+        assertNull(TenantContext.getCurrentTenant(), "tenant context must be cleared after the sweep");
     }
 
     @Test
-    void generateReference_noCollisionAcrossTenants() throws Exception {
-        UUID tenantIdA = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000000");
-        UUID tenantIdB = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000000");
+    void reconcileUnknownDisbursements_twoTenants_eachOutcomeMatchesItsOwnRunNotTheOther() {
+        UUID tenantA = UUID.randomUUID();
+        UUID runA = UUID.randomUUID();
+        UUID tenantB = UUID.randomUUID();
+        UUID runB = UUID.randomUUID();
 
-        Tenant tenantA = mock(Tenant.class);
-        when(tenantA.getId()).thenReturn(tenantIdA);
-        Tenant tenantB = mock(Tenant.class);
-        when(tenantB.getId()).thenReturn(tenantIdB);
+        when(jobSweepQueries.findDisbursingUnknownRuns()).thenReturn(List.of(
+                new JobSweepQueries.DisbursingUnknownRow(tenantA, runA, "BATCH-A"),
+                new JobSweepQueries.DisbursingUnknownRow(tenantB, runB, "BATCH-B")));
 
-        PayrollRun runA = mock(PayrollRun.class);
-        when(runA.getTenant()).thenReturn(tenantA);
-        when(runA.getPeriod()).thenReturn("2025-01");
+        // Tenant A's batch verifies as success, tenant B's as failed - proves the per-run
+        // outcome tracks its OWN batch reference/tenant rather than bleeding into the other.
+        when(paystackClient.verifyBulkTransfer("BATCH-A")).thenReturn(PaystackResponse.builder()
+                .status(true).data(PaystackResponse.Data.builder().status("success").build()).build());
+        when(paystackClient.verifyBulkTransfer("BATCH-B")).thenReturn(PaystackResponse.builder()
+                .status(true).data(PaystackResponse.Data.builder().status("failed").build()).build());
+        when(transactionPhases.recordReconciliationResult(runA, tenantA, "success"))
+                .thenReturn(DisbursementTransactionPhases.ReconciliationOutcome.CONFIRMED_SUCCESS);
+        when(transactionPhases.recordReconciliationResult(runB, tenantB, "failed"))
+                .thenReturn(DisbursementTransactionPhases.ReconciliationOutcome.CONFIRMED_FAILED);
 
-        PayrollRun runB = mock(PayrollRun.class);
-        when(runB.getTenant()).thenReturn(tenantB);
-        when(runB.getPeriod()).thenReturn("2025-01");
+        disbursementService.reconcileUnknownDisbursements();
 
-        Employee emp = mock(Employee.class);
-        when(emp.getEmployeeNumber()).thenReturn("EMP-001");
-
-        PayrollEntry entryA = mock(PayrollEntry.class);
-        when(entryA.getPayrollRun()).thenReturn(runA);
-        when(entryA.getEmployee()).thenReturn(emp);
-
-        PayrollEntry entryB = mock(PayrollEntry.class);
-        when(entryB.getPayrollRun()).thenReturn(runB);
-        when(entryB.getEmployee()).thenReturn(emp);
-
-        String refA = callGenerateReference(entryA);
-        String refB = callGenerateReference(entryB);
-
-        assertNotEquals(refA, refB,
-                "Same employee number under different tenants must produce different references");
-        assertTrue(refA.startsWith("SAL-aaaaaaaa-"), "Tenant A prefix must be the first 8 chars of tenant A's UUID");
-        assertTrue(refB.startsWith("SAL-bbbbbbbb-"), "Tenant B prefix must be the first 8 chars of tenant B's UUID");
+        verify(transactionPhases).recordReconciliationResult(runA, tenantA, "success");
+        verify(transactionPhases).recordReconciliationResult(runB, tenantB, "failed");
+        verify(transactionPhases, never()).recordReconciliationResult(runA, tenantA, "failed");
+        verify(transactionPhases, never()).recordReconciliationResult(runB, tenantB, "success");
+        assertNull(TenantContext.getCurrentTenant(), "tenant context must be cleared after the sweep");
     }
 
-    // ── Helper ────────────────────────────────────────────────────────────────────────────
+    @Test
+    void reconcileUnknownDisbursements_oneRunErrors_otherStillProcessedAndContextCleared() {
+        UUID tenantA = UUID.randomUUID();
+        UUID runA = UUID.randomUUID();
+        UUID tenantB = UUID.randomUUID();
+        UUID runB = UUID.randomUUID();
 
-    private String callGenerateReference(PayrollEntry entry) throws Exception {
-        Method m = DisbursementService.class.getDeclaredMethod("generateReference", PayrollEntry.class);
-        m.setAccessible(true);
-        return (String) m.invoke(disbursementService, entry);
+        when(jobSweepQueries.findDisbursingUnknownRuns()).thenReturn(List.of(
+                new JobSweepQueries.DisbursingUnknownRow(tenantA, runA, "BATCH-A"),
+                new JobSweepQueries.DisbursingUnknownRow(tenantB, runB, "BATCH-B")));
+
+        when(paystackClient.verifyBulkTransfer("BATCH-A")).thenThrow(new RuntimeException("network blip"));
+        when(paystackClient.verifyBulkTransfer("BATCH-B")).thenReturn(PaystackResponse.builder()
+                .status(true).data(PaystackResponse.Data.builder().status("failed").build()).build());
+        when(transactionPhases.recordReconciliationResult(runB, tenantB, "failed"))
+                .thenReturn(DisbursementTransactionPhases.ReconciliationOutcome.CONFIRMED_FAILED);
+
+        disbursementService.reconcileUnknownDisbursements();
+
+        verify(transactionPhases, never()).recordReconciliationResult(eq(runA), any(), any());
+        verify(transactionPhases).recordReconciliationResult(runB, tenantB, "failed");
+        assertNull(TenantContext.getCurrentTenant(), "tenant context must be cleared even after a mid-loop error");
     }
 }

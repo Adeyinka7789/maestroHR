@@ -92,6 +92,20 @@ public class PayrollEntry extends BaseEntity {
     @Builder.Default
     private Boolean loanDeductionCapped = false;
 
+    /** TRUE when the platform-wide minimum-wage net floor / non-negative clamp reduced the
+     *  loan deduction or floored net salary at 0 for this entry — independent of whether a
+     *  LoanPolicy is configured (unlike loanDeductionCapped alone, which only fires under a
+     *  configured policy's stricter floor). */
+    @Column(name = "net_floor_clamped", nullable = false)
+    @Builder.Default
+    private Boolean netFloorClamped = false;
+
+    /** Compute-time snapshot of "unpaidLeaveDays:absentDays:lateDays:loanDeduction" for this
+     *  entry's employee/period — re-verified in full at approval to detect drift. Null for
+     *  entries computed before this guard existed. */
+    @Column(name = "deduction_snapshot", length = 100)
+    private String deductionSnapshot;
+
     /** LATE records in the period — informational, not deducted automatically. */
     @Column(name = "late_days_in_period", nullable = false)
     @Builder.Default

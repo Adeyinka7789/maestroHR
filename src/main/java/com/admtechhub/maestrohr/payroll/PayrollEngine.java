@@ -82,16 +82,26 @@ public class PayrollEngine {
         // Step 3: Calculate NHF (on Basic only)
         Long nhfDeduction = nhfCalculator.calculate(basicSalary);
 
-        // Step 4: Calculate PAYE
+        // Step 4: Calculate PAYE. payeResult.getMonthlyPAYE() is banded off the NOMINAL annual
+        // rate (see PAYECalculator), i.e. what a full-time earner at this salary owes for a
+        // full month — so for a partial period it must be prorated the same way gross was,
+        // or a mid-month joiner would be charged a full month's tax on a partial month's pay.
         var payeResult = payeCalculator.calculate(grossSalary, pensionResult.getEmployeeContribution(), nhfDeduction, basicSalary, nominalMonthlyGross);
+        Long payeTax = payeResult.getMonthlyPAYE();
+        if (isProrated) {
+            payeTax = Math.round(payeTax * prorationFactor);
+        }
 
         // Step 5: Calculate NSITF (Employer only)
         Long nsitfEmployer = nsitfCalculator.calculateEmployerContribution(grossSalary);
 
         // Step 6: Calculate post-statutory deductions (unpaid leave + unexcused absence).
-        // Daily rate uses integer division — no floating point; small rounding difference is
-        // acceptable and consistent with how proration is applied elsewhere in this engine.
-        Long dailyRateKobo        = grossSalary / workingDays;
+        // Daily rate uses the employee's NOMINAL (un-prorated) gross, not the period's already-
+        // prorated gross — otherwise a mid-month joiner's absence/late deduction would be
+        // computed off a diluted daily rate instead of their real one. Integer division — no
+        // floating point; small rounding difference is acceptable and consistent with how
+        // proration is applied elsewhere in this engine.
+        Long dailyRateKobo        = nominalMonthlyGross / workingDays;
         Long unpaidLeaveDeduction = dailyRateKobo * unpaidLeaveDays;
         Long attendanceDeduction  = dailyRateKobo * absentDays;
 
@@ -101,38 +111,53 @@ public class PayrollEngine {
         Long lateDeduction = calculateLateDeduction(employee, lateDays, dailyRateKobo);
 
         // Step 7: Net-floor protection — cap loan deduction so the employee's net salary
-        // stays >= max(policy.netFloorPct% of gross, Nigerian minimum wage of ₦70,000).
-        // Unlike the loan deduction, unpaidLeaveDeduction/attendanceDeduction/lateDeduction are
-        // never themselves reduced by this floor — they only tighten how much loan room is left.
-        Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeResult.getMonthlyPAYE();
-        long effectiveLoanDeduction = loanDeduction;
-        boolean loanDeductionCapped = false;
+        // stays >= max(policy.netFloorPct% of gross, Nigerian minimum wage of ₦70,000). The
+        // minimum-wage floor itself is PLATFORM-WIDE and applies unconditionally — with or
+        // without a configured LoanPolicy; the policy, when present, can only raise the floor
+        // higher via its own netFloorPct, never relax or bypass it. Unlike the loan deduction,
+        // unpaidLeaveDeduction/attendanceDeduction/lateDeduction are never themselves reduced
+        // by this floor — they only tighten how much loan room is left.
+        Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeTax;
+        long afterStatutory = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction - lateDeduction;
 
+        long minWageKobo = platformSettingsService.getLongOrDefault("min_wage_kobo", 7_000_000L); // NMW default = ₦70,000
+        long minNet = minWageKobo;
         Optional<LoanPolicy> policyOpt = loanPolicyService.getPolicyForEmployee(employee);
         if (policyOpt.isPresent()) {
-            LoanPolicy policy = policyOpt.get();
-            long policyFloor = (long) (grossSalary * policy.getNetFloorPct().doubleValue() / 100.0);
-            long minWageKobo = platformSettingsService.getLongOrDefault("min_wage_kobo", 7_000_000L); // NMW default = ₦70,000
-            long minNet = Math.max(policyFloor, minWageKobo);
-            long afterStatutory = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction - lateDeduction;
-            if (afterStatutory - effectiveLoanDeduction < minNet) {
-                effectiveLoanDeduction = Math.max(0L, afterStatutory - minNet);
-                loanDeductionCapped = true;
-                log.warn("Loan deduction capped for {}: requested {} kobo → {} kobo (net floor {} kobo)",
-                        employee.getFullName(), loanDeduction, effectiveLoanDeduction, minNet);
-            }
+            long policyFloor = (long) (grossSalary * policyOpt.get().getNetFloorPct().doubleValue() / 100.0);
+            minNet = Math.max(minNet, policyFloor);
+        }
+
+        long effectiveLoanDeduction = loanDeduction;
+        boolean loanDeductionCapped = false;
+        if (afterStatutory - effectiveLoanDeduction < minNet) {
+            effectiveLoanDeduction = Math.max(0L, afterStatutory - minNet);
+            loanDeductionCapped = true;
+            log.warn("Loan deduction capped for {}: requested {} kobo → {} kobo (net floor {} kobo)",
+                    employee.getFullName(), loanDeduction, effectiveLoanDeduction, minNet);
         }
 
         // Step 8: Calculate Net Salary. Loan repayment is post-tax (Nigerian loan
         // repayments don't reduce taxable income), so it nets out alongside the other
         // post-statutory deductions.
-        Long netSalary = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction
-                - lateDeduction - effectiveLoanDeduction;
+        Long netSalary = afterStatutory - effectiveLoanDeduction;
 
-        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}, Late={}, Loan={} (capped={})",
-                employee.getFullName(), grossSalary, netSalary, payeResult.getMonthlyPAYE(),
+        // Final defensive clamp: net salary must never be negative. The floor above only
+        // constrains the LOAN portion — it does nothing when unpaid-leave/absence/late
+        // deductions ALONE (no loan involved at all) exceed gross, e.g. a heavily-absent
+        // employee at a tenant with no LoanPolicy configured. Applies unconditionally.
+        boolean netFloorClamped = false;
+        if (netSalary < 0) {
+            log.warn("Net salary for {} would have been negative ({} kobo); floored at 0",
+                    employee.getFullName(), netSalary);
+            netSalary = 0L;
+            netFloorClamped = true;
+        }
+
+        log.info("Payroll complete for {}: Gross={}, Net={}, PAYE={}, Pension={}, NHF={}, UnpaidLeave={}, Absent={}, Late={}, Loan={} (capped={}, netFloorClamped={})",
+                employee.getFullName(), grossSalary, netSalary, payeTax,
                 pensionResult.getEmployeeContribution(), nhfDeduction, unpaidLeaveDeduction, attendanceDeduction,
-                lateDeduction, effectiveLoanDeduction, loanDeductionCapped);
+                lateDeduction, effectiveLoanDeduction, loanDeductionCapped, netFloorClamped);
 
         return PayrollResult.builder()
                 .employeeId(employee.getId())
@@ -147,13 +172,14 @@ public class PayrollEngine {
                 .pensionEmployer(pensionResult.getEmployerContribution())
                 .nhfDeduction(nhfDeduction)
                 .nsitfEmployer(nsitfEmployer)
-                .payeTax(payeResult.getMonthlyPAYE())
+                .payeTax(payeTax)
                 .otherDeductions(0L)
                 .unpaidLeaveDeduction(unpaidLeaveDeduction)
                 .attendanceDeduction(attendanceDeduction)
                 .lateDeduction(lateDeduction)
                 .loanDeduction(effectiveLoanDeduction)
                 .loanDeductionCapped(loanDeductionCapped)
+                .netFloorClamped(netFloorClamped)
                 .netSalary(netSalary)
                 .daysWorked(daysWorked)
                 .workingDays(workingDays)
@@ -251,6 +277,9 @@ public class PayrollEngine {
         private Long loanDeduction;
         /** True when the loan deduction was reduced to protect the employee's net salary floor. */
         private boolean loanDeductionCapped;
+        /** True when the platform-wide minimum-wage/non-negative floor clamped net salary at 0
+         *  (independent of whether a LoanPolicy is configured). */
+        private boolean netFloorClamped;
         private Long netSalary;
         private Integer daysWorked;
         private Integer workingDays;

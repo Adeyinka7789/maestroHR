@@ -24,7 +24,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -82,32 +81,6 @@ class LoanServiceTest {
     void nonActiveOrCleared_deductsNothing() {
         assertEquals(0L, loanService.installmentFor(loan(25_000L, 150_000L, 0, 6, LoanStatus.PAUSED)));
         assertEquals(0L, loanService.installmentFor(loan(25_000L, 0L, 6, 6, LoanStatus.ACTIVE)));
-    }
-
-    @Test
-    void guard_passes_whenStoredMatchesCurrentLoanState() {
-        UUID empId = UUID.randomUUID();
-        Employee emp = mockEmployee(empId, "Jane Doe");
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
-                .thenReturn(List.of(loan(25_000L, 150_000L, 0, 6, LoanStatus.ACTIVE)));
-
-        PayrollEntry entry = mockEntry(emp, 25_000L);
-
-        assertDoesNotThrow(() -> loanService.verifyDeductionsCurrent(List.of(entry)));
-    }
-
-    @Test
-    void guard_throws_whenLoanPausedAfterCompute() {
-        UUID empId = UUID.randomUUID();
-        Employee emp = mockEmployee(empId, "Jane Doe");
-        when(loanRepository.findByEmployeeIdAndStatusOrderByCreatedAtAsc(eq(empId), eq(LoanStatus.ACTIVE), any(UUID.class)))
-                .thenReturn(List.of());
-
-        PayrollEntry entry = mockEntry(emp, 25_000L);
-
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> loanService.verifyDeductionsCurrent(List.of(entry)));
-        org.junit.jupiter.api.Assertions.assertTrue(ex.getMessage().contains("recompute"));
     }
 
     @Test
