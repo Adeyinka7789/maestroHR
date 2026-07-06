@@ -590,7 +590,11 @@
         // App pages live at /htmx/<route>. The post-login landing /dashboard is the
         // one bare route a user reaches directly, so map it to its /htmx/ partial —
         // this matches how every other page is loaded on direct visit / refresh.
-        const contentUrl = currentPath === '/dashboard' ? '/htmx/dashboard' : currentPath;
+        // Query string (e.g. employee-view's required ?id=) must be preserved — a full-page
+        // reload/direct-visit/new-tab open would otherwise silently drop it and re-request
+        // routes like /htmx/employee-view with no id, 400ing on a route that needs one.
+        const currentSearch = window.location.search;
+        const contentUrl = (currentPath === '/dashboard' ? '/htmx/dashboard' : currentPath) + currentSearch;
         if (contentUrl.startsWith('/htmx/')) {
             fetch(contentUrl, {
                 headers: { 'HX-Request': 'true' }

@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.employee;
 
 import com.admtechhub.maestrohr.employee.event.EmployeeCreatedEvent;
 import com.admtechhub.maestrohr.notification.NotificationService;
+import com.admtechhub.maestrohr.paystack.BankCodeResolver;
 import com.admtechhub.maestrohr.paystack.PaystackClient;
 import com.admtechhub.maestrohr.paystack.PaystackClient.PaystackApiException;
 import com.admtechhub.maestrohr.paystack.PaystackClient.PaystackNetworkException;
@@ -14,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import java.util.Map;
+import java.util.UUID;
 
 /**
  * Handles side effects that must execute AFTER the employee creation transaction commits.
@@ -33,6 +34,7 @@ public class EmployeePostCommitProcessor {
     private final EmployeeRepository employeeRepository;
     private final PaystackClient paystackClient;
     private final NotificationService notificationService;
+    private final BankCodeResolver bankCodeResolver;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -50,27 +52,55 @@ public class EmployeePostCommitProcessor {
         // No manual setCurrentTenant/clear needed
 
         // Step 1: Verify bank account with Paystack and create transfer recipient
-        verifyBankAccountAndCreateRecipient(employee, event);
+        verifyBankAccountAndCreateRecipient(employee);
 
         // Step 2: Send welcome notification
         sendWelcomeNotification(employee, event);
     }
 
-    private void verifyBankAccountAndCreateRecipient(Employee employee, EmployeeCreatedEvent event) {
+    /**
+     * Re-attempts Paystack verification for an employee who has no recipient code yet — e.g.
+     * after HR fills in bank details that were left blank at intake (bulk import / recruitment
+     * conversion both allow that). Safe to call repeatedly: no-ops if bank details are still
+     * blank, and skips entirely once a recipient code is already on file.
+     */
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void retryBankVerification(UUID employeeId) {
+        Employee employee = employeeRepository.findById(employeeId).orElse(null);
+        if (employee == null) {
+            log.warn("Retry aborted: employee {} not found.", employeeId);
+            return;
+        }
+        if (employee.getPaystackRecipientCode() != null && !employee.getPaystackRecipientCode().isBlank()) {
+            log.info("Employee {} already has a Paystack recipient code; skipping retry.",
+                    employee.getEmployeeNumber());
+            return;
+        }
+        verifyBankAccountAndCreateRecipient(employee);
+    }
+
+    private void verifyBankAccountAndCreateRecipient(Employee employee) {
+        if (isBlank(employee.getBankName()) || isBlank(employee.getBankAccountNumber())) {
+            log.info("Skipping Paystack verification for employee {}: bank details not yet provided",
+                    employee.getEmployeeNumber());
+            return;
+        }
+
         try {
             log.info("Verifying bank account for employee {}", employee.getEmployeeNumber());
 
-            String bankCode = getBankCode(event.bankName());
-            var accountData = paystackClient.resolveAccount(event.bankAccountNumber(), bankCode);
+            String bankCode = bankCodeResolver.resolveBankCode(employee.getBankName());
+            var accountData = paystackClient.resolveAccount(employee.getBankAccountNumber(), bankCode);
 
-            if (!accountData.getAccountName().equalsIgnoreCase(event.bankAccountName())) {
+            if (!accountData.getAccountName().equalsIgnoreCase(employee.getBankAccountName())) {
                 log.warn("Account name mismatch for employee {}: Expected '{}', Got '{}'",
-                        employee.getEmployeeNumber(), event.bankAccountName(), accountData.getAccountName());
+                        employee.getEmployeeNumber(), employee.getBankAccountName(), accountData.getAccountName());
             }
 
             String recipientCode = paystackClient.createTransferRecipient(
-                    event.bankAccountName(),
-                    event.bankAccountNumber(),
+                    employee.getBankAccountName(),
+                    employee.getBankAccountNumber(),
                     bankCode
             );
 
@@ -102,29 +132,7 @@ public class EmployeePostCommitProcessor {
         }
     }
 
-    private String getBankCode(String bankName) {
-        Map<String, String> bankCodes = Map.ofEntries(
-                Map.entry("GTBank", "058"), Map.entry("GTB", "058"), Map.entry("Guaranty Trust Bank", "058"),
-                Map.entry("First Bank", "011"), Map.entry("FirstBank", "011"),
-                Map.entry("UBA", "033"), Map.entry("United Bank For Africa", "033"),
-                Map.entry("Access Bank", "044"), Map.entry("Access", "044"),
-                Map.entry("Zenith Bank", "057"), Map.entry("Zenith", "057"),
-                Map.entry("Union Bank", "032"), Map.entry("Union", "032"),
-                Map.entry("FCMB", "214"), Map.entry("First City Monument Bank", "214"),
-                Map.entry("Stanbic IBTC", "221"), Map.entry("Stanbic", "221"),
-                Map.entry("Sterling Bank", "232"), Map.entry("Sterling", "232"),
-                Map.entry("Polaris Bank", "076"), Map.entry("Polaris", "076"),
-                Map.entry("Ecobank", "050"), Map.entry("Eco", "050")
-        );
-
-        String code = bankCodes.get(bankName);
-        if (code != null) return code;
-
-        for (Map.Entry<String, String> entry : bankCodes.entrySet()) {
-            if (entry.getKey().equalsIgnoreCase(bankName)) {
-                return entry.getValue();
-            }
-        }
-        throw new IllegalArgumentException("Bank not supported: " + bankName);
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }

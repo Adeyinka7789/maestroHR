@@ -120,9 +120,12 @@
             <h2 class="font-headline-sm text-headline-sm text-on-surface mb-md">Initiate Exit</h2>
             <div class="grid gap-sm">
                 <label class="block">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant">Employee ID</span>
-                    <input type="text" name="employeeId" required placeholder="UUID"
-                           class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary"/>
+                    <span class="font-label-sm text-label-sm text-on-surface-variant">Employee</span>
+                    <select name="employeeId" required
+                            class="mt-1 w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option value="" disabled selected>Select an employee…</option>
+                        <option th:each="emp : ${view.employees}" th:value="${emp.id}" th:text="${emp.label}">Jane Doe (E001)</option>
+                    </select>
                 </label>
                 <label class="block">
                     <span class="font-label-sm text-label-sm text-on-surface-variant">Exit Type</span>

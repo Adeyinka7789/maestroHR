@@ -3,6 +3,7 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.document.DocumentResponseDTO;
 import com.admtechhub.maestrohr.document.DocumentService;
 import com.admtechhub.maestrohr.document.DocumentType;
+import com.admtechhub.maestrohr.employee.EmployeePostCommitProcessor;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.subscription.FeatureFlagService;
@@ -48,6 +49,7 @@ public class EmployeesController {
     private final EmployeeListService employeeListService;
     private final EmployeeDetailService employeeDetailService;
     private final EmployeeService employeeService;
+    private final EmployeePostCommitProcessor employeePostCommitProcessor;
     private final DocumentService documentService;
     private final FeatureFlagService featureFlagService;
 
@@ -81,12 +83,21 @@ public class EmployeesController {
      */
     @GetMapping("/htmx/employee-view")
     public String employeeDetail(
-            @RequestParam("id") UUID id,
+            @RequestParam(value = "id", required = false) UUID id,
             @RequestHeader(value = "HX-Request", required = false) String htmx,
             Model model) {
 
         if (htmx == null) {
             return "forward:/layout.html";
+        }
+
+        // Backstop for a request that lands here with no id (e.g. a stale link, or a full-page
+        // reload of this URL before the client-side re-fetch had a chance to preserve the query
+        // string) — fall back to the list instead of a hard 400.
+        if (id == null) {
+            model.addAttribute("error", "No employee selected.");
+            addView(model, null, null, null, 0);
+            return "employees :: content";
         }
 
         EmployeeDetailView detail = employeeDetailService.buildDetail(id);
@@ -97,6 +108,21 @@ public class EmployeesController {
         }
 
         model.addAttribute("detail", detail);
+        return "employee-detail :: content";
+    }
+
+    /**
+     * Re-attempt Paystack verification for an employee whose bank details are on file but who
+     * still has no recipient code (see the warning banner in employee-detail.html). Runs
+     * asynchronously (see EmployeePostCommitProcessor), so the re-rendered fragment reflects
+     * the pre-retry state — the success banner tells HR to check back in a moment.
+     */
+    @PostMapping("/htmx/employee-view/{id}/retry-payment-setup")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    public String retryPaymentSetup(@PathVariable UUID id, Model model) {
+        employeePostCommitProcessor.retryBankVerification(id);
+        model.addAttribute("success", "Verification retry started — refresh in a moment to see the updated status.");
+        model.addAttribute("detail", employeeDetailService.buildDetail(id));
         return "employee-detail :: content";
     }
 

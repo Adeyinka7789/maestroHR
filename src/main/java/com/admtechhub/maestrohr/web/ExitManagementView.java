@@ -4,7 +4,10 @@ import java.util.List;
 import java.util.UUID;
 
 /** Server-rendered view model for {@code /htmx/exit-management} (list + detail). */
-public record ExitManagementView(List<Row> rows, Stats stats) {
+public record ExitManagementView(List<Row> rows, Stats stats, List<EmployeeOption> employees) {
+
+    /** Tenant roster for the Initiate Exit form's employee picker; value is the real employee UUID. */
+    public record EmployeeOption(UUID id, String label) {}
 
     public record Row(
             UUID id,

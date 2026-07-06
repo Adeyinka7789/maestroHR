@@ -116,7 +116,7 @@ public class AuthService {
         List<AuthBootstrapQueries.UserAuthRow> rows =
                 authBootstrapQueries.findAllUsersByEmail(request.getEmail());
         if (rows.isEmpty()) {
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new InvalidCredentialsException("Invalid email or password");
         }
 
         // Password and lockout state are kept in sync across every membership row for an email
@@ -125,12 +125,12 @@ public class AuthService {
         AuthBootstrapQueries.UserAuthRow representative = rows.get(0);
 
         if (isLocked(representative)) {
-            throw new IllegalArgumentException("Account locked. Try again later");
+            throw new InvalidCredentialsException("Account locked. Try again later");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), representative.passwordHash())) {
             recordFailedAttempt(representative);
-            throw new IllegalArgumentException("Invalid email or password");
+            throw new InvalidCredentialsException("Invalid email or password");
         }
 
         resetFailedAttempts(representative);

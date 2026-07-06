@@ -49,6 +49,8 @@ public record EmployeeDetailView(
         String bankAccountNumber,
         String bankAccountName,
         String paystackRecipientCode,
+        boolean hasBankDetails,   // bankName + bankAccountNumber both present
+        boolean recipientLinked,  // paystackRecipientCode present
 
         // Salary (current pay grade)
         boolean hasPayGrade,

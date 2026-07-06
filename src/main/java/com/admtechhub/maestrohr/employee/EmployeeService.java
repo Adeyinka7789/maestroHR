@@ -112,6 +112,24 @@ public class EmployeeService {
         UUID tenantId = getCurrentTenantId();
         log.debug("Creating employee for tenant: {}", tenantId);
 
+        // Re-asserted here (not just on EmployeeRequest's @NotBlank) because @Valid is only
+        // enforced on the controller's @RequestBody binding. EmployeeRowImporter and
+        // RecruitmentService both build EmployeeRequest in Java and call this method directly,
+        // bypassing that check entirely. These three fields are the ones every caller already
+        // supplies for real — bank fields are deliberately NOT required here, since recruitment
+        // conversions and bulk imports both legitimately create an employee before bank details
+        // are known (filled in later via Edit); that gap is instead guarded at the Paystack call
+        // site (EmployeePostCommitProcessor), not by blocking employee creation.
+        if (isBlank(request.getFirstName())) {
+            throw new IllegalArgumentException("First name is required");
+        }
+        if (isBlank(request.getLastName())) {
+            throw new IllegalArgumentException("Last name is required");
+        }
+        if (isBlank(request.getEmail())) {
+            throw new IllegalArgumentException("Email is required");
+        }
+
         // --- All DB operations inside transaction ---
 
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -427,32 +445,6 @@ public class EmployeeService {
         return employeeRepository.countByTenantIdAndStatus(tenantId, EmployeeStatus.ACTIVE);
     }
 
-    private String getBankCode(String bankName) {
-        Map<String, String> bankCodes = Map.ofEntries(
-                Map.entry("GTBank", "058"), Map.entry("GTB", "058"), Map.entry("Guaranty Trust Bank", "058"),
-                Map.entry("First Bank", "011"), Map.entry("FirstBank", "011"),
-                Map.entry("UBA", "033"), Map.entry("United Bank For Africa", "033"),
-                Map.entry("Access Bank", "044"), Map.entry("Access", "044"),
-                Map.entry("Zenith Bank", "057"), Map.entry("Zenith", "057"),
-                Map.entry("Union Bank", "032"), Map.entry("Union", "032"),
-                Map.entry("FCMB", "214"), Map.entry("First City Monument Bank", "214"),
-                Map.entry("Stanbic IBTC", "221"), Map.entry("Stanbic", "221"),
-                Map.entry("Sterling Bank", "232"), Map.entry("Sterling", "232"),
-                Map.entry("Polaris Bank", "076"), Map.entry("Polaris", "076"),
-                Map.entry("Ecobank", "050"), Map.entry("Eco", "050")
-        );
-
-        String code = bankCodes.get(bankName);
-        if (code != null) return code;
-
-        for (Map.Entry<String, String> entry : bankCodes.entrySet()) {
-            if (entry.getKey().equalsIgnoreCase(bankName)) {
-                return entry.getValue();
-            }
-        }
-        throw new IllegalArgumentException("Bank not supported: " + bankName);
-    }
-
     @Transactional(readOnly = true)
     public Employee getEmployeeByIdWithDetails(UUID id) {
         UUID tenantId = getCurrentTenantId();
@@ -559,6 +551,10 @@ public class EmployeeService {
     private String currentUserEmail() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null ? auth.getName() : "system";
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 
     private boolean currentUserIsSuperAdmin() {

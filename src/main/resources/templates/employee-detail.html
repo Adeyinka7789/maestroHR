@@ -36,6 +36,34 @@
         <span th:text="${error}">Error</span>
     </div>
 
+    <!-- Action success banner (e.g. a payment-verification retry kicked off), mirroring the
+         success/error banner pair on payroll-detail.html. -->
+    <div th:if="${success}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Verification retry started.</span>
+    </div>
+
+    <!-- No payment method on file — surfaced here so HR isn't relying on log files to notice a
+         payroll disbursement will silently be skipped for this employee. Same amber "warning"
+         banner style used for the payroll rejection/reversal notices. -->
+    <div th:if="${!detail.recipientLinked}" role="alert"
+         class="flex items-center justify-between gap-sm mb-md px-4 py-3 rounded-lg bg-primary-fixed text-on-primary-fixed-variant font-body-sm text-body-sm">
+        <div class="flex items-center gap-sm">
+            <span class="material-symbols-outlined text-[20px]">warning</span>
+            <span th:if="${!detail.hasBankDetails}">No payment method on file — add bank details below to enable payroll disbursement.</span>
+            <span th:unless="${!detail.hasBankDetails}">Payment method not verified with Paystack — payroll disbursement will be skipped for this employee until this is resolved.</span>
+        </div>
+        <form th:if="${detail.hasBankDetails}"
+              th:attr="hx-post=@{/htmx/employee-view/{id}/retry-payment-setup(id=${detail.id})}"
+              hx-target="#page-content" hx-swap="innerHTML">
+            <button type="submit"
+                    class="px-3 py-1.5 rounded-lg bg-white/60 font-label-sm text-label-sm text-on-primary-fixed-variant hover:bg-white/80 transition-colors whitespace-nowrap">
+                Retry Verification
+            </button>
+        </form>
+    </div>
+
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-start justify-between mb-lg gap-md">
         <div>

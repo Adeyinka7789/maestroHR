@@ -187,6 +187,7 @@ sentry:
     - org.springframework.web.HttpRequestMethodNotSupportedException
     - org.springframework.web.servlet.NoHandlerFoundException
     - org.springframework.security.access.AccessDeniedException
+    - com.admtechhub.maestrohr.auth.InvalidCredentialsException
 
 web:
   resources:

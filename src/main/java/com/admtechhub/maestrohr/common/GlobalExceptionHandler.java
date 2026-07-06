@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.common;
 
+import com.admtechhub.maestrohr.auth.InvalidCredentialsException;
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +14,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
@@ -21,6 +23,22 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * Fallback for a malformed typed parameter (e.g. a non-UUID path/query value) on any
+     * controller that has no local handler of its own — most HTMX controllers register their own
+     * (see ExitManagementController) so this fragment-swapped page gets a clean HTML banner
+     * instead of the raw JSON body this handler returns. Covers the many plain
+     * {@code @PathVariable UUID id} / {@code @RequestParam} bindings across the REST API that
+     * would otherwise 500 on a bad value.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.warn("Type mismatch on parameter '{}': {}", ex.getName(), ex.getMessage());
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error("Invalid value for '" + ex.getName() + "'"));
+    }
 
     /**
      * Handles bean validation errors (e.g. @Valid on request bodies).
@@ -60,6 +78,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.error("Authentication failed"));
+    }
+
+    /**
+     * Login-specific credential failures (bad password, unknown email, locked account). Returns
+     * 401 rather than the generic 400 IllegalArgumentException gets, and is deliberately narrow
+     * (only AuthService#login throws this) so Sentry can ignore it via
+     * sentry.ignored-exceptions-for-type without silencing IllegalArgumentException everywhere.
+     */
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidCredentials(
+            InvalidCredentialsException ex) {
+        log.debug("Login failed: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -116,6 +117,19 @@ public class ExitManagementController {
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
     public String handleError(RuntimeException ex, Model model) {
         model.addAttribute("formError", ex.getMessage());
+        model.addAttribute("view", exitManagementService.buildList());
+        return "exit-management :: list";
+    }
+
+    /**
+     * A malformed value submitted for a typed parameter (e.g. a non-UUID employeeId, as when the
+     * Initiate Exit form's employee field was a free-text input a user could type garbage into —
+     * see the exit-management.html fix). Local handler (not just the global one) so this still
+     * renders back into the HTMX fragment with a banner instead of a raw JSON body.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public String handleTypeMismatch(MethodArgumentTypeMismatchException ex, Model model) {
+        model.addAttribute("formError", "Invalid value for '" + ex.getName() + "'. Please check your input and try again.");
         model.addAttribute("view", exitManagementService.buildList());
         return "exit-management :: list";
     }

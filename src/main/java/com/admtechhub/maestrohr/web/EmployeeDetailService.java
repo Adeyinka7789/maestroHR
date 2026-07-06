@@ -101,6 +101,9 @@ public class EmployeeDetailService {
                 orDash(e.getBankAccountName()),
                 e.getPaystackRecipientCode() != null && !e.getPaystackRecipientCode().isBlank()
                         ? e.getPaystackRecipientCode() : "Not linked",
+                e.getBankName() != null && !e.getBankName().isBlank()
+                        && e.getBankAccountNumber() != null && !e.getBankAccountNumber().isBlank(),
+                e.getPaystackRecipientCode() != null && !e.getPaystackRecipientCode().isBlank(),
 
                 // Salary (current pay grade)
                 hasPayGrade,

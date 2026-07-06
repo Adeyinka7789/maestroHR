@@ -19,7 +19,16 @@ public class TermiiClient {
     private final TermiiConfig termiiConfig;
     private final RestTemplate restTemplate;
 
+    /** Placeholder value shipped in .env for local/dev environments with no real Termii account. */
+    private static final String PLACEHOLDER_API_KEY = "termii_key_placeholder";
+
     public void sendSms(String phoneNumber, String message) {
+        String apiKey = termiiConfig.getApiKey();
+        if (apiKey == null || apiKey.isBlank() || PLACEHOLDER_API_KEY.equals(apiKey)) {
+            log.debug("Skipping SMS to {}: Termii API key not configured", phoneNumber);
+            return;
+        }
+
         try {
             String url = termiiConfig.getBaseUrl() + "/sms/send";
 

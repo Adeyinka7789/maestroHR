@@ -1,7 +1,12 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.auth.TenantContext;
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.exit.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /** Assembles the server-rendered {@link ExitManagementView} for the HTMX exit-management page. */
 @Service
@@ -21,7 +27,11 @@ public class ExitManagementService {
             DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
     private static final NumberFormat NAIRA_FMT = NumberFormat.getCurrencyInstance(new Locale("en", "NG"));
 
+    /** Upper bound on employees loaded into the Initiate Exit form's picker (no pagination on this form). */
+    private static final int MAX_EMPLOYEES = 2000;
+
     private final ExitService exitService;
+    private final EmployeeRepository employeeRepository;
 
     @Transactional(readOnly = true)
     public ExitManagementView buildList() {
@@ -34,7 +44,26 @@ public class ExitManagementService {
                 toLong(rawStats.get("settled")),
                 toLong(rawStats.get("completed")),
                 formatNaira(rawStats.get("totalPayable")));
-        return new ExitManagementView(rows, stats);
+        return new ExitManagementView(rows, stats, loadEmployees(currentTenantId()));
+    }
+
+    /** Tenant roster for the Initiate Exit form's employee picker, name-sorted; mirrors LeaveListService. */
+    private List<ExitManagementView.EmployeeOption> loadEmployees(UUID tenantId) {
+        return employeeRepository
+                .findAllByTenantId(tenantId, PageRequest.of(0, MAX_EMPLOYEES, Sort.by("firstName", "lastName")))
+                .map(e -> new ExitManagementView.EmployeeOption(e.getId(), optionLabel(e)))
+                .getContent();
+    }
+
+    private String optionLabel(Employee e) {
+        String number = e.getEmployeeNumber();
+        return (number == null || number.isBlank())
+                ? e.getFullName()
+                : e.getFullName() + " (" + number + ")";
+    }
+
+    private UUID currentTenantId() {
+        return UUID.fromString(TenantContext.getCurrentTenant());
     }
 
     private ExitManagementView.Row toRow(ExitRequestDTO r) {

@@ -112,7 +112,7 @@ class AuthServiceWriteTest {
         UUID tenantId = seedTenant();
         UUID userId = seedUser(tenantId, "e4cii-login-" + suffix + "@test.local", 0);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(InvalidCredentialsException.class,
                 () -> authService.login(loginRequest("e4cii-login-" + suffix + "@test.local", "wrong")));
 
         // The increment must survive the IllegalArgumentException login throws — the whole point
@@ -127,7 +127,7 @@ class AuthServiceWriteTest {
         UUID userId = seedUser(tenantId, email, 0);
 
         for (int i = 0; i < 5; i++) {
-            assertThrows(IllegalArgumentException.class,
+            assertThrows(InvalidCredentialsException.class,
                     () -> authService.login(loginRequest(email, "wrong")));
         }
 
@@ -138,7 +138,7 @@ class AuthServiceWriteTest {
         assertTrue(lockedUntil.isAfter(OffsetDateTime.now()));
 
         // Even the correct password is refused while the lock holds.
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        InvalidCredentialsException ex = assertThrows(InvalidCredentialsException.class,
                 () -> authService.login(loginRequest(email, rawPassword)));
         assertTrue(ex.getMessage().toLowerCase().contains("locked"));
     }
