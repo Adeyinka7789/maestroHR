@@ -38,7 +38,7 @@ public class EmployeePostCommitProcessor {
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleEmployeePostCommitSideEffects(EmployeeCreatedEvent event) {
         log.info("Processing post-commit side effects for employee ID: {}", event.employeeId());
 
