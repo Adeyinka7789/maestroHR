@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<!--
+  account.html — server-rendered HTMX fragment (Option 3) for self-service company management,
+  lazy-loaded into the profile page (profile.html swaps this into #account-companies via
+  hx-get="/htmx/account/companies" hx-trigger="load"). Rendered by AccountController as
+  "account :: companies". Styled with the Stitch design-system tokens in /css/dashboard.css.
+
+  Lists every company the authenticated user belongs to (one email can own several) with two
+  per-company actions:
+   - Leave  : remove only my login from the company (hidden when I'm the only member — I'd orphan it).
+   - Delete : soft-delete the whole company (owners/SYSTEM_ADMIN only). A two-step confirmation —
+              re-enter password + type the exact company name — guards it. Deletion is reversible by
+              a super-admin for 90 days, then permanently purged.
+
+  Acting on the company you're currently signed into ends your access to it, so the server responds
+  with HX-Redirect:/login (no swap). Other cases re-render this fragment in place with a banner.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed document; only the
+  th:fragment node is emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="companies" class="max-w-3xl bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+
+    <h2 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Your Companies</h2>
+    <p class="font-body-sm text-body-sm text-on-surface-variant mb-lg">
+        Companies you can sign into with this email. Leave one to remove just your access, or delete a
+        company you own to remove it entirely.
+    </p>
+
+    <!-- Result banners -->
+    <div th:if="${successMessage}" role="status"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">task_alt</span>
+        <span th:text="${successMessage}">Done.</span>
+    </div>
+    <div th:if="${errorMessage}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">error</span>
+        <span th:text="${errorMessage}">Something went wrong.</span>
+    </div>
+
+    <!-- Company list -->
+    <div class="flex flex-col gap-sm">
+        <div th:each="c : ${view.companies}"
+             class="border border-outline-variant rounded-lg p-md">
+
+            <div class="flex flex-wrap items-center gap-sm mb-sm">
+                <span class="font-label-md text-label-md text-on-surface" th:text="${c.companyName}">Acme Ltd</span>
+                <span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-bold"
+                      th:text="${c.roleLabel}">System Admin</span>
+                <span th:if="${c.current}"
+                      class="px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant text-[11px] font-bold">Current</span>
+                <span class="ml-auto font-body-sm text-body-sm text-on-surface-variant"
+                      th:text="${c.memberCount + (c.memberCount == 1 ? ' member' : ' members')}">3 members</span>
+            </div>
+
+            <div class="flex flex-wrap gap-sm">
+                <!-- Leave — only when not the sole member (leaving would orphan the company). -->
+                <details th:unless="${c.soleMember}" class="relative">
+                    <summary class="list-none cursor-pointer inline-flex items-center gap-xs px-3 py-1.5 rounded-lg border border-outline-variant bg-white text-on-surface font-label-sm text-label-sm hover:bg-surface-container-low transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">logout</span> Leave
+                    </summary>
+                    <form th:attr="hx-post='/htmx/account/company/' + ${c.tenantId} + '/leave'"
+                          hx-target="#account-companies" hx-swap="innerHTML"
+                          class="mt-sm p-md bg-surface-container-low rounded-lg">
+                        <p class="font-body-sm text-body-sm text-on-surface mb-sm">
+                            Remove your access to <strong th:text="${c.companyName}">Acme Ltd</strong>? The company and its
+                            data stay; you just won't be able to sign into it anymore.
+                        </p>
+                        <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-primary text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                            Yes, leave this company
+                        </button>
+                    </form>
+                </details>
+                <span th:if="${c.soleMember}" class="font-body-sm text-body-sm text-on-surface-variant self-center">
+                    You're the only member — delete the company to remove it.
+                </span>
+
+                <!-- Delete — owners only. Two-step confirm: password + exact company name. -->
+                <details th:if="${c.canDelete}" class="relative">
+                    <summary class="list-none cursor-pointer inline-flex items-center gap-xs px-3 py-1.5 rounded-lg border border-error text-error font-label-sm text-label-sm hover:bg-error-container transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">delete_forever</span> Delete company
+                    </summary>
+                    <form th:attr="hx-post='/htmx/account/company/' + ${c.tenantId} + '/delete'"
+                          hx-target="#account-companies" hx-swap="innerHTML"
+                          class="mt-sm p-md bg-error-container rounded-lg">
+                        <p class="font-label-md text-label-md text-on-error-container mb-xs">Delete this company permanently?</p>
+                        <p class="font-body-sm text-body-sm text-on-error-container mb-sm">
+                            This deletes <strong th:text="${c.companyName}">Acme Ltd</strong> and all of its data — employees,
+                            payroll, attendance, everything. A super-admin can restore it within <strong>90 days</strong>;
+                            after that it is erased for good.
+                        </p>
+
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-error-container">Your password</label>
+                        <input type="password" name="password" autocomplete="current-password" required
+                               class="w-full mb-sm px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+
+                        <label class="block mb-xs font-label-sm text-label-sm text-on-error-container">
+                            Type <strong th:text="${c.companyName}">Acme Ltd</strong> to confirm
+                        </label>
+                        <input type="text" name="companyName" autocomplete="off" required
+                               th:attr="placeholder=${c.companyName}"
+                               class="w-full mb-md px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+
+                        <button type="submit"
+                                class="px-4 py-2 rounded-lg bg-error text-white font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                            Permanently delete this company
+                        </button>
+                    </form>
+                </details>
+            </div>
+        </div>
+
+        <div th:if="${view.companies.isEmpty()}"
+             class="font-body-sm text-body-sm text-on-surface-variant py-md text-center">
+            No companies found for your account.
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

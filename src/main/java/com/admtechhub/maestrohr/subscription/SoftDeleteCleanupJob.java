@@ -38,16 +38,21 @@ public class SoftDeleteCleanupJob {
     /** Runs at 01:30 every day (server time) — staggered after the 01:00 subscription-lapse sweep. */
     @Scheduled(cron = "0 30 1 * * *")
     public void purgeExpiredSoftDeletes() {
-        // Employees first: departments / pay_grades are guarded against employees that still
+        // Companies first: a purged tenant cascades away all of its own rows (V55 made every
+        // tenant-scoped FK ON DELETE CASCADE), including any trashed employees/departments/pay
+        // grades it owned — so doing it first leaves less for the per-table sweeps below.
+        int tenants = purge("tenants", () -> cleanupQueries.purgeTenants(RETENTION_DAYS));
+        // Employees next: departments / pay_grades are guarded against employees that still
         // reference them, so removing trashed employees lets more parents become purgeable.
         int employees = purge("employees", () -> cleanupQueries.purgeEmployees(RETENTION_DAYS));
         int departments = purge("departments", () -> cleanupQueries.purgeDepartments(RETENTION_DAYS));
         int payGrades = purge("pay_grades", () -> cleanupQueries.purgePayGrades(RETENTION_DAYS));
 
-        int total = employees + departments + payGrades;
+        int total = tenants + employees + departments + payGrades;
         if (total > 0) {
-            log.info("Soft-delete cleanup purged {} employee(s), {} department(s), {} pay grade(s) "
-                    + "past the {}-day retention window", employees, departments, payGrades, RETENTION_DAYS);
+            log.info("Soft-delete cleanup purged {} compan(ies), {} employee(s), {} department(s), "
+                    + "{} pay grade(s) past the {}-day retention window",
+                    tenants, employees, departments, payGrades, RETENTION_DAYS);
         } else {
             log.debug("Soft-delete cleanup: nothing past the {}-day retention window", RETENTION_DAYS);
         }

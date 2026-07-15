@@ -65,4 +65,15 @@ public class Tenant extends BaseEntity {
 
     @Column(name = "logo_file_name")
     private String logoFileName;
+
+    /**
+     * Soft-delete marker for self-service company deletion (V55). Non-null means the owner has
+     * trashed this company: it is deactivated and hidden from login/switcher, kept for a 90-day
+     * grace period on the super-admin trash page, then permanently purged by
+     * {@code SoftDeleteCleanupJob}. No {@code @SQLRestriction} here — access is already gated by
+     * {@code is_active} (shared with the suspend feature), and the trash/purge paths read this
+     * column directly through the privileged datasource.
+     */
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 }

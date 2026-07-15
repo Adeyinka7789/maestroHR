@@ -20,6 +20,7 @@ module.exports = {
     "./src/main/resources/templates/leave.html",
     "./src/main/resources/templates/attendance.html",
     "./src/main/resources/templates/attendance-analytics.html",
+    "./src/main/resources/templates/account.html",
     "./src/main/resources/templates/attendance-self.html",
     "./src/main/resources/templates/payroll.html",
     "./src/main/resources/templates/payroll-detail.html",

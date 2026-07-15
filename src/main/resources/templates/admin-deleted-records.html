@@ -69,8 +69,10 @@
                                   ? 'bg-primary-fixed text-primary'
                                   : (r.type == 'DEPARTMENT'
                                       ? 'bg-tertiary-fixed text-tertiary'
-                                      : 'bg-surface-container text-on-surface-variant')}"
-                              th:text="${#strings.replace(r.type, '_', ' ')}">EMPLOYEE</span>
+                                      : (r.type == 'TENANT'
+                                          ? 'bg-error-container text-on-error-container'
+                                          : 'bg-surface-container text-on-surface-variant'))}"
+                              th:text="${r.type == 'TENANT' ? 'COMPANY' : #strings.replace(r.type, '_', ' ')}">EMPLOYEE</span>
                     </td>
                     <!-- Label -->
                     <td class="px-md py-3 font-label-md text-label-md text-on-surface" th:text="${r.label}">Jane Doe</td>
@@ -97,9 +99,11 @@
                                 <span class="material-symbols-outlined text-[16px]">restore_from_trash</span>
                                 Restore
                             </button>
-                            <button th:attr="hx-post=@{/htmx/admin/deleted-records/{type}/{id}/purge(type=${r.type}, id=${r.id})}"
+                            <button th:attr="hx-post=@{/htmx/admin/deleted-records/{type}/{id}/purge(type=${r.type}, id=${r.id})},
+                                        hx-confirm=${r.type == 'TENANT'
+                                            ? 'Permanently delete this ENTIRE COMPANY and all of its data (employees, payroll, users, everything) right now? This cannot be undone.'
+                                            : 'Permanently delete this record now? This cannot be undone.'}"
                                     hx-target="#page-content" hx-swap="innerHTML"
-                                    hx-confirm="Permanently delete this record now? This cannot be undone."
                                     class="inline-flex items-center gap-xs bg-white border border-error text-error px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-error hover:text-white transition-all duration-200">
                                 <span class="material-symbols-outlined text-[16px]">delete_forever</span>
                                 Delete now

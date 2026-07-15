@@ -33,11 +33,14 @@ public class DeletedRecordsQueries {
         this.jdbc = jdbc;
     }
 
-    /** The three soft-deletable kinds, each mapping a URL token to its table and audit entity name. */
+    /** The soft-deletable kinds, each mapping a URL token to its table and audit entity name. */
     public enum DeletedType {
         DEPARTMENT("departments", "department"),
         EMPLOYEE("employees", "employee"),
-        PAY_GRADE("pay_grades", "pay_grade");
+        PAY_GRADE("pay_grades", "pay_grade"),
+        // A whole company trashed via self-service deletion (V55). Its "tenant id" IS its own id;
+        // restore reactivates the tenant and its users, and purge cascades to all tenant-scoped data.
+        TENANT("tenants", "tenant");
 
         private final String table;
         private final String auditEntity;
@@ -69,6 +72,9 @@ public class DeletedRecordsQueries {
                         + "    UNION ALL "
                         + "    SELECT 'PAY_GRADE', p.id, p.name, p.tenant_id, p.deleted_at "
                         + "    FROM pay_grades p WHERE p.deleted_at IS NOT NULL "
+                        + "    UNION ALL "
+                        + "    SELECT 'TENANT', tn.id, tn.company_name, tn.id, tn.deleted_at "
+                        + "    FROM tenants tn WHERE tn.deleted_at IS NOT NULL "
                         + ") x "
                         + "JOIN tenants t ON t.id = x.tenant_id "
                         + "ORDER BY x.deleted_at DESC",
@@ -100,6 +106,14 @@ public class DeletedRecordsQueries {
                         + "FROM employees e WHERE e.id = ? AND u.id = e.user_id", id);
                 return true;
             }));
+        } else if (type == DeletedType.TENANT) {
+            // Un-trash the company and reactivate the tenant + every user under it (self-service
+            // deletion had deactivated them), so its owners can sign back in.
+            jdbc.execute((Connection con) -> inTransaction(con, () -> {
+                update(con, "UPDATE tenants SET deleted_at = NULL, is_active = true WHERE id = ?", id);
+                update(con, "UPDATE users SET is_active = true WHERE tenant_id = ?", id);
+                return true;
+            }));
         } else {
             jdbc.update("UPDATE " + type.table + " SET deleted_at = NULL WHERE id = ?", id);
         }
@@ -120,11 +134,16 @@ public class DeletedRecordsQueries {
         return tenantId;
     }
 
-    /** Tenant id of a trashed row, or null when the id is unknown or the row is not trashed. */
+    /**
+     * Tenant id of a trashed row, or null when the id is unknown or the row is not trashed. The
+     * {@code tenants} table has no {@code tenant_id} column — its own {@code id} is the tenant id —
+     * so the projected column is chosen per type.
+     */
     private UUID tenantIdOfTrashed(DeletedType type, UUID id) {
+        String idColumn = type == DeletedType.TENANT ? "id" : "tenant_id";
         List<UUID> ids = jdbc.query(
-                "SELECT tenant_id FROM " + type.table + " WHERE id = ? AND deleted_at IS NOT NULL",
-                (rs, n) -> rs.getObject("tenant_id", UUID.class), id);
+                "SELECT " + idColumn + " AS tid FROM " + type.table + " WHERE id = ? AND deleted_at IS NOT NULL",
+                (rs, n) -> rs.getObject("tid", UUID.class), id);
         return ids.isEmpty() ? null : ids.get(0);
     }
 

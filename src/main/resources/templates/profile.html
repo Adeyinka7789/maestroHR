@@ -223,6 +223,17 @@
 
     <!-- ── Security (change password) — always shown ── -->
     <div id="security-section" th:insert="~{profile :: security-section}"></div>
+
+    <!-- ── Companies & account deletion (self-service) — lazy-loaded fragment ──
+         Rendered by AccountController as "account :: companies". Kept out of ProfileService/
+         ProfileView (which are tenant-scoped) because listing every company the caller belongs to
+         is cross-tenant; the fragment loads itself once this section swaps into #page-content. -->
+    <div id="account-companies" class="max-w-3xl"
+         hx-get="/htmx/account/companies" hx-trigger="load" hx-swap="innerHTML">
+        <div class="max-w-3xl bg-white border border-outline-variant rounded-xl p-lg mb-lg font-body-sm text-body-sm text-on-surface-variant">
+            Loading your companies…
+        </div>
+    </div>
 </div>
 
 <!-- ======================= PERSONAL SECTION ======================= -->

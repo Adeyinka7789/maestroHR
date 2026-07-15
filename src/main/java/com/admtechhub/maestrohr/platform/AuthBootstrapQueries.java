@@ -47,10 +47,14 @@ public class AuthBootstrapQueries {
      * {@link LoginAttemptWrites}, so any single row is representative for those checks.
      */
     public List<UserAuthRow> findAllUsersByEmail(String email) {
+        // Joined to tenants and filtered on deleted_at so a soft-deleted company (V55 self-service
+        // deletion) disappears from login, the tenant picker and the company switcher — a trashed
+        // workspace can no longer be signed into or switched to during its 90-day retention window.
         return jdbc.query(
-                "SELECT id, tenant_id, email, password_hash, role, is_active, "
-                        + "failed_login_attempts, locked_until "
-                        + "FROM users WHERE email = ?",
+                "SELECT u.id, u.tenant_id, u.email, u.password_hash, u.role, u.is_active, "
+                        + "u.failed_login_attempts, u.locked_until "
+                        + "FROM users u JOIN tenants t ON t.id = u.tenant_id "
+                        + "WHERE u.email = ? AND t.deleted_at IS NULL",
                 USER_AUTH_ROW, email);
     }
 

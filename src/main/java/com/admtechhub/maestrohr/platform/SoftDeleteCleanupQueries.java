@@ -28,6 +28,18 @@ public class SoftDeleteCleanupQueries {
         this.jdbc = jdbc;
     }
 
+    /**
+     * Permanently delete companies (tenants) trashed longer than {@code retentionDays} ago. The
+     * V55 migration made every tenant-scoped FK {@code ON DELETE CASCADE}, so this single statement
+     * tears down all of a purged company's data (employees, payroll, users, …). @return rows removed.
+     */
+    public int purgeTenants(int retentionDays) {
+        return jdbc.update(
+                "DELETE FROM tenants "
+                        + "WHERE deleted_at IS NOT NULL AND deleted_at < now() - make_interval(days => ?)",
+                retentionDays);
+    }
+
     /** Permanently delete employees trashed longer than {@code retentionDays} ago. @return rows removed. */
     public int purgeEmployees(int retentionDays) {
         return jdbc.update(
