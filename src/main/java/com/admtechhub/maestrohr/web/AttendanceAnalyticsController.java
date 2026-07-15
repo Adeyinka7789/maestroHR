@@ -48,12 +48,21 @@ public class AttendanceAnalyticsController {
 
     private final AttendanceAnalyticsService attendanceAnalyticsService;
 
-    /** Full analytics fragment: app shell on a cold visit, the populated dashboard under HTMX. */
+    /**
+     * Full analytics fragment: app shell on a cold visit, the populated dashboard under HTMX.
+     *
+     * The period is chosen by {@code period} (day / week / month / custom, default month). For
+     * the presets, {@code date} is an anchor date inside the wanted period (prev/next shift it);
+     * for {@code custom}, {@code from}/{@code to} are the range (which also drives the export).
+     * All params are optional and leniently parsed by the service (bad input → current month).
+     */
     @GetMapping("/htmx/attendance/analytics")
     public String analytics(
             @RequestHeader(value = "HX-Request", required = false) String htmx,
-            @RequestParam(value = "year", required = false) Integer year,
-            @RequestParam(value = "month", required = false) Integer month,
+            @RequestParam(value = "period", required = false) String period,
+            @RequestParam(value = "date", required = false) String date,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to,
             @RequestParam(value = "deptId", required = false) String deptId,
             Model model) {
 
@@ -66,7 +75,7 @@ public class AttendanceAnalyticsController {
         }
 
         model.addAttribute("view",
-                attendanceAnalyticsService.build(year, month, parseDepartmentId(deptId)));
+                attendanceAnalyticsService.build(period, date, from, to, parseDepartmentId(deptId)));
         return "attendance-analytics :: analytics";
     }
 

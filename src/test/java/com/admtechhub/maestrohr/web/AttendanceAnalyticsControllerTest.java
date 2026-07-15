@@ -65,6 +65,36 @@ class AttendanceAnalyticsControllerTest {
     }
 
     @Test
+    void analytics_weekPeriod_returns200() throws Exception {
+        mockToken("token-hr", "HR_ADMIN");
+
+        mockMvc.perform(get("/htmx/attendance/analytics")
+                        .param("period", "week")
+                        .param("date", "2026-06-15")
+                        .header("Authorization", "Bearer token-hr")
+                        .header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                // A week resolves to a multi-day range, so the label is an en-dash range
+                // (e.g. "15 Jun – 21 Jun 2026"); a month/day label never contains this.
+                .andExpect(content().string(containsString("–")));
+    }
+
+    @Test
+    void analytics_customRange_returns200WithMatchingExportLink() throws Exception {
+        mockToken("token-hr", "HR_ADMIN");
+
+        mockMvc.perform(get("/htmx/attendance/analytics")
+                        .param("period", "custom")
+                        .param("from", "2026-06-01")
+                        .param("to", "2026-06-10")
+                        .header("Authorization", "Bearer token-hr")
+                        .header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("from=2026-06-01")))
+                .andExpect(content().string(containsString("to=2026-06-10")));
+    }
+
+    @Test
     void analytics_nonHtmxVisit_returnsAppShell() throws Exception {
         mockToken("token-hr", "HR_ADMIN");
 

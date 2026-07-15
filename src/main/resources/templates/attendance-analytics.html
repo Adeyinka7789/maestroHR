@@ -50,14 +50,39 @@
     <!-- Today / Calendar / Analytics toggle -->
     <div th:replace="~{attendance :: tabs('analytics')}"></div>
 
-    <!-- Filter card: department + month nav -->
+    <!--
+      Filter card: period toggle (Day/Week/Month/Custom) + department + range nav.
+      State plumbing — `period` is only ever a URL query param on each control (never a form
+      field), so there is no duplicate-param clash with hx-include. The hidden `date` anchor and
+      the `from`/`to` window are carried by hx-include so switching period keeps you near the
+      same point in time (and seeds the custom range with the window you were viewing).
+    -->
     <div class="bg-white border border-outline-variant rounded-xl p-md mb-md">
+
+        <!-- Hidden carriers. In custom mode `from`/`to` are the visible date inputs below instead. -->
+        <input type="hidden" name="date" th:value="${view.startDate}">
+        <input th:unless="${view.custom}" type="hidden" name="from" th:value="${view.startDate}">
+        <input th:unless="${view.custom}" type="hidden" name="to" th:value="${view.endDate}">
+
+        <!-- Period toggle -->
+        <div class="inline-flex rounded-lg border border-outline-variant overflow-hidden mb-md" role="group">
+            <button type="button" th:each="opt,i : ${ {'day','week','month','custom'} }"
+                    th:attr="hx-get='/htmx/attendance/analytics?period=' + ${opt}"
+                    hx-target="#page-content" hx-swap="innerHTML"
+                    hx-include="[name='date'],[name='from'],[name='to'],[name='deptId']"
+                    th:classappend="${(view.period == opt ? 'bg-primary text-white' : 'bg-white text-on-surface hover:bg-surface-container-low')
+                        + (i.index > 0 ? ' border-l border-outline-variant' : '')}"
+                    class="px-4 py-2 font-label-md text-label-md transition-colors cursor-pointer"
+                    th:text="${opt == 'day' ? 'Day' : (opt == 'week' ? 'Week' : (opt == 'month' ? 'Month' : 'Custom'))}">Month</button>
+        </div>
+
         <div class="flex flex-col md:flex-row md:items-end gap-md">
-            <div class="md:w-72">
+            <div class="md:w-64">
                 <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">Department</label>
                 <select name="deptId"
-                        hx-get="/htmx/attendance/analytics" hx-target="#page-content" hx-swap="innerHTML"
-                        hx-include="[name='year'],[name='month']" hx-trigger="change"
+                        th:attr="hx-get='/htmx/attendance/analytics?period=' + ${view.period}"
+                        hx-target="#page-content" hx-swap="innerHTML"
+                        hx-include="[name='date'],[name='from'],[name='to']" hx-trigger="change"
                         class="w-full px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
                     <option value="" th:selected="${view.selectedDepartmentId == null}">All departments</option>
                     <option th:each="dept : ${view.departments}"
@@ -66,21 +91,40 @@
                 </select>
             </div>
 
-            <!-- Hidden carriers for the active month, pulled by the department picker's hx-include. -->
-            <input type="hidden" name="year" th:value="${view.year}">
-            <input type="hidden" name="month" th:value="${view.month}">
+            <!-- Custom range inputs — only in custom mode; each re-renders on change carrying the other. -->
+            <div th:if="${view.custom}" class="flex items-end gap-sm">
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">From</label>
+                    <input type="date" name="from" th:value="${view.startDate}"
+                           hx-get="/htmx/attendance/analytics?period=custom" hx-target="#page-content" hx-swap="innerHTML"
+                           hx-include="[name='to'],[name='deptId']" hx-trigger="change"
+                           class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block mb-xs font-label-sm text-label-sm text-on-surface-variant">To</label>
+                    <input type="date" name="to" th:value="${view.endDate}"
+                           hx-get="/htmx/attendance/analytics?period=custom" hx-target="#page-content" hx-swap="innerHTML"
+                           hx-include="[name='from'],[name='deptId']" hx-trigger="change"
+                           class="px-3 py-2.5 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                </div>
+            </div>
 
+            <!-- Range nav: prev / label / next. Presets shift the anchor date; custom slides the window. -->
             <div class="flex items-center gap-sm md:ml-auto">
                 <button type="button"
-                        th:attr="hx-get='/htmx/attendance/analytics?year=' + ${view.prevYear} + '&month=' + ${view.prevMonth}"
+                        th:attr="hx-get=${view.custom
+                            ? '/htmx/attendance/analytics?period=custom&from=' + view.prevFrom + '&to=' + view.prevTo
+                            : '/htmx/attendance/analytics?period=' + view.period + '&date=' + view.prevDate}"
                         hx-target="#page-content" hx-swap="innerHTML" hx-include="[name='deptId']"
                         class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
                     <span class="material-symbols-outlined text-[20px]">chevron_left</span>
                 </button>
-                <span class="font-headline-sm text-headline-sm text-on-surface text-center min-w-[150px]"
-                      th:text="${view.monthLabel}">June 2026</span>
+                <span class="font-headline-sm text-headline-sm text-on-surface text-center min-w-[180px]"
+                      th:text="${view.rangeLabel}">June 2026</span>
                 <button type="button"
-                        th:attr="hx-get='/htmx/attendance/analytics?year=' + ${view.nextYear} + '&month=' + ${view.nextMonth}"
+                        th:attr="hx-get=${view.custom
+                            ? '/htmx/attendance/analytics?period=custom&from=' + view.nextFrom + '&to=' + view.nextTo
+                            : '/htmx/attendance/analytics?period=' + view.period + '&date=' + view.nextDate}"
                         hx-target="#page-content" hx-swap="innerHTML" hx-include="[name='deptId']"
                         class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors cursor-pointer">
                     <span class="material-symbols-outlined text-[20px]">chevron_right</span>
@@ -149,21 +193,24 @@
         </div>
     </div>
 
-    <!-- ===================== DAILY TREND ===================== -->
+    <!-- ===================== ATTENDANCE TREND ===================== -->
     <!--
-      Single-series, magnitude-over-time strip: one bar per calendar day, height = that day's
-      attendance rate (0–100%). One hue (bg-primary) — this is one measure, so no status
-      colouring; weekend bars are muted. Each bar carries a native-title tooltip with the exact
-      rate and P/L/A/H breakdown. Baseline-anchored, rounded top, 2px surface gaps.
+      Single-series, magnitude-over-time strip: one bar per day (or per week for long ranges),
+      height = that point's attendance rate (0–100%). One hue (bg-primary) — this is one measure,
+      so no status colouring; weekend bars are muted (daily only). Each bar carries a native-title
+      tooltip with the exact rate and P/L/A/H breakdown. Baseline-anchored, rounded top, 2px gaps.
+      Hidden for a single-day window (nothing to trend).
     -->
-    <div class="bg-white border border-outline-variant rounded-xl p-md mb-lg">
+    <div th:if="${view.showTrend}" class="bg-white border border-outline-variant rounded-xl p-md mb-lg">
         <div class="flex items-baseline justify-between mb-md">
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Daily attendance rate</h2>
-            <span class="font-label-sm text-label-sm text-on-surface-variant">Bar height = % attended that day</span>
+            <h2 class="font-headline-sm text-headline-sm text-on-surface"
+                th:text="${view.weeklyTrend ? 'Weekly attendance rate' : 'Daily attendance rate'}">Daily attendance rate</h2>
+            <span class="font-label-sm text-label-sm text-on-surface-variant"
+                  th:text="${view.weeklyTrend ? 'Bar height = % attended that week' : 'Bar height = % attended that day'}">Bar height = % attended that day</span>
         </div>
 
         <div th:if="${view.trend.isEmpty()}" class="py-lg text-center font-body-sm text-body-sm text-on-surface-variant">
-            No attendance recorded this month.
+            No attendance recorded in this range.
         </div>
 
         <div th:unless="${view.trend.isEmpty()}" class="flex items-end gap-[2px] h-40">
@@ -176,11 +223,11 @@
                 </div>
             </div>
         </div>
-        <!-- Day-of-month axis (weekend muted) -->
+        <!-- Axis labels (day-of-month, or week-start for weekly buckets) -->
         <div th:unless="${view.trend.isEmpty()}" class="flex gap-[2px] mt-xs">
             <div th:each="pt : ${view.trend}"
                  class="flex-1 text-center text-[10px] leading-tight min-w-[6px] text-on-surface-variant"
-                 th:text="${pt.dayLabel}">15</div>
+                 th:text="${pt.label}">15</div>
         </div>
     </div>
 
@@ -282,7 +329,7 @@
                         <td colspan="8" class="px-md py-xl text-center">
                             <p class="font-label-md text-label-md text-on-surface mb-xs">No attendance records</p>
                             <p class="font-body-sm text-body-sm text-on-surface-variant">
-                                Nothing was recorded for this month. Try another month or clear the department filter.
+                                Nothing was recorded for this range. Try another period or clear the department filter.
                             </p>
                         </td>
                     </tr>
