@@ -52,6 +52,30 @@ public class TenantUserWrites {
             "INSERT INTO users (id, tenant_id, email, password_hash, role, is_active) "
                     + "VALUES (?, ?, ?, ?, ?, ?)";
 
+    // Default leave types every new tenant is provisioned with, so the "Apply for Leave" picker is
+    // never empty on a fresh company. Kept in sync with LeaveService#createDefaultLeaveTypes (the
+    // JPA equivalent, usable only from a tenant-bound request); registration has no tenant session,
+    // so it must seed through this privileged path. ON CONFLICT makes re-provisioning a no-op.
+    private static final String INSERT_LEAVE_TYPE =
+            "INSERT INTO leave_types (tenant_id, name, code, max_days_per_year, is_paid, "
+                    + "requires_approval, carry_over_allowed, max_carry_over_days) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                    + "ON CONFLICT (tenant_id, code) DO NOTHING";
+
+    /** name, code, maxDaysPerYear, isPaid, requiresApproval, carryOverAllowed, maxCarryOverDays */
+    private record DefaultLeaveType(String name, String code, int maxDays, boolean paid,
+                                    boolean requiresApproval, boolean carryOver, int maxCarryOver) {}
+
+    private static final DefaultLeaveType[] DEFAULT_LEAVE_TYPES = {
+            new DefaultLeaveType("Annual Leave", "ANNUAL", 20, true, true, true, 5),
+            new DefaultLeaveType("Sick Leave", "SICK", 12, true, true, false, 0),
+            new DefaultLeaveType("Maternity Leave", "MATERNITY", 60, true, true, false, 0),
+            new DefaultLeaveType("Paternity Leave", "PATERNITY", 14, true, true, false, 0),
+            new DefaultLeaveType("Casual Leave", "CASUAL", 5, true, true, false, 0),
+            new DefaultLeaveType("Unpaid Leave", "UNPAID", 30, false, true, false, 0),
+            new DefaultLeaveType("Study Leave", "STUDY", 360, false, true, true, 360),
+    };
+
     private static final String UPDATE_TENANT =
             "UPDATE tenants SET company_name = ?, rc_number = ?, industry = ?, company_size = ?, "
                     + "subscription_plan = ?, subscription_expires_at = ?, is_active = ? WHERE id = ?";
@@ -121,6 +145,7 @@ public class TenantUserWrites {
                 adminUser.setTenantId(tenant.getId());
                 insertUser(con, adminUser);
                 insertTrialSubscription(con, tenant);
+                insertDefaultLeaveTypes(con, tenant.getId());
                 con.commit();
             } catch (SQLException | RuntimeException e) {
                 con.rollback();
@@ -247,6 +272,24 @@ public class TenantUserWrites {
     }
 
     // ── shared insert helpers (run on the caller's connection) ────────────────────────────
+
+    /** Seed the default leave types for a freshly-provisioned tenant (same connection/transaction). */
+    private void insertDefaultLeaveTypes(Connection con, UUID tenantId) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(INSERT_LEAVE_TYPE)) {
+            for (DefaultLeaveType d : DEFAULT_LEAVE_TYPES) {
+                ps.setObject(1, tenantId);
+                ps.setString(2, d.name());
+                ps.setString(3, d.code());
+                ps.setInt(4, d.maxDays());
+                ps.setBoolean(5, d.paid());
+                ps.setBoolean(6, d.requiresApproval());
+                ps.setBoolean(7, d.carryOver());
+                ps.setInt(8, d.maxCarryOver());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
 
     private void insertTrialSubscription(Connection con, Tenant tenant) throws SQLException {
         try (PreparedStatement ps = con.prepareStatement(INSERT_TRIAL_SUBSCRIPTION)) {

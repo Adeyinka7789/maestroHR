@@ -633,6 +633,9 @@
                     if (window.htmx) htmx.process(contentDiv);
                     // Update active nav and page title after content loads
                     updateActiveNav();
+                    // This raw-fetch path doesn't fire htmx:afterSwap, so ensure modal
+                    // close (X) buttons are added to the freshly-loaded fragment too.
+                    addModalCloseButtons();
                 }
             })
             .catch(err => {
@@ -847,36 +850,109 @@
         initMobileNav();
     }
 
-    // ── Auto close buttons for modals ─────────────────────────────
+    // ── Central button spinner ────────────────────────────────────────
+    // Any button/submit that fires an HTMX request gets a spinner for the life of
+    // the request (double-click-proof). JS-fetch buttons can opt in via
+    // MaestroHR.spin(btn) / MaestroHR.unspin(btn). Opt out with data-no-spin.
+    function mhResolveSpinButton(elt) {
+        if (!elt || !elt.tagName) return null;
+        if (elt.tagName === 'FORM') {
+            return elt.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+        }
+        if (elt.matches && elt.matches('button, input[type="submit"], input[type="button"], [role="button"]')) {
+            return elt;
+        }
+        return null;
+    }
+    function mhStartSpin(btn) {
+        if (!btn || btn.classList.contains('mh-loading') || btn.hasAttribute('data-no-spin')) return;
+        try { btn.style.setProperty('--mh-spin-color', getComputedStyle(btn).color); } catch (e) {}
+        btn.classList.add('mh-loading');
+        btn.setAttribute('aria-busy', 'true');
+    }
+    function mhStopSpin(btn) {
+        if (!btn) return;
+        btn.classList.remove('mh-loading');
+        btn.style.removeProperty('--mh-spin-color');
+        btn.removeAttribute('aria-busy');
+    }
+    document.body.addEventListener('htmx:beforeRequest', function (e) {
+        var btn = mhResolveSpinButton(e.detail.elt);
+        if (btn) { e.detail.mhSpinBtn = btn; mhStartSpin(btn); }
+    });
+    // afterRequest fires on success AND error, so the spinner is always cleared.
+    document.body.addEventListener('htmx:afterRequest', function (e) {
+        var btn = e.detail.mhSpinBtn || mhResolveSpinButton(e.detail.elt);
+        if (btn) mhStopSpin(btn);
+    });
+    window.MaestroHR.spin = mhStartSpin;
+    window.MaestroHR.unspin = mhStopSpin;
+
+    // ── Centralized modal close (X) button ─────────────────────────────
+    // Ensures EXACTLY ONE header close X per modal: injects one only when the modal
+    // doesn't already have an icon-style close control, so hand-authored X's are never
+    // duplicated (no more double X) and modals that had none (e.g. native <dialog>) get
+    // one (no more missing X). Closing works for Tailwind overlays and <dialog> alike.
+    function mhHasIconCloseControl(panel) {
+        // an already-injected auto close, or a marker/aria/class close control
+        if (panel.querySelector('.modal-auto-close, .modal-close, [data-modal-close], [aria-label="Close"], [aria-label="close"], [title="Close"], [title="close"]')) {
+            return true;
+        }
+        // a material-symbols "close" glyph (the app's hand-authored header X pattern)
+        var icons = panel.querySelectorAll('.material-symbols-outlined');
+        for (var i = 0; i < icons.length; i++) {
+            if ((icons[i].textContent || '').trim() === 'close') return true;
+        }
+        // an icon-only button whose text is a single X glyph, or an SVG "X" (two lines)
+        var controls = panel.querySelectorAll('button, a, [role="button"]');
+        for (var j = 0; j < controls.length; j++) {
+            var el = controls[j];
+            var t = (el.textContent || '').replace(/\s+/g, '');
+            if (/^[✕✖×⨯╳Xx]$/.test(t)) return true;
+            if (!t && el.querySelector('svg line + line')) return true;
+        }
+        return false;
+    }
+
+    function mhCloseModal(panel) {
+        var dlg = panel.tagName === 'DIALOG' ? panel : panel.closest('dialog');
+        if (dlg && typeof dlg.close === 'function') { try { dlg.close(); return; } catch (e) {} }
+        var overlay = panel.closest('.fixed.inset-0');
+        if (overlay) { overlay.style.display = 'none'; return; }
+        if (panel.parentElement) { panel.parentElement.style.display = 'none'; return; }
+        panel.style.display = 'none';
+    }
+
+    function mhEnsureModalClose(panel) {
+        if (!panel) return;
+        if (panel.closest('#toast-container, #impersonation-banner, #trial-banner, #broadcast-banner-container, nav, aside, header')) return;
+        if (mhHasIconCloseControl(panel)) return;
+
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'modal-auto-close';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.title = 'Close';
+        closeBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;">close</span>';
+        closeBtn.addEventListener('click', function () { mhCloseModal(panel); });
+
+        if (getComputedStyle(panel).position === 'static') {
+            panel.style.position = 'relative';
+        }
+        panel.appendChild(closeBtn);
+    }
+
     function addModalCloseButtons() {
-        var selectors = [
-            '.fixed.inset-0 > div',
-            '[role="dialog"]',
-            '.modal-container > div',
-        ];
-
-        selectors.forEach(function (sel) {
-            document.querySelectorAll(sel).forEach(function (modal) {
-                if (modal.querySelector('.modal-auto-close')) return;
-                if (modal.closest('#toast-container, #impersonation-banner, #trial-banner, #broadcast-banner-container, nav, aside, header')) return;
-
-                var closeBtn = document.createElement('button');
-                closeBtn.className = 'modal-auto-close';
-                closeBtn.innerHTML = '✕';
-                closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;background:none;border:none;cursor:pointer;font-size:18px;color:#6b7280;line-height:1;padding:4px;border-radius:4px;z-index:10;';
-                closeBtn.title = 'Close';
-                closeBtn.addEventListener('click', function () {
-                    var overlay = modal.closest('.fixed.inset-0');
-                    if (overlay) overlay.style.display = 'none';
-                    else modal.style.display = 'none';
-                });
-
-                if (getComputedStyle(modal).position === 'static') {
-                    modal.style.position = 'relative';
-                }
-                modal.appendChild(closeBtn);
-            });
+        // Tailwind overlays: the panel is the overlay's direct child box.
+        document.querySelectorAll('.fixed.inset-0').forEach(function (overlay) {
+            mhEnsureModalClose(overlay.querySelector(':scope > div') || overlay);
         });
+        // Native <dialog> modals (e.g. exit-management) and explicit role/containers.
+        document.querySelectorAll('dialog').forEach(mhEnsureModalClose);
+        document.querySelectorAll('[role="dialog"]').forEach(function (d) {
+            mhEnsureModalClose(d.matches('.fixed.inset-0') ? (d.querySelector(':scope > div') || d) : d);
+        });
+        document.querySelectorAll('.modal-container > div').forEach(mhEnsureModalClose);
     }
 
     document.addEventListener('DOMContentLoaded', addModalCloseButtons);
