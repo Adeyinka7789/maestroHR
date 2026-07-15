@@ -118,4 +118,67 @@ public interface AttendanceRepository extends JpaRepository<AttendanceRecord, UU
     List<Object[]> countLateDaysBatch(@Param("employeeIds") List<UUID> employeeIds,
                                       @Param("periodStart") LocalDate periodStart,
                                       @Param("periodEnd") LocalDate periodEnd);
+
+    // ── Analytics tab aggregations (tenant-wide, over a date range) ──────────────────
+    // All three back the server-rendered Attendance Analytics fragment. Tenant-scoped on
+    // a.tenant.id (matching findFilteredByDate) so figures never leak across tenants even
+    // if the @SQLRestriction session variable is unset.
+
+    // Per-status totals for the whole tenant across a range → the summary stat cards.
+    // Rows of [AttendanceStatus, Long]; statuses with no records in the range are absent.
+    @Query("SELECT a.status, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.tenant.id = :tenantId AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY a.status")
+    List<Object[]> countByStatusForRange(@Param("tenantId") UUID tenantId,
+                                         @Param("startDate") LocalDate startDate,
+                                         @Param("endDate") LocalDate endDate);
+
+    // Per-employee per-status counts across a range → the per-employee summary table AND
+    // (aggregated in the service by department) the per-department breakdown. Rows of
+    // [employeeId, AttendanceStatus, Long]; only (employee, status) pairs with records appear.
+    @Query("SELECT a.employee.id, a.status, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.tenant.id = :tenantId AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY a.employee.id, a.status")
+    List<Object[]> countByEmployeeAndStatusForRange(@Param("tenantId") UUID tenantId,
+                                                    @Param("startDate") LocalDate startDate,
+                                                    @Param("endDate") LocalDate endDate);
+
+    // Per-day per-status counts across a range → the day-by-day attendance-rate trend.
+    // Rows of [LocalDate, AttendanceStatus, Long]; days/statuses with no records are absent
+    // (the service fills the gaps so every calendar day in the range gets a bar).
+    @Query("SELECT a.attendanceDate, a.status, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.tenant.id = :tenantId AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY a.attendanceDate, a.status")
+    List<Object[]> countByDateAndStatusForRange(@Param("tenantId") UUID tenantId,
+                                                @Param("startDate") LocalDate startDate,
+                                                @Param("endDate") LocalDate endDate);
+
+    // Department-scoped variant of countByDateAndStatusForRange, so the trend and active-day
+    // count stay consistent with the (department-filtered) summary cards and tables.
+    @Query("SELECT a.attendanceDate, a.status, COUNT(a) FROM AttendanceRecord a " +
+            "WHERE a.tenant.id = :tenantId AND a.employee.department.id = :departmentId " +
+            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY a.attendanceDate, a.status")
+    List<Object[]> countByDateAndStatusForRangeAndDepartment(@Param("tenantId") UUID tenantId,
+                                                             @Param("departmentId") UUID departmentId,
+                                                             @Param("startDate") LocalDate startDate,
+                                                             @Param("endDate") LocalDate endDate);
+
+    // Full records across a range for the Excel export, with employee (+ department) eagerly
+    // fetched so the writer never triggers a per-row lazy load. Optional department/status
+    // filters are null-safe (mirrors findFilteredByDate). Ordered by date then employee name
+    // so the sheet reads chronologically, grouped by person within a day.
+    @Query("SELECT a FROM AttendanceRecord a " +
+            "JOIN FETCH a.employee e " +
+            "LEFT JOIN FETCH e.department d " +
+            "WHERE a.tenant.id = :tenantId " +
+            "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
+            "AND (:departmentId IS NULL OR d.id = :departmentId) " +
+            "AND (:status IS NULL OR a.status = :status) " +
+            "ORDER BY a.attendanceDate ASC, e.firstName ASC, e.lastName ASC")
+    List<AttendanceRecord> findForExport(@Param("tenantId") UUID tenantId,
+                                         @Param("startDate") LocalDate startDate,
+                                         @Param("endDate") LocalDate endDate,
+                                         @Param("departmentId") UUID departmentId,
+                                         @Param("status") AttendanceStatus status);
 }

@@ -60,6 +60,12 @@
             class="px-4 py-2.5 -mb-px border-b-2 bg-transparent font-label-md text-label-md transition-colors cursor-pointer">
         Calendar
     </button>
+    <button type="button"
+            hx-get="/htmx/attendance/analytics" hx-target="#page-content" hx-swap="innerHTML"
+            th:classappend="${active == 'analytics'} ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+            class="px-4 py-2.5 -mb-px border-b-2 bg-transparent font-label-md text-label-md transition-colors cursor-pointer">
+        Analytics
+    </button>
 </div>
 
 <!--
