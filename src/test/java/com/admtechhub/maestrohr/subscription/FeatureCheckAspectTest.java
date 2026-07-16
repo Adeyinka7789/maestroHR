@@ -160,19 +160,21 @@ class FeatureCheckAspectTest {
         assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
     }
 
-    // ── Global platform kill-switch off → 402, subscription never consulted ────
+    // ── Global platform kill-switch off → FeatureDisabled (404), not an upsell ─
     @Test
-    void globalFlagDisabled_throws402_subscriptionNeverConsulted() {
+    void globalFlagDisabled_throwsFeatureDisabled_subscriptionNeverConsulted() {
         when(platformFlagService.isEnabledForTenant(eq(SubscriptionFeature.LEAVE_MANAGEMENT.name()), any(), any()))
                 .thenReturn(false);
         GatedService svc = proxy(new GatedService());
 
-        assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
+        // Flag off ≠ entitlement miss: this is FeatureDisabledException (404), distinct from the
+        // 402 "upgrade your plan" raised when the plan simply lacks the feature.
+        assertThrows(FeatureDisabledException.class, svc::leaveAction);
         // The global flag short-circuits before the per-tenant plan check.
         verify(subscriptionService, never()).hasFeature(any(), any());
     }
 
-    // ── 402 mapping in the global handler ──────────────────────────────────────
+    // ── 402 mapping in the global handler (entitlement miss) ───────────────────
     @Test
     void handlerMapsFeatureNotAvailableTo402() {
         GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -183,6 +185,18 @@ class FeatureCheckAspectTest {
         assertEquals(HttpStatus.PAYMENT_REQUIRED, response.getStatusCode());
         assertFalse(response.getBody().isSuccess());
         assertEquals("Upgrade your plan to access CUSTOM_REPORTING", response.getBody().getError());
+    }
+
+    // ── 404 mapping in the global handler (platform flag off) ──────────────────
+    @Test
+    void handlerMapsFeatureDisabledTo404() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleFeatureDisabled(
+                new FeatureDisabledException(SubscriptionFeature.CUSTOM_REPORTING));
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertFalse(response.getBody().isSuccess());
     }
 
     // ── Test fixtures ─────────────────────────────────────────────────────────

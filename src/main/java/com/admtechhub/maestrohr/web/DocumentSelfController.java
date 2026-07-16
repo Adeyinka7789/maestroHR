@@ -5,7 +5,7 @@ import com.admtechhub.maestrohr.document.DocumentService;
 import com.admtechhub.maestrohr.document.DocumentType;
 import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeService;
-import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
@@ -116,7 +116,7 @@ public class DocumentSelfController {
      * Feature-gate failures and unexpected state errors render in place (HTTP 200 so HTMX still
      * swaps) rather than reaching the JSON handler.
      */
-    @ExceptionHandler({FeatureNotAvailableException.class, IllegalStateException.class})
+    @ExceptionHandler({FeatureAccessException.class, IllegalStateException.class})
     public String handleActionFailure(RuntimeException ex, Model model) {
         EmployeeDetailsDTO employee = currentEmployeeOrNull();
         if (employee == null) {

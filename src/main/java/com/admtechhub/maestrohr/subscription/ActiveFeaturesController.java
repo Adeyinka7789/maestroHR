@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -22,16 +21,17 @@ public class ActiveFeaturesController {
 
     /**
      * Returns the names of all SubscriptionFeature flags that are currently enabled
-     * platform-wide. Absent rows default to enabled (backward-compatible). Used by
-     * layout.js to hide nav items whose feature is disabled.
+     * platform-wide. Resolved through the same {@link PlatformFlagService#isEnabled(String)}
+     * path used everywhere else, so nav visibility and gate enforcement share one policy — a
+     * flag with no {@code platform_flags} row is treated as disabled (fail-closed), not shown.
+     * ({@link PlatformFlagSeeder} + the seed migration guarantee every known flag has a row.)
+     * Used by layout.js to hide nav items whose feature is disabled.
      */
     @GetMapping("/active")
     public ResponseEntity<ApiResponse<List<String>>> activeFeatures() {
-        Map<String, Boolean> flagMap = platformFlagService.listAll().stream()
-                .collect(Collectors.toMap(PlatformFlag::getName, PlatformFlag::isEnabled));
         List<String> active = Arrays.stream(SubscriptionFeature.values())
                 .map(SubscriptionFeature::name)
-                .filter(name -> flagMap.getOrDefault(name, true))
+                .filter(platformFlagService::isEnabled)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("ok", active));
     }

@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.audit.AuditTrailService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -161,6 +162,47 @@ class PlatformFlagServiceTest {
         assertThat(service.isEnabledForTenant("DOCUMENT_VAULT", tenantId, "PROFESSIONAL")).isTrue();
         verify(overrideRepository, never()).findByFlagNameAndTargetTypeAndTargetValue(
                 "DOCUMENT_VAULT", FeatureFlagOverride.TargetType.PLAN, "PROFESSIONAL");
+    }
+
+    @Test
+    void createOverride_flagRowMissing_autoCreatesEnabledFlagSoOverrideIsNotANoOp() {
+        UUID tenantId = UUID.randomUUID();
+        // No platform_flags row for this name yet: without the auto-create, resolution would
+        // bail at the missing-flag gate and never consult the override.
+        when(flagRepository.findByName("NEW_FEATURE")).thenReturn(Optional.empty());
+        when(overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(
+                "NEW_FEATURE", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
+                .thenReturn(Optional.empty());
+        when(flagRepository.save(any(PlatformFlag.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(overrideRepository.save(any(FeatureFlagOverride.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.createOverride("NEW_FEATURE", FeatureFlagOverride.TargetType.TENANT,
+                tenantId.toString(), true, "beta tester", "admin@platform.io");
+
+        // A backing flag row is created, enabled, so the override actually takes effect.
+        ArgumentCaptor<PlatformFlag> flagCaptor = ArgumentCaptor.forClass(PlatformFlag.class);
+        verify(flagRepository).save(flagCaptor.capture());
+        assertThat(flagCaptor.getValue().getName()).isEqualTo("NEW_FEATURE");
+        assertThat(flagCaptor.getValue().isEnabled()).isTrue();
+        verify(overrideRepository).save(any(FeatureFlagOverride.class));
+    }
+
+    @Test
+    void createOverride_flagRowExists_doesNotTouchTheFlagRow() {
+        UUID tenantId = UUID.randomUUID();
+        PlatformFlag existing = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
+        when(flagRepository.findByName("LOAN_MANAGEMENT")).thenReturn(Optional.of(existing));
+        when(overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(
+                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN, "BASIC"))
+                .thenReturn(Optional.empty());
+        when(overrideRepository.save(any(FeatureFlagOverride.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.createOverride("LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN,
+                "BASIC", false, "not on this plan", "admin@platform.io");
+
+        // Existing flag state is never flipped by creating an override against it.
+        verify(flagRepository, never()).save(any(PlatformFlag.class));
+        verify(overrideRepository).save(any(FeatureFlagOverride.class));
     }
 
     @Test

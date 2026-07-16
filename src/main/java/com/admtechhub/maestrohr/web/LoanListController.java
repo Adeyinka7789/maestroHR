@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.loan.LoanService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
@@ -100,7 +101,7 @@ public class LoanListController {
      * race) is shown as a banner on the rebuilt content rather than reaching the JSON handler.
      */
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class,
-            FeatureNotAvailableException.class})
+            FeatureAccessException.class})
     public String handleActionFailure(RuntimeException ex, Model model) {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("view", loanListService.build());

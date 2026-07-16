@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.common;
 
 import com.admtechhub.maestrohr.auth.InvalidCredentialsException;
+import com.admtechhub.maestrohr.subscription.FeatureDisabledException;
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.tenant.TenantNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -117,9 +118,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FeatureNotAvailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleFeatureNotAvailable(
             FeatureNotAvailableException ex) {
-        log.info("Feature gated: {}", ex.getMessage());
+        log.info("Feature gated (entitlement): {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.PAYMENT_REQUIRED)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(FeatureDisabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFeatureDisabled(
+            FeatureDisabledException ex) {
+        // Platform flag off (kill switch / rollout): the feature is unavailable regardless of
+        // plan, so it reads as 404 rather than a "payment required" upsell.
+        log.info("Feature gated (platform flag off): {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(ex.getMessage()));
     }
 

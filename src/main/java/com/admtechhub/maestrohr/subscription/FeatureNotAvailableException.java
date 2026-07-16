@@ -1,20 +1,20 @@
 package com.admtechhub.maestrohr.subscription;
 
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
-import lombok.Getter;
 
 /**
- * Thrown when the current tenant's subscription plan does not include a feature gated by
- * {@link RequiresFeature}. Mapped to HTTP 402 (Payment Required) in
- * {@code GlobalExceptionHandler}.
+ * Thrown when the current tenant's subscription <b>plan does not include</b> a feature gated by
+ * {@link RequiresFeature}. An entitlement miss — mapped to HTTP 402 (Payment Required) in
+ * {@code GlobalExceptionHandler}, with an "upgrade your plan" message, because upgrading is the
+ * remediation.
+ *
+ * <p>Contrast {@link FeatureDisabledException}, which is raised when the platform flag itself is
+ * off (kill switch / rollout) — a case where upgrading would not help. See
+ * {@link FeatureAccessException}.
  */
-@Getter
-public class FeatureNotAvailableException extends RuntimeException {
-
-    private final SubscriptionFeature feature;
+public class FeatureNotAvailableException extends FeatureAccessException {
 
     public FeatureNotAvailableException(SubscriptionFeature feature) {
-        super("Upgrade your plan to access " + feature);
-        this.feature = feature;
+        super("Upgrade your plan to access " + feature, feature);
     }
 }

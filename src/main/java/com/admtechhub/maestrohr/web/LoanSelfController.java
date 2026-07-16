@@ -3,7 +3,7 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.loan.LoanService;
-import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
@@ -101,7 +101,7 @@ public class LoanSelfController {
      * (HTTP 200 so HTMX still swaps) rather than reaching the JSON handler. Rebuilt for the
      * current employee so the page stays intact behind the banner.
      */
-    @ExceptionHandler({FeatureNotAvailableException.class, IllegalStateException.class})
+    @ExceptionHandler({FeatureAccessException.class, IllegalStateException.class})
     public String handleActionFailure(RuntimeException ex, Model model) {
         EmployeeDetailsDTO employee = currentEmployeeOrNull();
         if (employee == null) {

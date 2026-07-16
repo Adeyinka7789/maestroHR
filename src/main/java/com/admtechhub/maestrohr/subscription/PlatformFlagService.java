@@ -191,10 +191,18 @@ public class PlatformFlagService {
         return overrideRepository.findByFlagName(flagName);
     }
 
-    /** Create or update the override for the given flag/target, keyed by the unique (flag, type, value) tuple. */
+    /**
+     * Create or update the override for the given flag/target, keyed by the unique (flag, type,
+     * value) tuple. Ensures a {@code platform_flags} row exists for {@code flagName} first:
+     * resolution bails out at the missing-flag gate <i>before</i> overrides are ever consulted
+     * (see {@link #isEnabledForTenant}), so an override created against a name with no flag row
+     * would be a silent no-op. Auto-creating an enabled row (matching {@link #setRolloutPercentage})
+     * makes the override actually take effect for its target.
+     */
     @Transactional
     public FeatureFlagOverride createOverride(String flagName, TargetType targetType, String targetValue,
                                                boolean enabled, String reason, String createdBy) {
+        ensureFlagExists(flagName);
         FeatureFlagOverride override = overrideRepository
                 .findByFlagNameAndTargetTypeAndTargetValue(flagName, targetType, targetValue)
                 .orElseGet(() -> FeatureFlagOverride.builder()
@@ -225,6 +233,19 @@ public class PlatformFlagService {
                     "PLATFORM_FLAG", override.getFlagName(), "/admin/feature-flags", "POST",
                     null, 200, "Flag " + override.getFlagName() + " changed: override removed "
                             + override.getTargetType() + "=" + override.getTargetValue());
+        }
+    }
+
+    /**
+     * Guarantee a {@code platform_flags} row for {@code flagName}, creating it enabled (default
+     * rollout 100%) if absent. Used before storing an override so the override is consulted
+     * rather than short-circuited by the missing-flag gate. No-op when the row already exists —
+     * never flips an existing flag's state.
+     */
+    private void ensureFlagExists(String flagName) {
+        if (flagRepository.findByName(flagName).isEmpty()) {
+            flagRepository.save(PlatformFlag.builder().name(flagName).enabled(true).build());
+            log.info("Auto-created platform flag '{}' (enabled) to back a new override", flagName);
         }
     }
 

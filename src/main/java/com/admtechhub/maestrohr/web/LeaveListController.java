@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
@@ -189,12 +190,12 @@ public class LeaveListController {
      * the failed POST.
      */
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class,
-            FeatureNotAvailableException.class})
+            FeatureAccessException.class})
     public String handleActionFailure(RuntimeException ex, HttpServletRequest request, Model model) {
         String q = request.getParameter("q");
         String status = request.getParameter("status");
 
-        if (ex instanceof FeatureNotAvailableException) {
+        if (ex instanceof FeatureAccessException) {
             model.addAttribute("view", leaveListService.buildContent(q, parseStatus(status)));
             model.addAttribute("formError", ex.getMessage());
             return "leave :: content";
