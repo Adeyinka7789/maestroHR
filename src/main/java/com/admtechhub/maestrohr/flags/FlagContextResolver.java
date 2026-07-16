@@ -3,13 +3,12 @@ package com.admtechhub.maestrohr.flags;
 import java.util.UUID;
 
 /**
- * Resolves the current targeting context for the flag engine — <i>who</i> a flag is being
- * evaluated for — so the engine can offer a no-argument {@link PlatformFlagService#isOn(FlagKey)}
- * without itself knowing where the caller's identity lives (a thread-local, a security context, a
- * request header, …). This is the seam that keeps the engine free of application identity plumbing.
+ * Resolves the current targeting context (tenant + plan) for a feature-access check. Used by
+ * {@code FeatureAccessService} to obtain the tenant and plan once and pass them to both the flag
+ * gate ({@code PlatformFlagService.isEnabledForTenant}) and the entitlement gate.
  *
- * <p>The MaestroHR implementation, {@link TenantFlagContextResolver}, reads the current tenant
- * from {@code TenantContext} and its plan. Part of the extractable core (future {@code wunmi}).
+ * <p>The MaestroHR implementation, {@code TenantFlagContextResolver}, reads the current tenant from
+ * {@code TenantContext} and its plan.
  */
 public interface FlagContextResolver {
 

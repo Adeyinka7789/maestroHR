@@ -1,6 +1,6 @@
 package com.admtechhub.maestrohr.tenant;
 
-import com.admtechhub.maestrohr.flags.FlagKey;
+import io.github.adeyinka7789.wunmi.FlagKey;
 
 /**
  * MaestroHR's catalogue of gateable features. Doubles as the application's {@link FlagKey}

@@ -1,5 +1,7 @@
 package com.admtechhub.maestrohr.flags;
 
+import io.github.adeyinka7789.wunmi.Flag;
+import io.github.adeyinka7789.wunmi.FlagOverride;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -35,8 +37,8 @@ class DefaultFlagCacheTest {
         @Override public Clock withZone(ZoneId zone) { return this; }
     }
 
-    private static Map<String, PlatformFlag> oneFlag() {
-        return Map.of("F", PlatformFlag.builder().name("F").enabled(true).build());
+    private static Map<String, Flag> oneFlag() {
+        return Map.of("F", Flag.enabledFlag("F"));
     }
 
     @AfterEach
@@ -76,18 +78,18 @@ class DefaultFlagCacheTest {
         DefaultFlagCache cache = new DefaultFlagCache(5000L, clock);
         AtomicInteger loads = new AtomicInteger();
 
-        Optional<FeatureFlagOverride> first = cache.override("k", () -> {
+        Optional<FlagOverride> first = cache.override("k", () -> {
             loads.incrementAndGet();
-            return Optional.of(FeatureFlagOverride.builder().flagName("F").enabled(true).build());
+            return Optional.of(FlagOverride.create("F", FlagOverride.Scope.SUBJECT, "t", true, null, "a"));
         });
-        Optional<FeatureFlagOverride> second = cache.override("k", () -> {
+        Optional<FlagOverride> second = cache.override("k", () -> {
             loads.incrementAndGet();
-            return Optional.of(FeatureFlagOverride.builder().flagName("F").enabled(false).build());
+            return Optional.of(FlagOverride.create("F", FlagOverride.Scope.SUBJECT, "t", false, null, "a"));
         });
 
         assertThat(loads.get()).isEqualTo(1);
         assertThat(first).isPresent();
-        assertThat(second.get().isEnabled()).isTrue();   // the memoized first value
+        assertThat(second.get().enabled()).isTrue();   // the memoized first value
     }
 
     @Test

@@ -1,290 +1,134 @@
 package com.admtechhub.maestrohr.flags;
 
+import com.admtechhub.maestrohr.audit.AuditTrailService;
+import com.admtechhub.maestrohr.flags.FeatureFlagOverride.TargetType;
+import com.admtechhub.maestrohr.subscription.FeatureFlagOverrideRepository;
+import com.admtechhub.maestrohr.subscription.PlatformFlagRepository;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import io.github.adeyinka7789.wunmi.FlagEngine;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit test for the flag engine. Since Phase 2 the engine reaches persistence and audit only
- * through the {@link FlagStore} and {@link FlagAuditListener} SPIs (both mocked here); since
- * Phase 3 it reads through a {@link FlagCache} — a real {@link DefaultFlagCache} is used so the
- * request-scoped caching behaviour is exercised for real. The read path resolves a flag from the
- * bulk-loaded map ({@code findAllFlags}); {@code findFlag} is used only by the write paths.
+ * Since the wunmi migration, {@link PlatformFlagService} <b>delegates resolution</b> to the wunmi
+ * {@link FlagEngine} and does <b>management</b> directly on the repositories + audit trail. This
+ * verifies both halves (the layered resolution algorithm itself is covered by wunmi's own tests).
  */
 @ExtendWith(MockitoExtension.class)
 class PlatformFlagServiceTest {
 
-    @Mock private FlagStore flagStore;
-    @Mock private FlagAuditListener auditListener;
-    @Mock private FlagContextResolver contextResolver;
+    @Mock private FlagEngine flagEngine;
+    @Mock private PlatformFlagRepository flagRepository;
+    @Mock private FeatureFlagOverrideRepository overrideRepository;
+    @Mock private AuditTrailService auditTrailService;
 
-    private PlatformFlagService service;
+    @InjectMocks private PlatformFlagService service;
 
-    @BeforeEach
-    void setUp() {
-        service = new PlatformFlagService(flagStore, auditListener, new DefaultFlagCache(5000L), contextResolver);
-    }
+    // ── Resolution delegates to the engine ──────────────────────────────────────
 
-    @AfterEach
-    void clearRequestContext() {
-        RequestContextHolder.resetRequestAttributes();
+    @Test
+    void isEnabled_byName_delegatesToEngine() {
+        when(flagEngine.isEnabled("LOAN_MANAGEMENT")).thenReturn(true);
+        assertThat(service.isEnabled("LOAN_MANAGEMENT")).isTrue();
     }
 
     @Test
-    void isEnabled_flagExists_returnsValue() {
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(false).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-
-        assertThat(service.isEnabled("LOAN_MANAGEMENT")).isFalse();
-    }
-
-    @Test
-    void isEnabled_typedFlagKey_resolvesByKeyName() {
-        // The typed overload resolves the flag by its FlagKey.key() (== enum name).
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-
+    void isEnabled_typedKey_delegatesByKeyName() {
+        when(flagEngine.isEnabled("LOAN_MANAGEMENT")).thenReturn(true);
         assertThat(service.isEnabled(SubscriptionFeature.LOAN_MANAGEMENT)).isTrue();
     }
 
     @Test
-    void isOn_resolvesContextAndAppliesFullResolution() {
-        // isOn pulls tenant + segment from the context resolver and runs the layered resolution:
-        // here a PLAN override disables the (globally enabled) flag for the resolved segment.
+    void isEnabledForTenant_passesTenantAsSubjectStringAndPlanAsSegment() {
         UUID tenantId = UUID.randomUUID();
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-        when(contextResolver.currentContext())
-                .thenReturn(new FlagContextResolver.FlagContext(tenantId, "PROFESSIONAL"));
-        when(flagStore.findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
-                .thenReturn(Optional.empty());
-        when(flagStore.findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN, "PROFESSIONAL"))
-                .thenReturn(Optional.of(FeatureFlagOverride.builder()
-                        .flagName("LOAN_MANAGEMENT")
-                        .targetType(FeatureFlagOverride.TargetType.PLAN)
-                        .targetValue("PROFESSIONAL")
-                        .enabled(false)
-                        .build()));
+        when(flagEngine.resolve("LEAVE_MANAGEMENT", tenantId.toString(), "PROFESSIONAL")).thenReturn(true);
 
-        assertThat(service.isOn(SubscriptionFeature.LOAN_MANAGEMENT)).isFalse();
+        assertThat(service.isEnabledForTenant("LEAVE_MANAGEMENT", tenantId, "PROFESSIONAL")).isTrue();
+        verify(flagEngine).resolve("LEAVE_MANAGEMENT", tenantId.toString(), "PROFESSIONAL");
     }
 
     @Test
-    void unknownFlag_missingFromDatabase_defaultsToFalseAndLogsWarning() {
-        when(flagStore.findAllFlags()).thenReturn(List.of());
-
-        assertThat(service.isEnabled("UNKNOWN_FLAG")).isFalse();
+    void isEnabledForTenant_nullTenant_passesNullSubject() {
+        when(flagEngine.resolve("LEAVE_MANAGEMENT", null, null)).thenReturn(false);
+        assertThat(service.isEnabledForTenant("LEAVE_MANAGEMENT", null, null)).isFalse();
+        verify(flagEngine).resolve("LEAVE_MANAGEMENT", null, null);
     }
 
+    // ── Management writes rows + audits ──────────────────────────────────────────
+
     @Test
-    void set_updatesValue() {
+    void disable_updatesRowAndAudits() {
         PlatformFlag existing = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findFlag("LOAN_MANAGEMENT")).thenReturn(Optional.of(existing));
-        when(flagStore.saveFlag(any(PlatformFlag.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(flagRepository.findByName("LOAN_MANAGEMENT")).thenReturn(Optional.of(existing));
+        when(flagRepository.save(any(PlatformFlag.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PlatformFlag result = service.disable("LOAN_MANAGEMENT", "superadmin@maestro.com");
+        PlatformFlag result = service.disable("LOAN_MANAGEMENT", "admin@x.io");
 
         assertThat(result.isEnabled()).isFalse();
-        assertThat(result.getUpdatedBy()).isEqualTo("superadmin@maestro.com");
-        verify(flagStore).saveFlag(existing);
+        assertThat(result.getUpdatedBy()).isEqualTo("admin@x.io");
+        verify(auditTrailService).record(isNull(), eq("admin@x.io"), eq("FEATURE_FLAG_CHANGED"),
+                eq("PLATFORM_FLAG"), eq("LOAN_MANAGEMENT"), anyString(), anyString(), isNull(),
+                anyInt(), anyString());
     }
 
     @Test
-    void getAll_returnsAllFlags() {
-        List<PlatformFlag> flags = List.of(
-                PlatformFlag.builder().name("ATTENDANCE_TRACKING").enabled(true).build(),
-                PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(false).build()
-        );
-        when(flagStore.findAllFlagsOrderedByName()).thenReturn(flags);
-
-        List<PlatformFlag> result = service.listAll();
-
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).getName()).isEqualTo("ATTENDANCE_TRACKING");
+    void listAll_readsOrderedFromRepository() {
+        List<PlatformFlag> flags = List.of(PlatformFlag.builder().name("A").enabled(true).build());
+        when(flagRepository.findAllByOrderByNameAsc()).thenReturn(flags);
+        assertThat(service.listAll()).isEqualTo(flags);
     }
 
     @Test
-    void tenantOverride_appliesWhenGlobalEnabled() {
+    void setRolloutPercentage_outOfRange_rejected() {
+        assertThatThrownBy(() -> service.setRolloutPercentage("A", 150, "admin@x.io"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(flagRepository, never()).save(any());
+    }
+
+    @Test
+    void createOverride_flagRowMissing_autoCreatesFlagThenSavesOverride() {
         UUID tenantId = UUID.randomUUID();
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-        FeatureFlagOverride override = FeatureFlagOverride.builder()
-                .flagName("LOAN_MANAGEMENT")
-                .targetType(FeatureFlagOverride.TargetType.TENANT)
-                .targetValue(tenantId.toString())
-                .enabled(true)
-                .build();
-        when(flagStore.findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
-                .thenReturn(Optional.of(override));
+        when(flagRepository.findByName("NEW")).thenReturn(Optional.empty());
+        when(overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(
+                "NEW", TargetType.TENANT, tenantId.toString())).thenReturn(Optional.empty());
+        when(flagRepository.save(any(PlatformFlag.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(overrideRepository.save(any(FeatureFlagOverride.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        assertThat(service.isEnabledForTenant("LOAN_MANAGEMENT", tenantId, null)).isTrue();
+        service.createOverride("NEW", TargetType.TENANT, tenantId.toString(), true, "beta", "admin@x.io");
+
+        verify(flagRepository).save(any(PlatformFlag.class));      // backing flag auto-created
+        verify(overrideRepository).save(any(FeatureFlagOverride.class));
     }
 
     @Test
-    void planOverride_disabledForPlan() {
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-        FeatureFlagOverride override = FeatureFlagOverride.builder()
-                .flagName("LOAN_MANAGEMENT")
-                .targetType(FeatureFlagOverride.TargetType.PLAN)
-                .targetValue("BASIC")
-                .enabled(false)
-                .build();
-        when(flagStore.findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN, "BASIC"))
-                .thenReturn(Optional.of(override));
+    void deleteOverride_removesRowAndAudits() {
+        UUID id = UUID.randomUUID();
+        FeatureFlagOverride existing = FeatureFlagOverride.builder()
+                .flagName("LOAN_MANAGEMENT").targetType(TargetType.TENANT).targetValue("t").enabled(true).build();
+        when(overrideRepository.findById(id)).thenReturn(Optional.of(existing));
 
-        assertThat(service.isEnabledForTenant("LOAN_MANAGEMENT", null, "BASIC")).isFalse();
-    }
+        service.deleteOverride(id);
 
-    @Test
-    void globalKillSwitch_beatsTenantOverride() {
-        UUID tenantId = UUID.randomUUID();
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(false).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-
-        // Tenant has an override forcing the flag ON, but the global kill switch must win
-        // outright — no override of any kind can revive a globally-killed flag.
-        assertThat(service.isEnabledForTenant("LOAN_MANAGEMENT", tenantId, null)).isFalse();
-        verify(flagStore, never()).findOverride(any(), any(), any());
-    }
-
-    @Test
-    void rolloutPercentage_50percent() {
-        UUID tenantId = UUID.randomUUID();
-        PlatformFlag flag = PlatformFlag.builder().name("HARDWARE_SYNC").enabled(true).rolloutPercentage(50).build();
-        when(flagStore.findOverride(eq("HARDWARE_SYNC"), any(), any())).thenReturn(Optional.empty());
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-
-        boolean result = service.isEnabledForTenant("HARDWARE_SYNC", tenantId, null);
-
-        int bucket = Math.floorMod((tenantId.toString() + "HARDWARE_SYNC").hashCode(), 100);
-        assertThat(result).isEqualTo(bucket < 50);
-    }
-
-    @Test
-    void resolutionOrder_tenantBeatsPlanBeatsRollout_whenGlobalEnabled() {
-        UUID tenantId = UUID.randomUUID();
-        PlatformFlag flag = PlatformFlag.builder().name("DOCUMENT_VAULT").enabled(true).rolloutPercentage(50).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-        FeatureFlagOverride tenantOverride = FeatureFlagOverride.builder()
-                .flagName("DOCUMENT_VAULT")
-                .targetType(FeatureFlagOverride.TargetType.TENANT)
-                .targetValue(tenantId.toString())
-                .enabled(true)
-                .build();
-
-        // Global flag is on, so the tenant override is reached and wins outright — plan/rollout
-        // never consulted.
-        when(flagStore.findOverride(
-                "DOCUMENT_VAULT", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
-                .thenReturn(Optional.of(tenantOverride));
-
-        assertThat(service.isEnabledForTenant("DOCUMENT_VAULT", tenantId, "PROFESSIONAL")).isTrue();
-        verify(flagStore, never()).findOverride(
-                "DOCUMENT_VAULT", FeatureFlagOverride.TargetType.PLAN, "PROFESSIONAL");
-    }
-
-    @Test
-    void createOverride_flagRowMissing_autoCreatesEnabledFlagSoOverrideIsNotANoOp() {
-        UUID tenantId = UUID.randomUUID();
-        // No platform_flags row for this name yet: without the auto-create, resolution would
-        // bail at the missing-flag gate and never consult the override.
-        when(flagStore.findFlag("NEW_FEATURE")).thenReturn(Optional.empty());
-        when(flagStore.findOverride(
-                "NEW_FEATURE", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
-                .thenReturn(Optional.empty());
-        when(flagStore.saveFlag(any(PlatformFlag.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(flagStore.saveOverride(any(FeatureFlagOverride.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        service.createOverride("NEW_FEATURE", FeatureFlagOverride.TargetType.TENANT,
-                tenantId.toString(), true, "beta tester", "admin@platform.io");
-
-        // A backing flag row is created, enabled, so the override actually takes effect.
-        ArgumentCaptor<PlatformFlag> flagCaptor = ArgumentCaptor.forClass(PlatformFlag.class);
-        verify(flagStore).saveFlag(flagCaptor.capture());
-        assertThat(flagCaptor.getValue().getName()).isEqualTo("NEW_FEATURE");
-        assertThat(flagCaptor.getValue().isEnabled()).isTrue();
-        verify(flagStore).saveOverride(any(FeatureFlagOverride.class));
-    }
-
-    @Test
-    void createOverride_flagRowExists_doesNotTouchTheFlagRow() {
-        PlatformFlag existing = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findFlag("LOAN_MANAGEMENT")).thenReturn(Optional.of(existing));
-        when(flagStore.findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN, "BASIC"))
-                .thenReturn(Optional.empty());
-        when(flagStore.saveOverride(any(FeatureFlagOverride.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        service.createOverride("LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN,
-                "BASIC", false, "not on this plan", "admin@platform.io");
-
-        // Existing flag state is never flipped by creating an override against it.
-        verify(flagStore, never()).saveFlag(any(PlatformFlag.class));
-        verify(flagStore).saveOverride(any(FeatureFlagOverride.class));
-    }
-
-    @Test
-    void requestScopedCache_secondCallSameFlag_doesNotHitStoreAgain() {
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-
-        assertThat(service.isEnabled("LOAN_MANAGEMENT")).isTrue();
-        assertThat(service.isEnabled("LOAN_MANAGEMENT")).isTrue();
-
-        // The whole flag table is loaded once into the request-scoped cache; the second call
-        // reuses it instead of querying again.
-        verify(flagStore, times(1)).findAllFlags();
-    }
-
-    @Test
-    void requestScopedCache_secondOverrideLookupSameKey_doesNotRequeryStore() {
-        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
-        UUID tenantId = UUID.randomUUID();
-        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
-        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
-        FeatureFlagOverride override = FeatureFlagOverride.builder()
-                .flagName("LOAN_MANAGEMENT")
-                .targetType(FeatureFlagOverride.TargetType.TENANT)
-                .targetValue(tenantId.toString())
-                .enabled(true)
-                .build();
-        when(flagStore.findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
-                .thenReturn(Optional.of(override));
-
-        assertThat(service.isEnabledForTenant("LOAN_MANAGEMENT", tenantId, null)).isTrue();
-        assertThat(service.isEnabledForTenant("LOAN_MANAGEMENT", tenantId, null)).isTrue();
-
-        verify(flagStore, times(1)).findOverride(
-                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.TENANT, tenantId.toString());
-        // The global-flag map is loaded once via the request-scoped cache; the second call
-        // reuses both caches instead of querying again.
-        verify(flagStore, times(1)).findAllFlags();
+        verify(overrideRepository).deleteById(id);
+        verify(auditTrailService).record(isNull(), any(), eq("FEATURE_FLAG_CHANGED"), eq("PLATFORM_FLAG"),
+                eq("LOAN_MANAGEMENT"), anyString(), anyString(), isNull(), anyInt(), anyString());
     }
 }
