@@ -1,6 +1,13 @@
 package com.admtechhub.maestrohr.tenant;
 
-public enum SubscriptionFeature {
+import com.admtechhub.maestrohr.subscription.FlagKey;
+
+/**
+ * MaestroHR's catalogue of gateable features. Doubles as the application's {@link FlagKey}
+ * implementation, so the flag engine references these constants by their stable string
+ * {@link #key()} ({@code == name()}) without depending on this enum.
+ */
+public enum SubscriptionFeature implements FlagKey {
     // Employee limits
     BASIC_EMPLOYEES,
     UNLIMITED_EMPLOYEES,
@@ -29,5 +36,11 @@ public enum SubscriptionFeature {
     SMS_NOTIFICATIONS,
 
     // Hardware integration
-    HARDWARE_SYNC
+    HARDWARE_SYNC;
+
+    /** The engine's stable string identifier for this feature — its enum name. */
+    @Override
+    public String key() {
+        return name();
+    }
 }

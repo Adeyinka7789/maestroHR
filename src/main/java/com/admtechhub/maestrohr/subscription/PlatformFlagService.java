@@ -1,7 +1,7 @@
 package com.admtechhub.maestrohr.subscription;
 
-import com.admtechhub.maestrohr.audit.AuditTrailService;
 import com.admtechhub.maestrohr.subscription.FeatureFlagOverride.TargetType;
+import com.admtechhub.maestrohr.subscription.FlagAuditListener.FlagChange;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,14 +18,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Manages global {@link PlatformFlag} kill switches, plus per-tenant/per-plan
- * {@link FeatureFlagOverride}s and rollout-percentage bucketing layered on top. Platform-wide
- * (not tenant-scoped): a SUPER_ADMIN toggles a flag/override and it takes effect immediately.
+ * The flag engine: resolves global {@link PlatformFlag} kill switches, plus per-tenant/per-plan
+ * {@link FeatureFlagOverride}s and rollout-percentage bucketing layered on top, and manages
+ * changes to them. Platform-wide (not tenant-scoped): a SUPER_ADMIN toggles a flag/override and
+ * it takes effect immediately.
+ *
+ * <p>Persistence and audit are reached only through the {@link FlagStore} and
+ * {@link FlagAuditListener} SPIs — the engine has no direct dependency on Spring Data or the
+ * audit trail, which is what lets it be lifted into a standalone library (future {@code wunmi}).
  *
  * <p><b>Fail-safe-disabled semantics:</b> a flag with no {@code platform_flags} row is treated
- * as disabled — see {@link #isEnabledForTenant}. In practice {@link PlatformFlagSeeder} seeds
- * every {@code SubscriptionFeature} at boot, so this only bites a genuinely unregistered flag
- * name (typo, stale reference, or a pre-seed boot race), which should fail closed rather than
+ * as disabled — see {@link #isEnabledForTenant}. In practice the seed migration and
+ * {@link PlatformFlagSeeder} register every {@code SubscriptionFeature}, so this only bites a
+ * genuinely unregistered flag name (typo, stale reference), which should fail closed rather than
  * silently open. {@link #enable}/{@link #disable} create the row on first toggle.
  */
 @Service
@@ -36,9 +41,17 @@ public class PlatformFlagService {
     private static final String FLAG_CACHE_ATTR = "PlatformFlagService.flagCache";
     private static final String OVERRIDE_CACHE_ATTR = "PlatformFlagService.overrideCache";
 
-    private final PlatformFlagRepository flagRepository;
-    private final FeatureFlagOverrideRepository overrideRepository;
-    private final AuditTrailService auditTrailService;
+    private final FlagStore flagStore;
+    private final FlagAuditListener auditListener;
+
+    /**
+     * Whether the flag identified by {@code key} is on, with no tenant/plan context. Typed
+     * entry point mirroring {@link #isEnabled(String)}.
+     */
+    @Transactional(readOnly = true)
+    public boolean isEnabled(FlagKey key) {
+        return isEnabled(key.key());
+    }
 
     /**
      * Whether the named flag is on, with no tenant/plan context. Backward-compatible entry
@@ -68,7 +81,7 @@ public class PlatformFlagService {
     @Transactional(readOnly = true)
     public boolean isEnabledForTenant(String flagName, UUID tenantId, String planName) {
         Map<String, PlatformFlag> cache = requestScopedFlagCache();
-        PlatformFlag flag = cache != null ? cache.get(flagName) : flagRepository.findByName(flagName).orElse(null);
+        PlatformFlag flag = cache != null ? cache.get(flagName) : flagStore.findFlag(flagName).orElse(null);
 
         if (flag == null) {
             log.warn("Feature flag '{}' has no platform_flags row; defaulting to disabled", flagName);
@@ -119,7 +132,7 @@ public class PlatformFlagService {
         Map<String, PlatformFlag> cache = (Map<String, PlatformFlag>)
                 attrs.getAttribute(FLAG_CACHE_ATTR, RequestAttributes.SCOPE_REQUEST);
         if (cache == null) {
-            cache = flagRepository.findAll().stream()
+            cache = flagStore.findAllFlags().stream()
                     .collect(Collectors.toMap(PlatformFlag::getName, f -> f));
             attrs.setAttribute(FLAG_CACHE_ATTR, cache, RequestAttributes.SCOPE_REQUEST);
         }
@@ -138,7 +151,7 @@ public class PlatformFlagService {
     private Optional<FeatureFlagOverride> cachedOverride(String flagName, TargetType targetType, String targetValue) {
         RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
         if (attrs == null) {
-            return overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(flagName, targetType, targetValue);
+            return flagStore.findOverride(flagName, targetType, targetValue);
         }
         Map<String, Optional<FeatureFlagOverride>> cache = (Map<String, Optional<FeatureFlagOverride>>)
                 attrs.getAttribute(OVERRIDE_CACHE_ATTR, RequestAttributes.SCOPE_REQUEST);
@@ -148,7 +161,7 @@ public class PlatformFlagService {
         }
         String key = flagName + '|' + targetType + '|' + targetValue;
         return cache.computeIfAbsent(key, k ->
-                overrideRepository.findByFlagNameAndTargetTypeAndTargetValue(flagName, targetType, targetValue));
+                flagStore.findOverride(flagName, targetType, targetValue));
     }
 
     /** Turn the flag on, creating it if it does not yet exist. */
@@ -165,7 +178,7 @@ public class PlatformFlagService {
 
     @Transactional(readOnly = true)
     public List<PlatformFlag> listAll() {
-        return flagRepository.findAllByOrderByNameAsc();
+        return flagStore.findAllFlagsOrderedByName();
     }
 
     /** Set the rollout percentage for a flag, creating the row if it does not yet exist. */
@@ -174,21 +187,20 @@ public class PlatformFlagService {
         if (percentage < 0 || percentage > 100) {
             throw new IllegalArgumentException("Rollout percentage must be between 0 and 100");
         }
-        PlatformFlag flag = flagRepository.findByName(flagName)
+        PlatformFlag flag = flagStore.findFlag(flagName)
                 .orElseGet(() -> PlatformFlag.builder().name(flagName).build());
         flag.setRolloutPercentage(percentage);
         flag.setUpdatedBy(updatedBy);
-        PlatformFlag saved = flagRepository.save(flag);
+        PlatformFlag saved = flagStore.saveFlag(flag);
         log.info("Platform flag '{}' rollout set to {}% by {}", flagName, percentage, updatedBy);
-        auditTrailService.record(null, updatedBy, "FEATURE_FLAG_CHANGED",
-                "PLATFORM_FLAG", flagName, "/admin/feature-flags", "POST",
-                null, 200, "Flag " + flagName + " changed: rollout=" + percentage + "%");
+        auditListener.onFlagChanged(new FlagChange(flagName, updatedBy,
+                "Flag " + flagName + " changed: rollout=" + percentage + "%"));
         return saved;
     }
 
     @Transactional(readOnly = true)
     public List<FeatureFlagOverride> listOverrides(String flagName) {
-        return overrideRepository.findByFlagName(flagName);
+        return flagStore.findOverridesByFlag(flagName);
     }
 
     /**
@@ -203,8 +215,8 @@ public class PlatformFlagService {
     public FeatureFlagOverride createOverride(String flagName, TargetType targetType, String targetValue,
                                                boolean enabled, String reason, String createdBy) {
         ensureFlagExists(flagName);
-        FeatureFlagOverride override = overrideRepository
-                .findByFlagNameAndTargetTypeAndTargetValue(flagName, targetType, targetValue)
+        FeatureFlagOverride override = flagStore
+                .findOverride(flagName, targetType, targetValue)
                 .orElseGet(() -> FeatureFlagOverride.builder()
                         .flagName(flagName)
                         .targetType(targetType)
@@ -213,26 +225,24 @@ public class PlatformFlagService {
         override.setEnabled(enabled);
         override.setReason(reason);
         override.setCreatedBy(createdBy);
-        FeatureFlagOverride saved = overrideRepository.save(override);
+        FeatureFlagOverride saved = flagStore.saveOverride(override);
         log.info("Feature flag override '{}' [{} {}] set to enabled={} by {}",
                 flagName, targetType, targetValue, enabled, createdBy);
-        auditTrailService.record(null, createdBy, "FEATURE_FLAG_CHANGED",
-                "PLATFORM_FLAG", flagName, "/admin/feature-flags", "POST",
-                null, 200, "Flag " + flagName + " changed: override " + targetType + "=" + targetValue
-                        + " enabled=" + enabled);
+        auditListener.onFlagChanged(new FlagChange(flagName, createdBy,
+                "Flag " + flagName + " changed: override " + targetType + "=" + targetValue
+                        + " enabled=" + enabled));
         return saved;
     }
 
     @Transactional
     public void deleteOverride(UUID overrideId) {
-        FeatureFlagOverride override = overrideRepository.findById(overrideId).orElse(null);
-        overrideRepository.deleteById(overrideId);
+        FeatureFlagOverride override = flagStore.findOverrideById(overrideId).orElse(null);
+        flagStore.deleteOverrideById(overrideId);
         if (override != null) {
             String actor = currentUserEmail();
-            auditTrailService.record(null, actor, "FEATURE_FLAG_CHANGED",
-                    "PLATFORM_FLAG", override.getFlagName(), "/admin/feature-flags", "POST",
-                    null, 200, "Flag " + override.getFlagName() + " changed: override removed "
-                            + override.getTargetType() + "=" + override.getTargetValue());
+            auditListener.onFlagChanged(new FlagChange(override.getFlagName(), actor,
+                    "Flag " + override.getFlagName() + " changed: override removed "
+                            + override.getTargetType() + "=" + override.getTargetValue()));
         }
     }
 
@@ -243,22 +253,21 @@ public class PlatformFlagService {
      * never flips an existing flag's state.
      */
     private void ensureFlagExists(String flagName) {
-        if (flagRepository.findByName(flagName).isEmpty()) {
-            flagRepository.save(PlatformFlag.builder().name(flagName).enabled(true).build());
+        if (flagStore.findFlag(flagName).isEmpty()) {
+            flagStore.saveFlag(PlatformFlag.builder().name(flagName).enabled(true).build());
             log.info("Auto-created platform flag '{}' (enabled) to back a new override", flagName);
         }
     }
 
     private PlatformFlag setEnabled(String flagName, boolean enabled, String updatedBy) {
-        PlatformFlag flag = flagRepository.findByName(flagName)
+        PlatformFlag flag = flagStore.findFlag(flagName)
                 .orElseGet(() -> PlatformFlag.builder().name(flagName).build());
         flag.setEnabled(enabled);
         flag.setUpdatedBy(updatedBy);
-        PlatformFlag saved = flagRepository.save(flag);
+        PlatformFlag saved = flagStore.saveFlag(flag);
         log.info("Platform flag '{}' set to enabled={} by {}", flagName, enabled, updatedBy);
-        auditTrailService.record(null, updatedBy, "FEATURE_FLAG_CHANGED",
-                "PLATFORM_FLAG", flagName, "/admin/feature-flags", "POST",
-                null, 200, "Flag " + flagName + " changed: enabled=" + enabled);
+        auditListener.onFlagChanged(new FlagChange(flagName, updatedBy,
+                "Flag " + flagName + " changed: enabled=" + enabled));
         return saved;
     }
 

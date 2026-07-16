@@ -149,12 +149,14 @@ No DB schema change required for the core refactor; `platform_flags` / `feature_
 
 Small, reviewable, each green before the next.
 
-- **Phase 0 — this doc.** ✅ once approved.
-- **Phase 1 — robustness fixes in place (no restructure).** R1, R2, R5, R4 against the current classes. Full test suite green + new tests for the fixed behaviors.
-- **Phase 2 — introduce SPIs + typed `FlagKey`, no package move yet.** Extract `FlagStore`, `FlagContextResolver`, `FlagAuditListener`, `FlagCache` interfaces; make `PlatformFlagService` depend on them. Behavior identical.
-- **Phase 3 — caching seam (R3, R6).** Add non-request cache; verify jobs.
-- **Phase 4 — split entitlement from engine.** `EntitlementResolver` + `FeatureAccessService`; retire the fused `FeatureFlagService`.
-- **Phase 5 — package move to `flags.*`.** Mechanical; sets up eventual jar extraction. No behavior change.
+- **Phase 0 — this doc.** ✅ approved.
+- **Phase 1 — robustness fixes in place (no restructure).** ✅ (commit `218571d`). R1, R2, R5, R4. Unit tests green (`PlatformFlagServiceTest`, `FeatureCheckAspectTest`); integration slice not run (no DB in dev env).
+- **Phase 2 — introduce SPIs + typed `FlagKey`, no package move yet.** ✅. Extracted `FlagStore` (+ `JpaFlagStore`) and `FlagAuditListener` (+ `AuditTrailFlagListener`); `PlatformFlagService` now depends on those two SPIs, not Spring Data / `AuditTrailService`. Added `FlagKey` (implemented by `SubscriptionFeature`) + `isEnabled(FlagKey)`. Behavior identical; `PlatformFlagServiceTest` rewritten to mock the SPIs (14/0/0).
+  - **Scope refinement:** `FlagContextResolver` is deferred to Phase 4. The engine's `isEnabledForTenant(name, tenantId, planName)` already takes targeting context as explicit params — it has *no* `TenantContext` coupling to remove. The resolver seam only matters once we want a no-arg `engine.isOn(key)`, which pairs naturally with the entitlement split. `FlagCache` moves wholly to Phase 3.
+  - **Pre-extraction debt noted:** `FlagStore` still trafficks in the JPA-annotated `PlatformFlag`/`FeatureFlagOverride` entities. Replace with framework-free records before the library is cut.
+- **Phase 3 — caching seam (R3, R6).** `FlagCache` SPI; add non-request cache; verify jobs.
+- **Phase 4 — split entitlement from engine.** `FlagContextResolver` + `EntitlementResolver` + `FeatureAccessService`; retire the fused `FeatureFlagService`.
+- **Phase 5 — package move to `flags.*` → rename to `wunmi` root package.** Mechanical; sets up jar extraction. No behavior change.
 
 Extraction to a real published library is a later step, unlocked by Phases 1–5 but not required to land value now.
 
