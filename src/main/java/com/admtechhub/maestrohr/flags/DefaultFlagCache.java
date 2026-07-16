@@ -75,13 +75,20 @@ public class DefaultFlagCache implements FlagCache {
     }
 
     private Snapshot currentSnapshot() {
-        long now = clock.millis();
-        Snapshot current = ttlSnapshot.get();
-        if (current != null && now < current.expiryMillis) {
-            return current;
+        // Retry on a lost race rather than returning whatever the reference now holds: an
+        // invalidate() that nulls the snapshot could otherwise land between the get and the CAS,
+        // and the re-read would hand back null for callers to dereference.
+        while (true) {
+            long now = clock.millis();
+            Snapshot current = ttlSnapshot.get();
+            if (current != null && now < current.expiryMillis) {
+                return current;
+            }
+            Snapshot fresh = new Snapshot(now + ttlMillis);
+            if (ttlSnapshot.compareAndSet(current, fresh)) {
+                return fresh;
+            }
         }
-        Snapshot fresh = new Snapshot(now + ttlMillis);
-        return ttlSnapshot.compareAndSet(current, fresh) ? fresh : ttlSnapshot.get();
     }
 
     private static final class Snapshot {
