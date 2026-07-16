@@ -1,6 +1,6 @@
-package com.admtechhub.maestrohr.subscription;
+package com.admtechhub.maestrohr.flags;
 
-import com.admtechhub.maestrohr.subscription.FeatureFlagOverride.TargetType;
+import com.admtechhub.maestrohr.flags.FeatureFlagOverride.TargetType;
 
 import java.util.List;
 import java.util.Optional;

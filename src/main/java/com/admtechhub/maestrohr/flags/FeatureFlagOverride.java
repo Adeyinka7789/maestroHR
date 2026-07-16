@@ -1,4 +1,4 @@
-package com.admtechhub.maestrohr.subscription;
+package com.admtechhub.maestrohr.flags;
 
 import com.admtechhub.maestrohr.common.BaseEntity;
 import jakarta.persistence.Column;

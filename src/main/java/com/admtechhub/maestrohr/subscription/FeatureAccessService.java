@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.subscription;
+import com.admtechhub.maestrohr.flags.*;
 
-import com.admtechhub.maestrohr.subscription.FlagContextResolver.FlagContext;
+import com.admtechhub.maestrohr.flags.FlagContextResolver.FlagContext;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

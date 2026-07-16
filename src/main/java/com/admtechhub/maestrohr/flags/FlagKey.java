@@ -1,4 +1,4 @@
-package com.admtechhub.maestrohr.subscription;
+package com.admtechhub.maestrohr.flags;
 
 /**
  * A typed handle for a feature flag — the flag engine's public vocabulary. Callers reference a

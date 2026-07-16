@@ -2,8 +2,8 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.auth.JwtService;
 import com.admtechhub.maestrohr.platform.AdminStatsQueries;
-import com.admtechhub.maestrohr.subscription.PlatformFlag;
-import com.admtechhub.maestrohr.subscription.PlatformFlagService;
+import com.admtechhub.maestrohr.flags.PlatformFlag;
+import com.admtechhub.maestrohr.flags.PlatformFlagService;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.SubscriptionStatus;
 import org.junit.jupiter.api.Test;

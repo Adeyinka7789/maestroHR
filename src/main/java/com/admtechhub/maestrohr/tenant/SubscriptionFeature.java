@@ -1,6 +1,6 @@
 package com.admtechhub.maestrohr.tenant;
 
-import com.admtechhub.maestrohr.subscription.FlagKey;
+import com.admtechhub.maestrohr.flags.FlagKey;
 
 /**
  * MaestroHR's catalogue of gateable features. Doubles as the application's {@link FlagKey}

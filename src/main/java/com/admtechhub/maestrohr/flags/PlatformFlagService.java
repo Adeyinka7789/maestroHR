@@ -1,7 +1,7 @@
-package com.admtechhub.maestrohr.subscription;
+package com.admtechhub.maestrohr.flags;
 
-import com.admtechhub.maestrohr.subscription.FeatureFlagOverride.TargetType;
-import com.admtechhub.maestrohr.subscription.FlagAuditListener.FlagChange;
+import com.admtechhub.maestrohr.flags.FeatureFlagOverride.TargetType;
+import com.admtechhub.maestrohr.flags.FlagAuditListener.FlagChange;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;

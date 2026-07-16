@@ -1,4 +1,4 @@
-package com.admtechhub.maestrohr.subscription;
+package com.admtechhub.maestrohr.flags;
 
 /**
  * Audit SPI for the flag engine: notified whenever a flag, override, or rollout percentage

@@ -1,4 +1,4 @@
-package com.admtechhub.maestrohr.subscription;
+package com.admtechhub.maestrohr.flags;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

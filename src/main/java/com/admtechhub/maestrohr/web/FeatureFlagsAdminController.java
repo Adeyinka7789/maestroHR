@@ -1,7 +1,7 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.platform.AdminStatsQueries;
-import com.admtechhub.maestrohr.subscription.PlatformFlagService;
+import com.admtechhub.maestrohr.flags.PlatformFlagService;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;

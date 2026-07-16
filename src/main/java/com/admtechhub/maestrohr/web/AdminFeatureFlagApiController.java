@@ -1,9 +1,9 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.common.ApiResponse;
-import com.admtechhub.maestrohr.subscription.FeatureFlagOverride;
-import com.admtechhub.maestrohr.subscription.PlatformFlag;
-import com.admtechhub.maestrohr.subscription.PlatformFlagService;
+import com.admtechhub.maestrohr.flags.FeatureFlagOverride;
+import com.admtechhub.maestrohr.flags.PlatformFlag;
+import com.admtechhub.maestrohr.flags.PlatformFlagService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

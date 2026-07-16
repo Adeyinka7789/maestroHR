@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.subscription;
+import com.admtechhub.maestrohr.flags.*;
 
-import com.admtechhub.maestrohr.subscription.FeatureFlagOverride.TargetType;
+import com.admtechhub.maestrohr.flags.FeatureFlagOverride.TargetType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
