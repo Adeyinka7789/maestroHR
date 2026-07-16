@@ -7,10 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,9 +20,10 @@ import java.util.stream.Collectors;
  * changes to them. Platform-wide (not tenant-scoped): a SUPER_ADMIN toggles a flag/override and
  * it takes effect immediately.
  *
- * <p>Persistence and audit are reached only through the {@link FlagStore} and
- * {@link FlagAuditListener} SPIs — the engine has no direct dependency on Spring Data or the
- * audit trail, which is what lets it be lifted into a standalone library (future {@code wunmi}).
+ * <p>Persistence, audit, and caching are reached only through the {@link FlagStore},
+ * {@link FlagAuditListener}, and {@link FlagCache} SPIs — the engine has no direct dependency on
+ * Spring Data, the audit trail, or a request/clock, which is what lets it be lifted into a
+ * standalone library (future {@code wunmi}).
  *
  * <p><b>Fail-safe-disabled semantics:</b> a flag with no {@code platform_flags} row is treated
  * as disabled — see {@link #isEnabledForTenant}. In practice the seed migration and
@@ -38,11 +36,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PlatformFlagService {
 
-    private static final String FLAG_CACHE_ATTR = "PlatformFlagService.flagCache";
-    private static final String OVERRIDE_CACHE_ATTR = "PlatformFlagService.overrideCache";
-
     private final FlagStore flagStore;
     private final FlagAuditListener auditListener;
+    private final FlagCache flagCache;
 
     /**
      * Whether the flag identified by {@code key} is on, with no tenant/plan context. Typed
@@ -80,8 +76,7 @@ public class PlatformFlagService {
      */
     @Transactional(readOnly = true)
     public boolean isEnabledForTenant(String flagName, UUID tenantId, String planName) {
-        Map<String, PlatformFlag> cache = requestScopedFlagCache();
-        PlatformFlag flag = cache != null ? cache.get(flagName) : flagStore.findFlag(flagName).orElse(null);
+        PlatformFlag flag = flagCache.flags(this::loadAllFlags).get(flagName);
 
         if (flag == null) {
             log.warn("Feature flag '{}' has no platform_flags row; defaulting to disabled", flagName);
@@ -116,52 +111,20 @@ public class PlatformFlagService {
         return true;
     }
 
-    /**
-     * Loads every {@link PlatformFlag} once per HTTP request and caches it in request
-     * attributes, so a request that calls {@link #isEnabledForTenant} many times (e.g. rendering
-     * a page with several gated widgets) hits the DB once instead of once per call. Returns
-     * {@code null} when there is no request context (background jobs, tests), in which case
-     * callers fall back to a direct per-flag query.
-     */
-    @SuppressWarnings("unchecked")
-    private Map<String, PlatformFlag> requestScopedFlagCache() {
-        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
-        if (attrs == null) {
-            return null;
-        }
-        Map<String, PlatformFlag> cache = (Map<String, PlatformFlag>)
-                attrs.getAttribute(FLAG_CACHE_ATTR, RequestAttributes.SCOPE_REQUEST);
-        if (cache == null) {
-            cache = flagStore.findAllFlags().stream()
-                    .collect(Collectors.toMap(PlatformFlag::getName, f -> f));
-            attrs.setAttribute(FLAG_CACHE_ATTR, cache, RequestAttributes.SCOPE_REQUEST);
-        }
-        return cache;
+    /** Bulk-load every flag keyed by name — the {@link FlagCache}'s loader for {@link #flags}. */
+    private Map<String, PlatformFlag> loadAllFlags() {
+        return flagStore.findAllFlags().stream()
+                .collect(Collectors.toMap(PlatformFlag::getName, f -> f));
     }
 
     /**
-     * Request-scoped cache for individual override lookups, keyed by (flagName, targetType,
-     * targetValue) — a request checking several flags for the same tenant/plan combination
-     * doesn't re-query an override it has already fetched. Unlike {@link #requestScopedFlagCache},
-     * this is filled lazily per key rather than preloaded, since eagerly loading every override
-     * row would defeat the point of scoping the cache to just what a request actually looks up.
-     * Falls back to a direct query when there is no request context, same as the flag cache.
+     * Look up one override through the {@link FlagCache}, keyed by (flagName, targetType,
+     * targetValue) so a scope checking several flags for the same tenant/plan doesn't re-query an
+     * override it has already fetched. The cache decides the scope (per-request vs short-TTL).
      */
-    @SuppressWarnings("unchecked")
     private Optional<FeatureFlagOverride> cachedOverride(String flagName, TargetType targetType, String targetValue) {
-        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
-        if (attrs == null) {
-            return flagStore.findOverride(flagName, targetType, targetValue);
-        }
-        Map<String, Optional<FeatureFlagOverride>> cache = (Map<String, Optional<FeatureFlagOverride>>)
-                attrs.getAttribute(OVERRIDE_CACHE_ATTR, RequestAttributes.SCOPE_REQUEST);
-        if (cache == null) {
-            cache = new HashMap<>();
-            attrs.setAttribute(OVERRIDE_CACHE_ATTR, cache, RequestAttributes.SCOPE_REQUEST);
-        }
         String key = flagName + '|' + targetType + '|' + targetValue;
-        return cache.computeIfAbsent(key, k ->
-                flagStore.findOverride(flagName, targetType, targetValue));
+        return flagCache.override(key, () -> flagStore.findOverride(flagName, targetType, targetValue));
     }
 
     /** Turn the flag on, creating it if it does not yet exist. */
