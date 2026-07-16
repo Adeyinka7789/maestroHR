@@ -6,7 +6,7 @@ import com.admtechhub.maestrohr.document.DocumentType;
 import com.admtechhub.maestrohr.employee.EmployeePostCommitProcessor;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
-import com.admtechhub.maestrohr.subscription.FeatureFlagService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,7 @@ public class EmployeesController {
     private final EmployeeService employeeService;
     private final EmployeePostCommitProcessor employeePostCommitProcessor;
     private final DocumentService documentService;
-    private final FeatureFlagService featureFlagService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/employees")
@@ -197,7 +197,7 @@ public class EmployeesController {
             @RequestParam("file") MultipartFile file,
             Model model) {
 
-        if (!featureFlagService.isEnabled(SubscriptionFeature.DOCUMENT_VAULT)) {
+        if (!featureAccessService.isAvailable(SubscriptionFeature.DOCUMENT_VAULT)) {
             return renderDocumentsFragment(id, model);
         }
         try {
@@ -218,7 +218,7 @@ public class EmployeesController {
             @RequestParam("documentId") UUID documentId,
             Model model) {
 
-        if (featureFlagService.isEnabled(SubscriptionFeature.DOCUMENT_VAULT)
+        if (featureAccessService.isAvailable(SubscriptionFeature.DOCUMENT_VAULT)
                 && id.equals(documentService.ownerEmployeeId(documentId))) {
             documentService.deleteDocument(documentId);
             model.addAttribute("docSuccess", "Document deleted.");
@@ -228,7 +228,7 @@ public class EmployeesController {
 
     private String renderDocumentsFragment(UUID employeeId, Model model) {
         model.addAttribute("employeeId", employeeId);
-        boolean enabled = featureFlagService.isEnabled(SubscriptionFeature.DOCUMENT_VAULT);
+        boolean enabled = featureAccessService.isAvailable(SubscriptionFeature.DOCUMENT_VAULT);
         model.addAttribute("vaultEnabled", enabled);
         if (enabled) {
             List<DocumentResponseDTO> documents = documentService.listByEmployee(employeeId).stream()

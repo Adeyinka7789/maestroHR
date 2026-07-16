@@ -35,7 +35,8 @@ import static org.mockito.Mockito.when;
  * Verifies {@link FeatureCheckAspect} enforces {@link RequiresFeature}: tenant is resolved
  * from {@link TenantContext} (never from method arguments), denial throws
  * {@link FeatureNotAvailableException}, and the aspect honours both method- and type-level
- * annotations. The real {@link FeatureFlagService} is used so the TenantContext → UUID →
+ * annotations. A real {@link FeatureAccessService} (with the real {@link TenantFlagContextResolver}
+ * and {@link PlanEntitlementResolver}) is used so the TenantContext → UUID →
  * {@link SubscriptionService#hasFeature} resolution path is exercised; only the terminal
  * {@code hasFeature} verdict is mocked.
  */
@@ -66,12 +67,20 @@ class FeatureCheckAspectTest {
         SecurityContextHolder.clearContext();
     }
 
-    /** Wrap a target in a proxy with the real aspect + real FeatureFlagService. */
+    /** Wrap a target in a proxy with the real aspect + real FeatureAccessService. */
     private <T> T proxy(T target) {
-        FeatureCheckAspect aspect = new FeatureCheckAspect(new FeatureFlagService(subscriptionService, platformFlagService));
+        FeatureCheckAspect aspect = new FeatureCheckAspect(featureAccessService());
         AspectJProxyFactory factory = new AspectJProxyFactory(target);
         factory.addAspect(aspect);
         return factory.getProxy();
+    }
+
+    /** A real composition over the mocked platform flags + subscription service. */
+    private FeatureAccessService featureAccessService() {
+        return new FeatureAccessService(
+                platformFlagService,
+                new TenantFlagContextResolver(subscriptionService),
+                new PlanEntitlementResolver(subscriptionService));
     }
 
     // ── Method-level annotation, plan lacks feature → 402 exception ────────────
@@ -121,7 +130,7 @@ class FeatureCheckAspectTest {
         assertThrows(FeatureNotAvailableException.class, svc::anyMethod);
     }
 
-    // ── No tenant in context → fail closed (FeatureFlagService.isEnabled false) ─
+    // ── No tenant in context → fail closed (FeatureAccessService.isAvailable false) ─
     @Test
     void noTenantInContext_denies() {
         TenantContext.clear();
@@ -129,7 +138,7 @@ class FeatureCheckAspectTest {
 
         assertThrows(FeatureNotAvailableException.class, svc::leaveAction);
         // hasFeature is never reached when there is no tenant bound.
-        assertFalse(new FeatureFlagService(subscriptionService, platformFlagService).isEnabled(SubscriptionFeature.LEAVE_MANAGEMENT));
+        assertFalse(featureAccessService().isAvailable(SubscriptionFeature.LEAVE_MANAGEMENT));
     }
 
     // ── SUPER_ADMIN is exempt: gate is skipped even when the plan lacks the feature ─

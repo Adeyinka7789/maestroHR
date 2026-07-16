@@ -36,12 +36,13 @@ class PlatformFlagServiceTest {
 
     @Mock private FlagStore flagStore;
     @Mock private FlagAuditListener auditListener;
+    @Mock private FlagContextResolver contextResolver;
 
     private PlatformFlagService service;
 
     @BeforeEach
     void setUp() {
-        service = new PlatformFlagService(flagStore, auditListener, new DefaultFlagCache(5000L));
+        service = new PlatformFlagService(flagStore, auditListener, new DefaultFlagCache(5000L), contextResolver);
     }
 
     @AfterEach
@@ -64,6 +65,30 @@ class PlatformFlagServiceTest {
         when(flagStore.findAllFlags()).thenReturn(List.of(flag));
 
         assertThat(service.isEnabled(SubscriptionFeature.LOAN_MANAGEMENT)).isTrue();
+    }
+
+    @Test
+    void isOn_resolvesContextAndAppliesFullResolution() {
+        // isOn pulls tenant + segment from the context resolver and runs the layered resolution:
+        // here a PLAN override disables the (globally enabled) flag for the resolved segment.
+        UUID tenantId = UUID.randomUUID();
+        PlatformFlag flag = PlatformFlag.builder().name("LOAN_MANAGEMENT").enabled(true).build();
+        when(flagStore.findAllFlags()).thenReturn(List.of(flag));
+        when(contextResolver.currentContext())
+                .thenReturn(new FlagContextResolver.FlagContext(tenantId, "PROFESSIONAL"));
+        when(flagStore.findOverride(
+                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.TENANT, tenantId.toString()))
+                .thenReturn(Optional.empty());
+        when(flagStore.findOverride(
+                "LOAN_MANAGEMENT", FeatureFlagOverride.TargetType.PLAN, "PROFESSIONAL"))
+                .thenReturn(Optional.of(FeatureFlagOverride.builder()
+                        .flagName("LOAN_MANAGEMENT")
+                        .targetType(FeatureFlagOverride.TargetType.PLAN)
+                        .targetValue("PROFESSIONAL")
+                        .enabled(false)
+                        .build()));
+
+        assertThat(service.isOn(SubscriptionFeature.LOAN_MANAGEMENT)).isFalse();
     }
 
     @Test

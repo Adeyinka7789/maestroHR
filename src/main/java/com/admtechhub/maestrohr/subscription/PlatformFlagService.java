@@ -39,6 +39,25 @@ public class PlatformFlagService {
     private final FlagStore flagStore;
     private final FlagAuditListener auditListener;
     private final FlagCache flagCache;
+    private final FlagContextResolver contextResolver;
+
+    /**
+     * Whether the flag is on <b>for the current context</b> — the full layered resolution
+     * (tenant override → plan override → rollout) against whoever {@link FlagContextResolver}
+     * resolves. This is the engine's primary entry point for a plain flag check; contrast
+     * {@link #isEnabled(FlagKey)}, which ignores context and reports only the global switch.
+     */
+    @Transactional(readOnly = true)
+    public boolean isOn(FlagKey key) {
+        return isOn(key.key());
+    }
+
+    /** {@link #isOn(FlagKey)} by raw flag name. */
+    @Transactional(readOnly = true)
+    public boolean isOn(String flagName) {
+        FlagContextResolver.FlagContext ctx = contextResolver.currentContext();
+        return isEnabledForTenant(flagName, ctx.targetId(), ctx.segment());
+    }
 
     /**
      * Whether the flag identified by {@code key} is on, with no tenant/plan context. Typed

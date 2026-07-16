@@ -16,8 +16,8 @@ import java.lang.reflect.Method;
 /**
  * Enforces {@link RequiresFeature} on Spring beans. Resolves the tenant from
  * {@link com.admtechhub.maestrohr.auth.TenantContext} (never from method arguments) via
- * {@link FeatureFlagService}, and throws {@link FeatureNotAvailableException} (→ HTTP 402)
- * before the method body runs when the feature is not available.
+ * {@link FeatureAccessService}, and throws a {@link FeatureAccessException} — 404 when the
+ * platform flag is off, 402 when the plan lacks the feature — before the method body runs.
  *
  * <p>A method-level {@code @RequiresFeature} takes precedence over a type-level one.
  *
@@ -31,7 +31,7 @@ import java.lang.reflect.Method;
 @RequiredArgsConstructor
 public class FeatureCheckAspect {
 
-    private final FeatureFlagService featureFlagService;
+    private final FeatureAccessService featureAccessService;
 
     @Before("@annotation(com.admtechhub.maestrohr.subscription.RequiresFeature) "
             + "|| @within(com.admtechhub.maestrohr.subscription.RequiresFeature)")
@@ -53,7 +53,7 @@ public class FeatureCheckAspect {
             return;
         }
 
-        featureFlagService.requireFeature(required.value());
+        featureAccessService.require(required.value());
     }
 
     /** True when the authenticated principal holds {@code ROLE_SUPER_ADMIN} (the platform owner). */

@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
  *
  * <p>A platform flag is a kill switch: turning a feature OFF here removes it for every tenant,
  * regardless of plan (the global check is evaluated before the tenant/plan check in
- * {@code FeatureFlagService}). Authorization is enforced at the URL layer
+ * {@code FeatureAccessService}). Authorization is enforced at the URL layer
  * ({@code /htmx/admin/**} → SUPER_ADMIN in SecurityConfig); {@code @PreAuthorize} is the
  * method-level backstop.
  */

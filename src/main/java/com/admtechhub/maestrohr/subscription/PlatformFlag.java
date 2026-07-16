@@ -17,8 +17,8 @@ import lombok.NoArgsConstructor;
  *
  * <p>Effective availability of a {@link com.admtechhub.maestrohr.tenant.SubscriptionFeature}
  * is: this global flag enabled AND the tenant's plan includes the feature (see
- * {@link FeatureFlagService}). A feature with no flag row defaults to enabled, so existing
- * features keep working unchanged.
+ * {@link FeatureAccessService}). A feature with no flag row is treated as disabled (fail-closed);
+ * the seed migration and {@link PlatformFlagSeeder} register every known flag.
  */
 @Entity
 @Table(name = "platform_flags")
