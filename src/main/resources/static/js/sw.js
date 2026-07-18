@@ -1,4 +1,4 @@
-const CACHE_NAME = 'maestrohr-v3';
+const CACHE_NAME = 'maestrohr-v4';
 const STATIC_ASSETS = [
   '/css/dashboard.css',
   '/css/layout.css',
