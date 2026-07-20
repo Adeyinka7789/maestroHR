@@ -144,11 +144,13 @@ security:
 paystack:
   secret-key: ${PAYSTACK_SECRET_KEY}
   base-url: https://api.paystack.co
-  callback-url: http://localhost:8080/api/webhooks/paystack
+  # All callbacks derive from app.url (set APP_URL per environment) — no hardcoded host.
+  # Each still accepts an explicit env override for edge cases (e.g. a distinct public host).
+  callback-url: ${app.url}/api/webhooks/paystack
   client-id: ${PAYSTACK_CLIENT_ID:}
   client-secret: ${PAYSTACK_CLIENT_SECRET:}
-  oauth-callback-url: ${PAYSTACK_OAUTH_CALLBACK:http://localhost:8080/api/payment/oauth/callback}
-  transaction-callback-url: ${PAYSTACK_TXN_CALLBACK:http://localhost:8080/dashboard?payment=success}
+  oauth-callback-url: ${PAYSTACK_OAUTH_CALLBACK:${app.url}/api/payment/oauth/callback}
+  transaction-callback-url: ${PAYSTACK_TXN_CALLBACK:${app.url}/api/payment/callback}
   webhook:
     verify-signature: ${PAYSTACK_VERIFY_WEBHOOK:true}
 
@@ -188,6 +190,11 @@ sentry:
     - org.springframework.web.HttpRequestMethodNotSupportedException
     - org.springframework.web.servlet.NoHandlerFoundException
     - org.springframework.security.access.AccessDeniedException
+    # Expected client (4xx) errors handled by GlobalExceptionHandler — noise, not server faults.
+    - org.springframework.web.bind.MethodArgumentNotValidException          # @Valid body failed (e.g. blank/invalid login email or password)
+    - org.springframework.web.method.annotation.MethodArgumentTypeMismatchException  # bad typed path/query param
+    - org.springframework.http.converter.HttpMessageNotReadableException    # missing/malformed JSON body
+    - com.admtechhub.maestrohr.auth.InvalidCredentialsException             # wrong password / unknown email / locked account
     - com.admtechhub.maestrohr.auth.InvalidCredentialsException
 
 web:

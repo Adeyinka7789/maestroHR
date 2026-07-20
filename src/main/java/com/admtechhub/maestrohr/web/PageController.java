@@ -96,6 +96,12 @@ public class PageController {
         return htmxRequest != null ? "forward:/pricing.html" : "forward:/layout.html";
     }
 
+    // /htmx/admin/discounts serves the SUPER_ADMIN discount manager (discounts.html).
+    @GetMapping("/htmx/admin/discounts")
+    public String adminDiscounts(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
+        return htmxRequest != null ? "forward:/discounts.html" : "forward:/layout.html";
+    }
+
     // Employee CRUD
     @GetMapping("/htmx/employee-create")
     public String employeeCreate(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {

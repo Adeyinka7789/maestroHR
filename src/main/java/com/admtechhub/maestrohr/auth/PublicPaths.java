@@ -39,6 +39,7 @@ public final class PublicPaths {
     public static final List<String> NO_TENANT = List.of(
             "/api/auth/**",
             "/api/webhooks/**",          // Paystack webhooks: HMAC-verified, tenant resolved per-event
+            "/api/payment/callback",     // return-from-Paystack redirect: no Bearer header; verified with Paystack server-side
             "/api/pricing/public",
             "/actuator/health",
             "/actuator/info",

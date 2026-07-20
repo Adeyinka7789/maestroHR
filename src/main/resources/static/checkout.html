@@ -48,9 +48,9 @@
                             <span style="color:#64748b;">Subtotal</span>
                             <span style="font-weight:500; color:#0f172a;" id="subtotalAmount">₦0</span>
                         </div>
-                        <div class="summary-row">
-                            <span style="color:#64748b;">Processing Fee</span>
-                            <span style="font-weight:500; color:#0f172a;">₦0.00</span>
+                        <div class="summary-row" id="discountRow" style="display:none;">
+                            <span style="color:#10b981; font-weight:600;" id="discountLabel">Discount</span>
+                            <span style="font-weight:600; color:#10b981;" id="discountAmount">-₦0</span>
                         </div>
                         <div class="summary-row" style="margin-top:8px;">
                             <span style="font-size:18px; font-weight:700;">Total to pay</span>
@@ -146,16 +146,46 @@
         const urlParams = new URLSearchParams(window.location.search);
         const selectedPlan = urlParams.get('plan') || 'PROFESSIONAL';
         const period = urlParams.get('period') || 'MONTHLY';
-        const amount = priceMap[selectedPlan]?.[period.toLowerCase()] || 0;
-        const formattedAmount = (amount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // Update UI
+        const money = (kobo) => (kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        // Base price from the public catalogue; the authenticated quote below may reduce it via
+        // an admin-configured discount that applies to THIS customer.
+        let baseKobo = priceMap[selectedPlan]?.[period.toLowerCase()] || 0;
+        let netKobo = baseKobo;
+
         document.getElementById('plan-badge').textContent = planNames[selectedPlan] || selectedPlan;
         document.getElementById('billing-cycle').textContent = periodLabels[period] || period;
-        document.getElementById('topAmount').innerHTML = '₦' + formattedAmount;
-        document.getElementById('subtotalAmount').innerHTML = '₦' + formattedAmount;
-        document.getElementById('totalAmount').innerHTML = '₦' + formattedAmount;
-        document.getElementById('btnAmount').innerHTML = formattedAmount;
+
+        function renderTotals(discountKobo, discountLabel) {
+            document.getElementById('topAmount').innerHTML = '₦' + money(netKobo);
+            document.getElementById('subtotalAmount').innerHTML = '₦' + money(baseKobo);
+            document.getElementById('totalAmount').innerHTML = '₦' + money(netKobo);
+            document.getElementById('btnAmount').innerHTML = money(netKobo);
+
+            const row = document.getElementById('discountRow');
+            if (discountKobo > 0) {
+                document.getElementById('discountLabel').textContent = discountLabel || 'Discount';
+                document.getElementById('discountAmount').innerHTML = '-₦' + money(discountKobo);
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+
+        // Initial render from the catalogue price, then refine with the server quote.
+        renderTotals(0, null);
+        try {
+            const q = await apiCall(`/api/payment/quote?plan=${encodeURIComponent(selectedPlan)}&period=${encodeURIComponent(period)}`);
+            const qb = await q.json();
+            if (q.ok && qb.success && qb.data) {
+                baseKobo = qb.data.baseKobo ?? baseKobo;
+                netKobo = qb.data.netKobo ?? baseKobo;
+                renderTotals(qb.data.discountKobo || 0, qb.data.discountLabel);
+            }
+        } catch (e) {
+            console.error('Quote failed; using catalogue price', e);
+        }
 
         // Payment button handler
         const payBtn = document.getElementById('payNowBtn');
@@ -165,17 +195,23 @@
             payBtn.querySelector('span').innerHTML = 'Initializing Secure Payment...';
 
             try {
+                // The server recomputes price + discount authoritatively; amount here is ignored.
                 const response = await apiCall('/api/payment/initialize', {
                     method: 'POST',
                     body: JSON.stringify({
                         plan: selectedPlan,
                         period: period,
-                        amount: amount
+                        amount: netKobo
                     })
                 });
                 const result = await response.json();
                 if (result.success && result.data?.authorization_url) {
+                    // Normal paid checkout → hand off to Paystack.
                     window.location.href = result.data.authorization_url;
+                } else if (result.success && result.data?.redirect) {
+                    // Fully-discounted (₦0) checkout → already activated server-side.
+                    showToast('Subscription activated!', 'success');
+                    window.location.href = result.data.redirect;
                 } else {
                     throw new Error(result.message || 'Initialization failed');
                 }
@@ -184,7 +220,7 @@
                 showToast('Could not initialize payment. Please try again.', 'error');
                 payBtn.disabled = false;
                 payBtn.classList.remove('processing');
-                payBtn.querySelector('span').innerHTML = `Pay ₦${formattedAmount}`;
+                payBtn.querySelector('span').innerHTML = `Pay ₦${money(netKobo)}`;
             }
         });
     })();

@@ -197,6 +197,42 @@ public class PaystackClient {
     }
 
     /**
+     * Verify a one-off transaction (subscription charge) by its reference via
+     * {@code GET /transaction/verify/:reference}. Read-only and idempotent, so it is safe
+     * to retry. Returns the transaction {@link PaystackResponse.Data}, whose {@code status}
+     * is {@code "success"} for a completed charge.
+     *
+     * <p>This is the trust anchor for the browser return-from-Paystack callback: because that
+     * callback is a public, unauthenticated redirect target, the server must confirm the
+     * payment directly with Paystack (rather than trusting the redirect) before activating a
+     * subscription. It also makes activation work on localhost, where the inbound
+     * {@code charge.success} webhook cannot reach the app.
+     */
+    @CircuitBreaker(name = "paystack")
+    @Retry(name = "paystackRead")
+    public PaystackResponse.Data verifyTransaction(String reference) {
+        String url = paystackConfig.getBaseUrl() + "/transaction/verify/" + reference;
+        log.info("Verifying transaction status for reference: {}", reference);
+
+        try {
+            ResponseEntity<PaystackResponse> response = restTemplate.exchange(url, HttpMethod.GET, createHttpEntity(), PaystackResponse.class);
+            if (response.getBody() != null && response.getBody().isStatus()) {
+                return response.getBody().getData();
+            }
+            throw new PaystackApiException("Failed to verify transaction for reference: " + reference);
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throw new PaystackApiException("Transaction not found with reference: " + reference, e);
+            }
+            throw new PaystackApiException("Client error verifying transaction: " + reference, e);
+        } catch (HttpServerErrorException e) {
+            throw new PaystackApiException("Server error verifying transaction: " + reference, e);
+        } catch (ResourceAccessException e) {
+            throw new PaystackNetworkException("Network timeout verifying transaction", e);
+        }
+    }
+
+    /**
      * Fetch list of banks. Safe read with a graceful degradation fallback.
      */
     @CircuitBreaker(name = "paystack", fallbackMethod = "getBanksFallback")

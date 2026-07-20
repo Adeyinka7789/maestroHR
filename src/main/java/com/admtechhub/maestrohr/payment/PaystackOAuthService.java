@@ -28,7 +28,7 @@ public class PaystackOAuthService {
     @Value("${paystack.client-secret:}")
     private String clientSecret;
 
-    @Value("${paystack.oauth-callback-url:http://localhost:8080/api/payment/oauth/callback}")
+    @Value("${paystack.oauth-callback-url:${app.url}/api/payment/oauth/callback}")
     private String callbackUrl;
 
     /**

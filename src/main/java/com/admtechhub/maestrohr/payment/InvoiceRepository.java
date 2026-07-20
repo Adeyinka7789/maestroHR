@@ -22,6 +22,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
      */
     List<Invoice> findTop5ByOrderByCreatedAtDesc();
 
+    /**
+     * All invoices for the current tenant, newest first. Backs the settings-page
+     * "Billing & Invoices" history. Tenant-scoped by the {@code @SQLRestriction} on
+     * {@link Invoice}, so no tenant param is needed.
+     */
+    List<Invoice> findAllByOrderByCreatedAtDesc();
+
     boolean existsByPaystackReference(String paystackReference);
 
     /**

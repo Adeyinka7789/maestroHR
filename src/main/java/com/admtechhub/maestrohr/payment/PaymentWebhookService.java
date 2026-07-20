@@ -99,29 +99,55 @@ public class PaymentWebhookService {
             return;
         }
 
-        // Resolve the owning tenant WITHOUT a tenant session (webhooks have none) through the
-        // privileged datasource — under the RLS-enforced primary role the scoped lookup would
-        // see nothing. Then bind the session so the scoped repositories below resolve to the
-        // correct tenant.
+        activateSubscriptionForReference(reference);
+    }
+
+    /**
+     * Activate / extend a tenant's subscription from a paid invoice reference, and mark the
+     * invoice {@code SUCCESS}. Idempotent on the reference: a repeat call for an already-SUCCESS
+     * invoice is a no-op.
+     *
+     * <p>Shared by two callers:
+     * <ul>
+     *   <li>the {@code charge.success} webhook — the production source of truth; and</li>
+     *   <li>the browser return-from-Paystack callback (after the transaction has been verified
+     *       with Paystack in {@link PaymentService#verifyAndActivate}) — which is what makes
+     *       activation work on localhost, where the webhook cannot reach the app.</li>
+     * </ul>
+     * Whichever runs first flips the invoice to {@code SUCCESS}; the other becomes a no-op, so
+     * running both (e.g. in production with a reachable webhook) is safe.
+     *
+     * <p>Must be invoked through the Spring proxy (i.e. from another bean, not via
+     * self-invocation) for {@code @Transactional} to take effect.
+     *
+     * @return {@code true} if the invoice is now — or was already — {@code SUCCESS};
+     *         {@code false} if no matching invoice exists for the reference.
+     */
+    @Transactional
+    public boolean activateSubscriptionForReference(String reference) {
+        // Resolve the owning tenant WITHOUT a tenant session (webhooks/public callbacks have
+        // none) through the privileged datasource — under the RLS-enforced primary role the
+        // scoped lookup would see nothing. Then bind the session so the scoped repositories
+        // below resolve to the correct tenant.
         Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByInvoiceReference(reference);
         if (tenantIdOpt.isEmpty()) {
-            log.warn("charge.success for unknown reference {} — no matching invoice", reference);
-            return;
+            log.warn("activate: unknown reference {} — no matching invoice", reference);
+            return false;
         }
         UUID tenantId = tenantIdOpt.get();
         bindTenantSession(tenantId);
 
         Invoice invoice = invoiceRepository.findByPaystackReference(reference).orElse(null);
         if (invoice == null) {
-            log.warn("charge.success: invoice not visible for reference {} after binding tenant {}",
+            log.warn("activate: invoice not visible for reference {} after binding tenant {}",
                     reference, tenantId);
-            return;
+            return false;
         }
 
-        // Idempotency: already processed → do nothing, return 200.
+        // Idempotency: already processed → do nothing.
         if (invoice.getStatus() == PaymentStatus.SUCCESS) {
-            log.info("charge.success for {} already processed; ignoring (idempotent)", reference);
-            return;
+            log.info("activate: {} already processed; ignoring (idempotent)", reference);
+            return true;
         }
 
         // Mark the invoice paid.
@@ -143,8 +169,9 @@ public class PaymentWebhookService {
 
         subscriptionService.syncSubscriptionState(tenantId, SubscriptionStatus.ACTIVE);
 
-        log.info("charge.success processed for tenant {}: plan={}, period={}, expiry={}, reference={}",
-                tenantId, invoice.getPlan(), invoice.getPeriod(), newExpiry, reference);
+        log.info("activate: reference {} processed for tenant {}: plan={}, period={}, expiry={}",
+                reference, tenantId, invoice.getPlan(), invoice.getPeriod(), newExpiry);
+        return true;
     }
 
     /**

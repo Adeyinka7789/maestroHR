@@ -5,18 +5,23 @@ import com.admtechhub.maestrohr.common.ApiResponse;
 import com.admtechhub.maestrohr.payment.dto.PaymentInitializeRequest;
 import com.admtechhub.maestrohr.subscription.SubscriptionService;
 import com.admtechhub.maestrohr.subscription.dto.PlanResponse;
+import com.admtechhub.maestrohr.tenant.AppliedDiscount;
+import com.admtechhub.maestrohr.tenant.DiscountService;
 import com.admtechhub.maestrohr.tenant.PaymentPeriod;
 import com.admtechhub.maestrohr.tenant.PricingService;
 import com.admtechhub.maestrohr.tenant.SubscriptionPlan;
 import com.admtechhub.maestrohr.tenant.Tenant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +43,7 @@ public class PaymentController {
     private final SubscriptionService subscriptionService;
     private final PricingService pricingService;
     private final PaymentService paymentService;
+    private final DiscountService discountService;
 
     private UUID getCurrentTenantId() {
         return UUID.fromString(TenantContext.getCurrentTenant());
@@ -68,6 +74,29 @@ public class PaymentController {
         UUID tenantId = UUID.fromString(state);
         paystackOAuthService.exchangeCodeForToken(code, tenantId);
         return "redirect:/dashboard?payment=success";
+    }
+
+    /**
+     * Server-side price quote for the current tenant, including any admin-configured discount that
+     * applies to them. The checkout page calls this so the displayed total matches exactly what
+     * will be charged — the discount is never computed on (or trusted from) the client. Per-customer
+     * discounts resolve because this runs under the caller's tenant context.
+     */
+    @GetMapping("/quote")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> quote(
+            @RequestParam SubscriptionPlan plan,
+            @RequestParam PaymentPeriod period) {
+        UUID tenantId = getCurrentTenantId();
+        long baseKobo = pricingService.getPrice(plan.name(), period.name());
+        AppliedDiscount applied = discountService.resolveBestDiscount(tenantId, plan.name(), period.name(), baseKobo);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("baseKobo", applied.baseKobo());
+        data.put("discountKobo", applied.discountKobo());
+        data.put("netKobo", applied.netKobo());
+        data.put("discountLabel", applied.label());
+        return ResponseEntity.ok(ApiResponse.success("Quote", data));
     }
 
     @PostMapping("/upgrade")
@@ -131,5 +160,34 @@ public class PaymentController {
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("Payment initialization failed. Please try again."));
         }
+    }
+
+    /**
+     * Return-from-Paystack callback — the browser lands here after the user completes (or
+     * abandons) the hosted checkout. Paystack appends {@code ?reference=} (and {@code ?trxref=})
+     * to the configured transaction callback URL.
+     *
+     * <p>This is a top-level browser navigation from an external origin, so it carries no
+     * {@code Authorization: Bearer} header — hence the endpoint is <strong>public</strong>
+     * (see {@link com.admtechhub.maestrohr.auth.PublicPaths#NO_TENANT}). It does not trust the
+     * redirect: {@link PaymentService#verifyAndActivate} confirms the charge with Paystack
+     * server-side before activating, and resolves/binds the tenant from the invoice reference.
+     * This path is what activates the subscription on localhost, where the inbound
+     * {@code charge.success} webhook cannot reach the app; it is idempotent with the webhook.
+     *
+     * <p>Redirects (302) to the settings page with a {@code ?payment=} status so the UI can
+     * surface the outcome and the (now populated) billing history.
+     */
+    @GetMapping("/callback")
+    public ResponseEntity<Void> paymentCallback(
+            @RequestParam(required = false) String reference,
+            @RequestParam(required = false) String trxref) {
+
+        String ref = (reference != null && !reference.isBlank()) ? reference : trxref;
+        String status = (ref == null || ref.isBlank()) ? "failed" : paymentService.verifyAndActivate(ref);
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create("/htmx/settings?payment=" + status))
+                .build();
     }
 }

@@ -50,8 +50,18 @@ public class Invoice extends BaseEntity {
     @Column(name = "paystack_reference", nullable = false, unique = true)
     private String paystackReference;
 
+    /** The NET amount actually charged (after any discount). */
     @Column(name = "amount_kobo", nullable = false)
     private Long amountKobo;
+
+    /** Amount taken off the base price by an applied discount; 0 when none. */
+    @Column(name = "discount_kobo", nullable = false)
+    @Builder.Default
+    private Long discountKobo = 0L;
+
+    /** Human-readable label of the applied discount (e.g. "Launch promo – 20% off"); null when none. */
+    @Column(name = "discount_label", length = 160)
+    private String discountLabel;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
