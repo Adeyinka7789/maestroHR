@@ -186,7 +186,10 @@
             <div class="settings-section">
                 <div class="section-header">
                     <h2 style="font-size: 16px; font-weight: 700;">Billing & Invoices</h2>
-                    <button id="download-all-btn" class="text-primary" style="font-size:13px; font-weight:600; background:none; border:none; cursor:pointer;">Download All</button>
+                    <div style="display:flex; gap:16px; align-items:center;">
+                        <button id="reconcile-btn" class="text-primary" style="font-size:13px; font-weight:600; background:none; border:none; cursor:pointer;">Check pending payments</button>
+                        <button id="download-all-btn" class="text-primary" style="font-size:13px; font-weight:600; background:none; border:none; cursor:pointer;">Download All</button>
+                    </div>
                 </div>
                 <div class="section-body" style="padding: 0;">
                     <div id="billingHistory" class="overflow-x-auto">
@@ -328,7 +331,7 @@
                             <td style="font-weight:500">${escapeHtml(inv.description)}</td>
                             <td style="font-weight:700">₦${(inv.amount / 100).toLocaleString()}</td>
                             <td><span class="status-pill">${inv.status}</span></td>
-                            <td><a href="#" style="color:#2563eb; font-size:12px; text-decoration:none; font-weight:600;">PDF</a></td>
+                            <td><button type="button" class="invoice-pdf-btn" data-ref="${escapeHtml(inv.id || '')}" style="color:#2563eb; font-size:12px; background:none; border:none; cursor:pointer; font-weight:600; padding:0;">PDF</button></td>
                         </tr>`;
                     });
                     html += `</tbody></table>`;
@@ -342,8 +345,82 @@
             }
         }
 
-        document.getElementById('download-all-btn').addEventListener('click', () => {
-            showToast('Feature coming soon - bulk invoice download', 'info');
+        // Fetch a PDF (with the auth header apiCall attaches) and trigger a browser download.
+        async function downloadPdf(url, fallbackName) {
+            const response = await apiCall(url);
+            if (!response.ok) {
+                let message = 'Download failed.';
+                try { const d = await response.json(); message = d.error || d.message || message; } catch (e) {}
+                showToast(message, 'error');
+                return;
+            }
+            const blob = await response.blob();
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename="?([^"]+)"?/);
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = match ? match[1] : fallbackName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(link.href);
+        }
+
+        // Per-row "PDF" buttons are rendered dynamically, so delegate from the container.
+        document.getElementById('billingHistory').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.invoice-pdf-btn');
+            if (!btn) return;
+            const ref = btn.dataset.ref;
+            if (!ref) return;
+            btn.disabled = true;
+            try {
+                await downloadPdf(`/api/tenant/invoices/${encodeURIComponent(ref)}/pdf`, `invoice-${ref}.pdf`);
+            } catch (error) {
+                showToast('Failed to download invoice', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('download-all-btn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Preparing...';
+            try {
+                await downloadPdf('/api/tenant/invoices/pdf', 'maestrohr-billing-statement.pdf');
+            } catch (error) {
+                showToast('Failed to download statement', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        });
+
+        document.getElementById('reconcile-btn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+            try {
+                const response = await apiCall('/api/payment/reconcile', { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok) {
+                    showToast(result.error || result.message || 'Could not check pending payments.', 'error');
+                    return;
+                }
+                const activated = result.data ? result.data.activated : 0;
+                showToast(result.message, activated > 0 ? 'success' : 'info');
+                if (activated > 0) {
+                    loadBillingHistory();
+                    loadTenantData();
+                }
+            } catch (error) {
+                showToast('Could not check pending payments.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = original;
+            }
         });
 
         loadTenantData();

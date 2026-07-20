@@ -163,6 +163,37 @@ public class PaymentController {
     }
 
     /**
+     * On-demand reconciliation of the current tenant's PENDING invoices against Paystack.
+     *
+     * <p>Every "Pay" click persists a PENDING invoice stub before the Paystack call, and a stub
+     * lingers as PENDING whenever the browser never returns to {@link #paymentCallback} (checkout
+     * abandoned, or — on localhost — the {@code charge.success} webhook cannot reach the app). This
+     * lets an admin re-confirm each pending charge directly with Paystack and activate any that were
+     * actually paid. Idempotent and safe: unpaid invoices are left untouched.
+     */
+    @PostMapping("/reconcile")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reconcilePending() {
+        PaymentService.ReconcileResult result = paymentService.reconcilePendingInvoices();
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("checked", result.checked());
+        data.put("activated", result.activated());
+        data.put("stillPending", result.stillPending());
+        data.put("errored", result.errored());
+
+        String message;
+        if (result.checked() == 0) {
+            message = "No pending payments to reconcile.";
+        } else if (result.activated() > 0) {
+            message = result.activated() + " payment(s) confirmed and activated.";
+        } else {
+            message = "Checked " + result.checked() + " pending payment(s); none are confirmed paid yet.";
+        }
+        return ResponseEntity.ok(ApiResponse.success(message, data));
+    }
+
+    /**
      * Return-from-Paystack callback — the browser lands here after the user completes (or
      * abandons) the hosted checkout. Paystack appends {@code ?reference=} (and {@code ?trxref=})
      * to the configured transaction callback URL.

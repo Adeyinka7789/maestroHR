@@ -1,12 +1,17 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.payment.Invoice;
+import com.admtechhub.maestrohr.payment.InvoicePdfService;
 import com.admtechhub.maestrohr.payment.InvoiceRepository;
 import com.admtechhub.maestrohr.payment.PaymentStatus;
 import com.admtechhub.maestrohr.platform.PlatformSettingsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,6 +27,7 @@ public class TenantApiController {
 
     private final PlatformSettingsService platformSettings;
     private final InvoiceRepository invoiceRepository;
+    private final InvoicePdfService invoicePdfService;
 
     /**
      * Billing history for the current tenant, newest first — backs the settings-page
@@ -38,6 +44,40 @@ public class TenantApiController {
                 .map(this::toBillingRow)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(Map.of("success", true, "data", data));
+    }
+
+    /**
+     * Download a single invoice (identified by its Paystack reference) as a PDF. Same visibility
+     * as {@link #getBillingHistory()} — tenant-scoped, so a caller can only fetch its own invoices;
+     * an unknown/foreign reference yields 404.
+     */
+    @GetMapping("/invoices/{reference}/pdf")
+    public ResponseEntity<byte[]> downloadInvoice(@PathVariable String reference) {
+        byte[] pdf;
+        try {
+            pdf = invoicePdfService.renderInvoice(reference);
+        } catch (InvoicePdfService.InvoiceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("invoice-" + reference + ".pdf").build());
+        return ResponseEntity.ok().headers(headers).body(pdf);
+    }
+
+    /**
+     * Download a single billing-statement PDF listing every invoice for the current tenant.
+     * Backs the "Download All" action on the settings billing panel.
+     */
+    @GetMapping("/invoices/pdf")
+    public ResponseEntity<byte[]> downloadStatement() {
+        byte[] pdf = invoicePdfService.renderStatement();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("maestrohr-billing-statement.pdf").build());
+        return ResponseEntity.ok().headers(headers).body(pdf);
     }
 
     private Map<String, Object> toBillingRow(Invoice inv) {

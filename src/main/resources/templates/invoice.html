@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>Invoice - MaestroHR</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #0f172a; font-size: 12px; }
+        .sheet { padding: 40px; }
+        .top { border-bottom: 3px solid #00236f; padding-bottom: 18px; margin-bottom: 24px; }
+        .top table { width: 100%; border-collapse: collapse; }
+        .top td { vertical-align: top; }
+        .brand { font-size: 24px; font-weight: bold; color: #00236f; }
+        .brand-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .doc-title { font-size: 22px; font-weight: bold; color: #0f172a; text-align: right; }
+        .doc-ref { font-size: 11px; color: #64748b; text-align: right; margin-top: 4px; font-family: 'Courier New', monospace; }
+        .status-pill { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: bold; }
+        .status-SUCCESS { background: #dcfce7; color: #166534; }
+        .status-PENDING { background: #fef9c3; color: #854d0e; }
+        .status-FAILED  { background: #fee2e2; color: #991b1b; }
+        .meta { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+        .meta td { vertical-align: top; padding: 0; width: 50%; }
+        .meta .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 6px; }
+        .meta .value { font-size: 13px; font-weight: bold; color: #0f172a; }
+        .meta .value-line { font-size: 12px; color: #334155; margin-top: 2px; font-weight: normal; }
+        table.lines { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        table.lines th { background: #00236f; color: #fff; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+        table.lines th.amount, table.lines td.amount { text-align: right; }
+        table.lines td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        .discount td { color: #166534; }
+        .totals { width: 100%; border-collapse: collapse; }
+        .totals td { padding: 6px 12px; }
+        .totals .t-label { text-align: right; color: #64748b; }
+        .totals .t-value { text-align: right; width: 140px; font-weight: bold; }
+        .totals .grand td { border-top: 2px solid #00236f; font-size: 16px; color: #00236f; padding-top: 10px; }
+        .foot { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 10px; color: #94a3b8; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="sheet">
+    <div class="top">
+        <table>
+            <tr>
+                <td>
+                    <div class="brand">MaestroHR</div>
+                    <div class="brand-sub">Payroll &amp; HR Platform</div>
+                    <div class="brand-sub" th:if="${issuerEmail != ''}" th:text="${issuerEmail}">support@maestrohr.com</div>
+                </td>
+                <td>
+                    <div class="doc-title">INVOICE</div>
+                    <div class="doc-ref" th:text="'#' + ${reference}">#SUB_XXXX</div>
+                    <div style="text-align:right; margin-top:8px;">
+                        <span th:class="'status-pill status-' + ${status}" th:text="${status}">SUCCESS</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="meta">
+        <tr>
+            <td>
+                <div class="label">Billed To</div>
+                <div class="value" th:text="${companyName}">Company Ltd</div>
+                <div class="value-line" th:if="${rcNumber != ''}" th:text="'RC: ' + ${rcNumber}">RC: ---</div>
+            </td>
+            <td>
+                <div class="label">Issue Date</div>
+                <div class="value" th:text="${issueDate}">21 Jul 2026</div>
+                <div class="label" style="margin-top:12px;">Payment Date</div>
+                <div class="value" th:text="${paidDate}">21 Jul 2026</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="lines">
+        <thead>
+            <tr><th>Description</th><th class="amount">Amount</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td th:text="${description}">Basic Plan &ndash; Quarterly</td>
+                <td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(originalAmount, 1, 'COMMA', 2, 'POINT')}">₦0.00</td>
+            </tr>
+            <tr class="discount" th:if="${hasDiscount}">
+                <td th:text="${discountLabel} ?: 'Discount'">Discount</td>
+                <td class="amount" th:utext="'-&#x20A6;' + ${#numbers.formatDecimal(discountAmount, 1, 'COMMA', 2, 'POINT')}">-₦0.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <table class="totals">
+        <tr>
+            <td class="t-label">Subtotal</td>
+            <td class="t-value" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(originalAmount, 1, 'COMMA', 2, 'POINT')}">₦0.00</td>
+        </tr>
+        <tr th:if="${hasDiscount}">
+            <td class="t-label">Discount</td>
+            <td class="t-value" style="color:#166534;" th:utext="'-&#x20A6;' + ${#numbers.formatDecimal(discountAmount, 1, 'COMMA', 2, 'POINT')}">-₦0.00</td>
+        </tr>
+        <tr class="grand">
+            <td class="t-label">Total <span th:text="${status == 'SUCCESS' ? 'Paid' : 'Due'}">Paid</span></td>
+            <td class="t-value" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(netAmount, 1, 'COMMA', 2, 'POINT')}">₦0.00</td>
+        </tr>
+    </table>
+
+    <div class="foot">
+        This invoice was generated by MaestroHR. Reference <span th:text="${reference}">SUB_XXXX</span>.
+        Thank you for your business.
+    </div>
+</div>
+</body>
+</html>

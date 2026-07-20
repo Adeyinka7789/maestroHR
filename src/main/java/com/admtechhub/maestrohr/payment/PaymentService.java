@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -183,6 +184,48 @@ public class PaymentService {
         boolean activated = paymentWebhookService.activateSubscriptionForReference(reference);
         return activated ? "success" : "pending";
     }
+
+    /**
+     * On-demand reconciliation of the current tenant's {@code PENDING} invoices.
+     *
+     * <p>Every "Pay" click writes a {@code PENDING} invoice stub <em>before</em> the Paystack call
+     * ({@link #getOrCreatePendingInvoice}), and there is no background job that later reconciles it.
+     * A stub therefore lingers as {@code PENDING} whenever the browser never returns to the
+     * {@code /api/payment/callback} redirect — e.g. the checkout tab was closed, or (on localhost)
+     * the inbound {@code charge.success} webhook can never reach the app. This action closes that
+     * gap: for each still-{@code PENDING} invoice it re-confirms the charge directly with Paystack
+     * via {@link #verifyAndActivate} and activates the subscription when Paystack reports success.
+     *
+     * <p>Safe and idempotent: verification is read-only, activation no-ops on an already-{@code SUCCESS}
+     * invoice, and an invoice Paystack does not report as paid is simply left {@code PENDING}.
+     *
+     * <p>Deliberately NOT {@code @Transactional} — it performs Paystack network I/O per invoice, and
+     * each {@link #verifyAndActivate} activation opens its own transaction through the Spring proxy.
+     * The pending list is read up front (under the caller's tenant session) so the per-invoice tenant
+     * re-binding inside activation cannot affect the iteration.
+     *
+     * @return a summary of how many invoices were checked, activated, still pending, or errored.
+     */
+    public ReconcileResult reconcilePendingInvoices() {
+        List<Invoice> pending = invoiceRepository.findByStatusOrderByCreatedAtDesc(PaymentStatus.PENDING);
+        int activated = 0;
+        int stillPending = 0;
+        int errored = 0;
+        for (Invoice invoice : pending) {
+            String status = verifyAndActivate(invoice.getPaystackReference());
+            switch (status) {
+                case "success" -> activated++;
+                case "verify_error" -> errored++;
+                default -> stillPending++; // "pending" | "failed"
+            }
+        }
+        log.info("Reconcile: {} pending invoice(s) checked — {} activated, {} still pending, {} errored",
+                pending.size(), activated, stillPending, errored);
+        return new ReconcileResult(pending.size(), activated, stillPending, errored);
+    }
+
+    /** Outcome of a {@link #reconcilePendingInvoices()} sweep. */
+    public record ReconcileResult(int checked, int activated, int stillPending, int errored) {}
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markInvoiceInitializationFailed(String reference, String reason) {

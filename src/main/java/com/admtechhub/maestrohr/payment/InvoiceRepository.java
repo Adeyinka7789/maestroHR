@@ -29,6 +29,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
      */
     List<Invoice> findAllByOrderByCreatedAtDesc();
 
+    /**
+     * All invoices for the current tenant in the given status, newest first. Backs the
+     * on-demand "reconcile pending payments" action, which re-confirms every {@code PENDING}
+     * invoice with Paystack. Tenant-scoped by the {@code @SQLRestriction} on {@link Invoice}
+     * plus RLS on the primary datasource, so no tenant param is needed.
+     */
+    List<Invoice> findByStatusOrderByCreatedAtDesc(PaymentStatus status);
+
     boolean existsByPaystackReference(String paystackReference);
 
     /**
