@@ -55,7 +55,9 @@ jobs:
           "
 
       - name: Run tests
-        run: mvn test -B
+        # -U forces a recheck for missing releases so a cached "not found" (e.g. a wunmi
+        # release the runner's maven cache saw before Central had indexed it) is retried.
+        run: mvn test -B -U
         env:
           SPRING_PROFILES_ACTIVE: test
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/maestrohr_test
@@ -76,7 +78,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Package JAR
-        run: mvn package -DskipTests -B
+        run: mvn package -DskipTests -B -U
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
