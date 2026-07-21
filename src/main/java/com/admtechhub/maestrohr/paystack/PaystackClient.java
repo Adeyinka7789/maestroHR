@@ -52,7 +52,12 @@ public class PaystackClient {
             throw new PaystackApiException("Paystack rejected initialization: " +
                     (response.getBody() != null ? response.getBody().getMessage() : "No message"));
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            throw new PaystackApiException("HTTP API failure during transaction initialization", e);
+            // Surface Paystack's actual status + body (e.g. 401 "Invalid key", 400 "Invalid email")
+            // instead of a generic message — otherwise the real failure reason is unrecoverable.
+            log.error("Paystack rejected transaction initialization for ref {}: HTTP {} body={}",
+                    reference, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new PaystackApiException("HTTP API failure during transaction initialization ("
+                    + e.getStatusCode() + "): " + e.getResponseBodyAsString(), e);
         } catch (ResourceAccessException e) {
             throw new PaystackNetworkException("Network timeout initializing transaction", e);
         }
@@ -265,9 +270,16 @@ public class PaystackClient {
     }
 
     private HttpHeaders createHeaders() {
+        String secretKey = paystackConfig.getSecretKey();
+        if (secretKey == null || secretKey.isBlank()) {
+            // Fail fast with a clear cause rather than sending an empty Bearer token and getting
+            // an opaque 401 back from Paystack.
+            throw new PaystackApiException(
+                    "Paystack secret key is not configured — set the PAYSTACK_SECRET_KEY environment variable");
+        }
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(paystackConfig.getSecretKey());
+        headers.setBearerAuth(secretKey);
         return headers;
     }
 
