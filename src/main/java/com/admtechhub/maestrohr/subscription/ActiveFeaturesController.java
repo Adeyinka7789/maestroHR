@@ -19,20 +19,25 @@ import java.util.stream.Collectors;
 public class ActiveFeaturesController {
 
     private final PlatformFlagService platformFlagService;
+    private final FlagContextResolver contextResolver;
 
     /**
-     * Returns the names of all SubscriptionFeature flags that are currently enabled
-     * platform-wide. Resolved through the same {@link PlatformFlagService#isEnabled(String)}
-     * path used everywhere else, so nav visibility and gate enforcement share one policy — a
-     * flag with no {@code platform_flags} row is treated as disabled (fail-closed), not shown.
-     * ({@link PlatformFlagSeeder} + the seed migration guarantee every known flag has a row.)
-     * Used by layout.js to hide nav items whose feature is disabled.
+     * Returns the SubscriptionFeature flags enabled <b>for the current tenant</b>: full layered
+     * resolution (global kill switch → per-tenant override → plan override → rollout), the same
+     * {@link PlatformFlagService#isEnabledForTenant} path the page gates use — so a feature
+     * disabled for this tenant (not just globally) is hidden from the nav, and nav visibility and
+     * gate enforcement share one policy. A flag with no {@code platform_flags} row is disabled
+     * (fail-closed), not shown. Used by layout.js to hide nav items whose feature is off.
+     *
+     * <p>Not entitlement-filtered: a feature the plan doesn't include but whose flag is on still
+     * appears (its page shows the upgrade prompt), preserving upgrade discovery.
      */
     @GetMapping("/active")
     public ResponseEntity<ApiResponse<List<String>>> activeFeatures() {
+        FlagContextResolver.FlagContext ctx = contextResolver.currentContext();
         List<String> active = Arrays.stream(SubscriptionFeature.values())
                 .map(SubscriptionFeature::name)
-                .filter(platformFlagService::isEnabled)
+                .filter(name -> platformFlagService.isEnabledForTenant(name, ctx.targetId(), ctx.segment()))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("ok", active));
     }
