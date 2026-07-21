@@ -5,6 +5,7 @@ import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.leave.LeaveStatus;
 import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
@@ -56,6 +57,7 @@ public class LeaveListController {
     private final LeaveService leaveService;
     private final UserRepository userRepository;
     private final EmployeeService employeeService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/leave")
@@ -70,6 +72,12 @@ public class LeaveListController {
             return "forward:/layout.html";
         }
 
+        // Gate the read the same way the REST LeaveController and the write actions here are gated:
+        // if LEAVE_MANAGEMENT is off for this tenant (kill switch, per-tenant override, or plan), the
+        // page must not render. Placed after the cold-load guard so a direct visit still gets the
+        // shell; handleActionFailure turns the resulting FeatureAccessException into an in-place banner.
+        featureAccessService.require(SubscriptionFeature.LEAVE_MANAGEMENT);
+
         model.addAttribute("view", leaveListService.buildContent(q, parseStatus(status)));
         return "leave :: content";
     }
@@ -81,6 +89,7 @@ public class LeaveListController {
             @RequestParam(value = "status", required = false) String status,
             Model model) {
 
+        featureAccessService.require(SubscriptionFeature.LEAVE_MANAGEMENT);
         model.addAttribute("view", leaveListService.buildList(q, parseStatus(status)));
         return "leave :: table";
     }

@@ -6,6 +6,7 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -99,5 +101,22 @@ class LeaveListControllerAuthzTest {
 
         // Passing the gate is the assertion: the handler ran and delegated to the service.
         verify(leaveService).approveLeaveRequest(eq(REQUEST_ID), any(), isNull());
+    }
+
+    // ── the read page itself is feature-gated (disabling the feature blocks access) ──
+
+    @Test
+    void leaveTableRead_isFeatureGated() throws Exception {
+        mockToken("tok-hr", "hr@x.io", "HR_ADMIN");
+        when(leaveListService.buildList(any(), any())).thenReturn(new LeaveListView(
+                List.of(), 0, null, null, List.of(), List.of(), List.of(), null, false, true));
+
+        mockMvc.perform(get("/htmx/leave/table")
+                        .header("Authorization", "Bearer tok-hr")
+                        .header("HX-Request", "true"))
+                .andExpect(status().isOk());
+
+        // The read now consults the feature gate, so a disabled LEAVE_MANAGEMENT blocks the page.
+        verify(featureAccessService).require(SubscriptionFeature.LEAVE_MANAGEMENT);
     }
 }
