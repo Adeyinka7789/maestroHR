@@ -31,6 +31,9 @@ class AttendanceListControllerTest {
     @MockBean
     private JwtService jwtService;
 
+    @MockBean
+    private com.admtechhub.maestrohr.subscription.FeatureAccessService featureAccessService;
+
     private static final UUID TENANT_ID = UUID.randomUUID();
 
     private void mockToken(String token, String role) {

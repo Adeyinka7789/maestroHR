@@ -1,5 +1,8 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -51,6 +54,7 @@ import java.util.UUID;
 public class AttendanceCalendarController {
 
     private final AttendanceCalendarService attendanceCalendarService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full calendar fragment: app shell on a cold visit, the populated grid under HTMX. */
     @GetMapping("/htmx/attendance/calendar")
@@ -70,6 +74,7 @@ public class AttendanceCalendarController {
                 "ROLE_SUPER_ADMIN", "ROLE_SYSTEM_ADMIN")) {
             throw new AccessDeniedException("You don't have access to this page.");
         }
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
 
         model.addAttribute("view",
                 attendanceCalendarService.build(parseEmployeeId(empId), year, month));
@@ -85,6 +90,14 @@ public class AttendanceCalendarController {
     public String handleAccessDenied(AccessDeniedException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
         return "access-denied :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never build the calendar data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Attendance");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     /**

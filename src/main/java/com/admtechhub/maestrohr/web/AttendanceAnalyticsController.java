@@ -1,5 +1,8 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -47,6 +50,7 @@ public class AttendanceAnalyticsController {
     };
 
     private final AttendanceAnalyticsService attendanceAnalyticsService;
+    private final FeatureAccessService featureAccessService;
 
     /**
      * Full analytics fragment: app shell on a cold visit, the populated dashboard under HTMX.
@@ -73,6 +77,7 @@ public class AttendanceAnalyticsController {
         if (!hasAnyRole(READ_ROLES)) {
             throw new AccessDeniedException("You don't have access to this page.");
         }
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
 
         model.addAttribute("view",
                 attendanceAnalyticsService.build(period, date, from, to, parseDepartmentId(deptId)));
@@ -83,6 +88,14 @@ public class AttendanceAnalyticsController {
     public String handleAccessDenied(AccessDeniedException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
         return "access-denied :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never build the analytics data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Attendance");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     /** Absent/blank/unparseable department id → null = All departments (mirrors the calendar's empId parse). */

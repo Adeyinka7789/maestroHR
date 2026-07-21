@@ -3,6 +3,8 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.attendance.AttendanceRecordDTO;
 import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.attendance.AttendanceStatus;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,6 +68,7 @@ public class AttendanceListController {
 
     private final AttendanceListService attendanceListService;
     private final AttendanceService attendanceService;
+    private final FeatureAccessService featureAccessService;
 
     private static final String[] READ_ROLES = {
             "ROLE_HR_ADMIN", "ROLE_FINANCE_OFFICER", "ROLE_DEPT_MANAGER",
@@ -89,6 +92,7 @@ public class AttendanceListController {
         if (!hasAnyRole(READ_ROLES)) {
             throw new AccessDeniedException("You don't have access to this page.");
         }
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
 
         model.addAttribute("view",
                 attendanceListService.buildList(parseDate(date), q, parseStatus(status)));
@@ -106,6 +110,7 @@ public class AttendanceListController {
         if (!hasAnyRole(READ_ROLES)) {
             throw new AccessDeniedException("You don't have access to this page.");
         }
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
 
         model.addAttribute("view",
                 attendanceListService.buildList(parseDate(date), q, parseStatus(status)));
@@ -176,6 +181,17 @@ public class AttendanceListController {
     public String handleAccessDenied(AccessDeniedException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
         return "access-denied :: content";
+    }
+
+    /**
+     * Feature off / not entitled: locked state only — like {@link #handleAccessDenied}, it must NOT
+     * call {@link AttendanceListService#buildList}, so a disabled feature exposes no roster data.
+     */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Attendance");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     /**

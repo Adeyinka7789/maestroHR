@@ -4,6 +4,8 @@ import com.admtechhub.maestrohr.attendance.device.*;
 import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,7 @@ public class DeviceManagementWebController {
     private final DeviceApiKeyService deviceApiKeyService;
     private final DeviceEmployeeEnrollmentRepository enrollmentRepository;
     private final EmployeeRepository employeeRepository;
+    private final FeatureAccessService featureAccessService;
 
     /**
      * Runs before every handler in this controller (a plain Spring MVC per-request hook, not
@@ -56,6 +59,8 @@ public class DeviceManagementWebController {
         if (!hasAnyRole("ROLE_SYSTEM_ADMIN", "ROLE_HR_ADMIN", "ROLE_SUPER_ADMIN")) {
             throw new AccessDeniedException("You don't have access to this page.");
         }
+        // HARDWARE_SYNC must be on for this tenant, else the whole page (read + writes) is locked.
+        featureAccessService.require(SubscriptionFeature.HARDWARE_SYNC);
     }
 
     // ── Page shell ────────────────────────────────────────────────────────────
@@ -158,6 +163,14 @@ public class DeviceManagementWebController {
     public String handleAccessDenied(AccessDeniedException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
         return "access-denied :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never populate device/employee data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Device Sync");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

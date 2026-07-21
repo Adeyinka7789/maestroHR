@@ -4,6 +4,9 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.payroll.PayrollRunService;
 import com.admtechhub.maestrohr.payroll.PayrollStatus;
 import com.admtechhub.maestrohr.payroll.dto.PayrollRunResponse;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +64,7 @@ public class PayrollListController {
     private final PayrollDetailService payrollDetailService;
     private final PayrollRunService payrollRunService;
     private final UserRepository userRepository;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/payroll")
@@ -75,6 +79,7 @@ public class PayrollListController {
             return "forward:/layout.html";
         }
 
+        featureAccessService.require(SubscriptionFeature.BASIC_PAYROLL);
         model.addAttribute("view", payrollListService.buildList(q, parseStatus(status)));
         return "payroll :: content";
     }
@@ -86,6 +91,7 @@ public class PayrollListController {
             @RequestParam(value = "status", required = false) String status,
             Model model) {
 
+        featureAccessService.require(SubscriptionFeature.BASIC_PAYROLL);
         model.addAttribute("view", payrollListService.buildList(q, parseStatus(status)));
         return "payroll :: table";
     }
@@ -137,6 +143,14 @@ public class PayrollListController {
         model.addAttribute("view", payrollListService.buildList(q, parseStatus(status)));
         model.addAttribute("error", ex.getMessage());
         return "payroll :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load payroll data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Payroll");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     /** Resolve the authenticated user's id to record as the initiator. Mirrors LeaveListController. */

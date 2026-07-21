@@ -1,10 +1,13 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.attendance.AttendanceService;
+import com.admtechhub.maestrohr.attendance.ShiftService;
 import com.admtechhub.maestrohr.auth.JwtService;
+import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.document.DocumentService;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.loan.LoanService;
+import com.admtechhub.maestrohr.payroll.PayrollRunService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.FeatureDisabledException;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
@@ -45,10 +48,16 @@ class FeaturePageLockTest {
     @MockBean private LoanSelfService loanSelfService;
     @MockBean private DocumentService documentService;
     @MockBean private AttendanceSelfService attendanceSelfService;
-    // Present so the self-page controllers construct; not reached on the locked path.
+    @MockBean private PayrollListService payrollListService;
+    @MockBean private AttendanceListService attendanceListService;
+    @MockBean private ShiftService shiftService;
+    // Present so the controllers construct; not reached on the locked path.
     @MockBean private LoanService loanService;
     @MockBean private AttendanceService attendanceService;
     @MockBean private EmployeeService employeeService;
+    @MockBean private PayrollDetailService payrollDetailService;
+    @MockBean private PayrollRunService payrollRunService;
+    @MockBean private UserRepository userRepository;
 
     private void mockToken(String token, String role) {
         when(jwtService.isTokenValid(token)).thenReturn(true);
@@ -107,5 +116,41 @@ class FeaturePageLockTest {
                 .andExpect(content().string(containsString("is not available right now")));
 
         verify(attendanceSelfService, never()).build(any(), any());
+    }
+
+    @Test
+    void payrollPage_featureOff_locksWithoutData() throws Exception {
+        mockToken("tok", "HR_ADMIN");
+        featureOff(SubscriptionFeature.BASIC_PAYROLL);
+
+        mockMvc.perform(get("/htmx/payroll").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
+
+        verify(payrollListService, never()).buildList(any(), any());
+    }
+
+    @Test
+    void attendanceListPage_featureOff_locksWithoutData() throws Exception {
+        mockToken("tok", "HR_ADMIN"); // passes the controller's manual READ_ROLES check
+        featureOff(SubscriptionFeature.ATTENDANCE_TRACKING);
+
+        mockMvc.perform(get("/htmx/attendance").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
+
+        verify(attendanceListService, never()).buildList(any(), any(), any());
+    }
+
+    @Test
+    void shiftsPage_featureOff_locksWithoutData() throws Exception {
+        mockToken("tok", "HR_ADMIN");
+        featureOff(SubscriptionFeature.ATTENDANCE_TRACKING);
+
+        mockMvc.perform(get("/htmx/shifts").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
+
+        verify(shiftService, never()).getShiftsForTenant();
     }
 }

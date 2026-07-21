@@ -3,6 +3,9 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.attendance.Shift;
 import com.admtechhub.maestrohr.attendance.ShiftRequest;
 import com.admtechhub.maestrohr.attendance.ShiftService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -22,6 +25,7 @@ import java.util.UUID;
 public class ShiftController {
 
     private final ShiftService shiftService;
+    private final FeatureAccessService featureAccessService;
 
     @GetMapping("/htmx/shifts")
     public String listShifts(
@@ -30,6 +34,7 @@ public class ShiftController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
         List<Shift> shifts = shiftService.getShiftsForTenant();
         model.addAttribute("shifts", shifts);
         return "shifts :: content";
@@ -73,5 +78,13 @@ public class ShiftController {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("shifts", shiftService.getShiftsForTenant());
         return "shifts :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load shift data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Shifts");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 }

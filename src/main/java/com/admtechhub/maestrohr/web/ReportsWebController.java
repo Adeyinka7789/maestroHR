@@ -6,10 +6,14 @@ import com.admtechhub.maestrohr.employee.EmployeeRepository;
 import com.admtechhub.maestrohr.employee.EmployeeStatus;
 import com.admtechhub.maestrohr.payroll.PayrollRun;
 import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 
@@ -33,6 +37,7 @@ public class ReportsWebController {
 
     private final EmployeeRepository employeeRepository;
     private final PayrollRunRepository payrollRunRepository;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on cold visit, populated fragment under HTMX. */
     @GetMapping("/htmx/reports")
@@ -44,8 +49,17 @@ public class ReportsWebController {
             return "forward:/layout.html";
         }
 
+        featureAccessService.require(SubscriptionFeature.CUSTOM_REPORTING);
         model.addAttribute("view", buildView());
         return "reports :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load report data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Reports");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     private ReportsListView buildView() {

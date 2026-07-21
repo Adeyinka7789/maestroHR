@@ -3,6 +3,9 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.attendance.AttendancePolicy;
 import com.admtechhub.maestrohr.attendance.AttendancePolicyRequest;
 import com.admtechhub.maestrohr.attendance.AttendancePolicyService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -23,6 +26,7 @@ import java.util.UUID;
 public class AttendancePolicyController {
 
     private final AttendancePolicyService attendancePolicyService;
+    private final FeatureAccessService featureAccessService;
 
     @GetMapping("/htmx/attendance-policies")
     public String listPolicies(
@@ -31,6 +35,7 @@ public class AttendancePolicyController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
         List<AttendancePolicy> policies = attendancePolicyService.getPoliciesForTenant();
         model.addAttribute("policies", policies);
         return "attendance-policies :: content";
@@ -74,5 +79,13 @@ public class AttendancePolicyController {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("policies", attendancePolicyService.getPoliciesForTenant());
         return "attendance-policies :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load policy data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Attendance Policies");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 }

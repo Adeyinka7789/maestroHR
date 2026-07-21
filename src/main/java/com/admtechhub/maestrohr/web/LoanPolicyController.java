@@ -3,6 +3,9 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.loan.LoanPolicy;
 import com.admtechhub.maestrohr.loan.LoanPolicyRequest;
 import com.admtechhub.maestrohr.loan.LoanPolicyService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -22,6 +25,7 @@ import java.util.UUID;
 public class LoanPolicyController {
 
     private final LoanPolicyService loanPolicyService;
+    private final FeatureAccessService featureAccessService;
 
     @GetMapping("/htmx/loan-policies")
     public String listPolicies(
@@ -30,6 +34,7 @@ public class LoanPolicyController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        featureAccessService.require(SubscriptionFeature.LOAN_MANAGEMENT);
         List<LoanPolicy> policies = loanPolicyService.getPoliciesForTenant();
         model.addAttribute("policies", policies);
         return "loan-policies :: content";
@@ -73,5 +78,13 @@ public class LoanPolicyController {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("policies", loanPolicyService.getPoliciesForTenant());
         return "loan-policies :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load policy data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Loan Policies");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 }
