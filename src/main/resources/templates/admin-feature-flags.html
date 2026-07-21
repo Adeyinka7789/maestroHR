@@ -122,7 +122,7 @@
                             <!-- Overrides modal trigger -->
                             <button type="button"
                                     th:id="${'overrides-btn-' + f.name}"
-                                    th:attr="data-rollout=${f.rolloutPercentage},onclick=|window.openOverridesModal('${f.name}', ${f.rolloutPercentage})|"
+                                    th:attr="data-rollout=${f.rolloutPercentage},onclick=|window.openOverridesModal('${f.name}', ${f.rolloutPercentage}, ${f.enabled})|"
                                     class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all duration-200">
                                 <span class="material-symbols-outlined text-[16px]">tune</span>
                                 Overrides
@@ -156,6 +156,14 @@
 
             <!-- Scrollable body -->
             <div style="overflow-y:auto;flex:1;padding:16px 24px">
+                <!-- Shown when the flag is globally disabled: overrides can't revive a killed flag. -->
+                <div id="overrides-disabled-warning"
+                     style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:8px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:13px;line-height:1.45">
+                    <strong>This flag is globally disabled (kill switch).</strong> The overrides below are
+                    ignored — a global Disable is absolute, so no per-tenant override can turn it back on.
+                    To keep it off for most tenants but on for a few, <strong>Enable</strong> the flag, set
+                    its <strong>Rollout to 0%</strong>, then add <strong>Enabled</strong> overrides for those tenants.
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
 
                     <!-- Existing overrides -->
@@ -316,12 +324,15 @@
             window.selectOverrideType('TENANT');
         }
 
-        window.openOverridesModal = function (flagName, rolloutPercentage) {
+        window.openOverridesModal = function (flagName, rolloutPercentage, enabled) {
             state.currentFlag = flagName;
             document.getElementById('overrides-modal-flag-name').textContent = flagName;
             resetOverrideForm();
             document.getElementById('overrides-modal-rollout-range').value = rolloutPercentage;
             document.getElementById('overrides-modal-rollout-value').textContent = rolloutPercentage + '%';
+            // Warn when the flag is killed: overrides are inert until it's re-enabled.
+            document.getElementById('overrides-disabled-warning').style.display =
+                (enabled === false || enabled === 'false') ? 'block' : 'none';
             document.getElementById('overrides-modal').style.display = 'flex';
             window.loadOverrides(flagName);
         };
