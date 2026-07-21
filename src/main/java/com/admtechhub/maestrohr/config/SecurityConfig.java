@@ -88,6 +88,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/htmx/admin", "/htmx/admin/**", "/htmx/subscribers", "/htmx/subscribers/**").hasRole("SUPER_ADMIN")
 
+                        // ── wunmi flag admin console (auto-mounted by wunmi-admin-ui) ──
+                        // Cross-tenant flag management over the privileged FlagEngine, so
+                        // SUPER_ADMIN-only, same as the other admin surfaces above.
+                        .requestMatchers("/wunmi/admin", "/wunmi/admin/**").hasRole("SUPER_ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
