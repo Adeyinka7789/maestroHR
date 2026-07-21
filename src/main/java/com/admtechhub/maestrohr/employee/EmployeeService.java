@@ -202,6 +202,7 @@ public class EmployeeService {
                 .address(request.getAddress())
                 .ninEncrypted(request.getNin())
                 .bvnEncrypted(request.getBvn())
+                .annualRentPaid(request.getAnnualRentPaid() != null ? request.getAnnualRentPaid() : 0L)
                 .department(department)
                 .payGrade(payGrade)
                 .jobTitle(request.getJobTitle())
@@ -317,6 +318,9 @@ public class EmployeeService {
         }
         if (request.getBvn() != null) {
             employee.setBvnEncrypted(request.getBvn());
+        }
+        if (request.getAnnualRentPaid() != null) {
+            employee.setAnnualRentPaid(request.getAnnualRentPaid());
         }
         employee.setDepartment(department);
         employee.setPayGrade(payGrade);

@@ -122,6 +122,15 @@ public class Employee extends BaseEntity {
     @Column(name = "device_enrollment_id", length = 120)
     private String deviceEnrollmentId;
 
+    /**
+     * Annual rent paid by the employee (kobo), used for the NTA 2025 PAYE Rent Relief.
+     * 0 means no rent declared → no relief. Never null (NOT NULL column, defaulted to 0)
+     * so {@link com.admtechhub.maestrohr.payroll.PAYECalculator} never receives a null.
+     */
+    @Column(name = "annual_rent_paid", nullable = false)
+    @Builder.Default
+    private Long annualRentPaid = 0L;
+
     // Helper method to get full name
     public String getFullName() {
         return firstName + " " + lastName;

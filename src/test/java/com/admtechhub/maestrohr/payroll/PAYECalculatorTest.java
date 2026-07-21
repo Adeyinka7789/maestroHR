@@ -47,7 +47,7 @@ class PAYECalculatorTest {
     @Test
     void a1_exactMinWageBoundary_zeroPaye() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(7_000_000L, 0L, 0L, 7_000_000L, 7_000_000L);
+                calculator.calculate(7_000_000L, 0L, 0L, 7_000_000L, 7_000_000L, 0L);
 
         assertThat(r.getMonthlyPAYE()).isEqualTo(0L);
         assertThat(r.getAnnualPAYE()).isEqualTo(0L);
@@ -62,7 +62,7 @@ class PAYECalculatorTest {
     @Test
     void a2_oneKoboAboveMinWage_taxIsComputed() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(7_000_001L, 0L, 0L, 7_000_001L, 7_000_001L);
+                calculator.calculate(7_000_001L, 0L, 0L, 7_000_001L, 7_000_001L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(84_000_012L);
         assertThat(r.getAnnualPAYE()).isEqualTo(600_002L);
@@ -80,7 +80,7 @@ class PAYECalculatorTest {
     @Test
     void a3_annualizesOffNominalGross_notProratedGrossSalary() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(6_000_000L, 0L, 0L, 6_000_000L, 10_000_000L);
+                calculator.calculate(6_000_000L, 0L, 0L, 6_000_000L, 10_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(120_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(6_000_000L);
@@ -94,7 +94,7 @@ class PAYECalculatorTest {
     @Test
     void a4_midBand2_15pctApplied() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(15_000_000L, 0L, 0L, 15_000_000L, 15_000_000L);
+                calculator.calculate(15_000_000L, 0L, 0L, 15_000_000L, 15_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(180_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(15_000_000L);
@@ -108,7 +108,7 @@ class PAYECalculatorTest {
     @Test
     void a5_spillsIntoBand3_18pctApplied() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(25_000_000L, 0L, 0L, 25_000_000L, 25_000_000L);
+                calculator.calculate(25_000_000L, 0L, 0L, 25_000_000L, 25_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(300_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(35_400_000L);
@@ -122,7 +122,7 @@ class PAYECalculatorTest {
     @Test
     void a6_spillsIntoBand4_21pctApplied() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(50_000_000L, 0L, 0L, 50_000_000L, 50_000_000L);
+                calculator.calculate(50_000_000L, 0L, 0L, 50_000_000L, 50_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(600_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(94_800_000L);
@@ -136,7 +136,7 @@ class PAYECalculatorTest {
     @Test
     void a7_spillsIntoBand5_23pctApplied() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(80_000_000L, 0L, 0L, 80_000_000L, 80_000_000L);
+                calculator.calculate(80_000_000L, 0L, 0L, 80_000_000L, 80_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(960_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(175_200_000L);
@@ -151,7 +151,7 @@ class PAYECalculatorTest {
     @Test
     void a8_highEarner_band6OverflowAt25pct() {
         PAYECalculator.PAYEResult r =
-                calculator.calculate(200_000_000L, 0L, 0L, 200_000_000L, 200_000_000L);
+                calculator.calculate(200_000_000L, 0L, 0L, 200_000_000L, 200_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(2_400_000_000L);
         assertThat(r.getAnnualPAYE()).isEqualTo(532_000_000L);
@@ -169,10 +169,45 @@ class PAYECalculatorTest {
                 .thenReturn(10_000_000L);
 
         PAYECalculator.PAYEResult r =
-                calculator.calculate(9_000_000L, 0L, 0L, 9_000_000L, 9_000_000L);
+                calculator.calculate(9_000_000L, 0L, 0L, 9_000_000L, 9_000_000L, 0L);
 
         assertThat(r.getAnnualTaxableIncome()).isEqualTo(0L);
         assertThat(r.getAnnualPAYE()).isEqualTo(0L);
         assertThat(r.getMonthlyPAYE()).isEqualTo(0L);
+    }
+
+    // A10 ── Rent Relief (20% of annual rent, under the ₦500,000 cap) reduces taxable income.
+    //   grossSalary = ₦150,000/month → annualGross = 180_000_000 (same as A4).
+    //   annualRentPaid = ₦1,000,000 (100_000_000 kobo) → relief = 20% × 100_000_000 = 20_000_000
+    //     (below the 50_000_000 cap, so applied in full).
+    //   annualTaxable = 180_000_000 − 20_000_000 = 160_000_000
+    //   Band 1: 80_000_000 → 0;  Band 2: 80_000_000 × 15% = 12_000_000
+    //   monthlyPAYE = 12_000_000 / 12 = 1_000_000 (vs A4's 1_250_000 with no relief).
+    @Test
+    void a10_rentReliefBelowCap_reducesTaxableIncome() {
+        PAYECalculator.PAYEResult r =
+                calculator.calculate(15_000_000L, 0L, 0L, 15_000_000L, 15_000_000L, 100_000_000L);
+
+        assertThat(r.getAnnualRentRelief()).isEqualTo(20_000_000L);
+        assertThat(r.getAnnualTaxableIncome()).isEqualTo(160_000_000L);
+        assertThat(r.getAnnualPAYE()).isEqualTo(12_000_000L);
+        assertThat(r.getMonthlyPAYE()).isEqualTo(1_000_000L);
+    }
+
+    // A11 ── Rent Relief is capped at ₦500,000/yr (50_000_000 kobo) regardless of rent paid.
+    //   grossSalary = ₦150,000/month → annualGross = 180_000_000.
+    //   annualRentPaid = ₦5,000,000 (500_000_000 kobo) → 20% = 100_000_000, clamped to 50_000_000.
+    //   annualTaxable = 180_000_000 − 50_000_000 = 130_000_000
+    //   Band 1: 80_000_000 → 0;  Band 2: 50_000_000 × 15% = 7_500_000
+    //   monthlyPAYE = 7_500_000 / 12 = 625_000
+    @Test
+    void a11_rentReliefClampedToAnnualCap() {
+        PAYECalculator.PAYEResult r =
+                calculator.calculate(15_000_000L, 0L, 0L, 15_000_000L, 15_000_000L, 500_000_000L);
+
+        assertThat(r.getAnnualRentRelief()).isEqualTo(50_000_000L);
+        assertThat(r.getAnnualTaxableIncome()).isEqualTo(130_000_000L);
+        assertThat(r.getAnnualPAYE()).isEqualTo(7_500_000L);
+        assertThat(r.getMonthlyPAYE()).isEqualTo(625_000L);
     }
 }

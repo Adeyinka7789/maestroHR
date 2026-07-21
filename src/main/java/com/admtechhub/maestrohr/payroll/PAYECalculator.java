@@ -58,9 +58,11 @@ public class PAYECalculator {
      * @param basicSalary         monthly basic salary, kobo (retained for signature stability)
      * @param nominalMonthlyGross full monthly gross before proration, kobo — used only for the
      *                            minimum-wage exemption test, never for the tax computation itself
+     * @param annualRentPaid      annual rent paid by the employee, kobo — drives Rent Relief.
+     *                            0 (no rent declared) makes the relief branch a no-op.
      */
     public PAYEResult calculate(Long grossSalary, Long pensionEmployee, Long nhfDeduction,
-                                Long basicSalary, Long nominalMonthlyGross) {
+                                Long basicSalary, Long nominalMonthlyGross, Long annualRentPaid) {
         // Annualize off the NOMINAL (un-prorated) monthly gross, not the period's already-
         // prorated grossSalary — otherwise a mid-month joiner/leaver would be banded as if
         // their diluted partial-month gross were their true annual run-rate, understating
@@ -83,14 +85,14 @@ public class PAYECalculator {
         long annualNhf = nhfDeduction * 12;
 
         // Step 2: Rent Relief = a settings-configured % of annual rent paid, capped at a
-        // settings-configured ceiling. TODO: source annual rent paid from the employee
-        // profile (follow-up). 0 for now, so this branch is currently a no-op in practice.
+        // settings-configured ceiling. Sourced from the employee profile; 0 (no rent
+        // declared) makes this a no-op. A null is treated as 0 defensively.
         double rentReliefRate = platformSettingsService.getDoubleOrDefault(
                 "rent_relief_rate_pct", RENT_RELIEF_RATE_PCT_DEFAULT) / 100.0;
         long rentReliefCap = platformSettingsService.getLongOrDefault(
                 "rent_relief_cap_kobo", RENT_RELIEF_CAP_KOBO_DEFAULT);
-        long annualRentPaid = 0L;
-        long annualRentRelief = Math.min(Math.round(annualRentPaid * rentReliefRate), rentReliefCap);
+        long rentPaid = annualRentPaid != null ? annualRentPaid : 0L;
+        long annualRentRelief = Math.min(Math.round(rentPaid * rentReliefRate), rentReliefCap);
 
         // Step 3: Taxable income = gross − pension − NHF − rent relief
         long annualGrossTaxable = annualGross - annualPension - annualNhf;

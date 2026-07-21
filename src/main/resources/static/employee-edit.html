@@ -110,6 +110,18 @@
             </div>
         </div>
 
+        <!-- Tax & Compliance -->
+        <div class="card" style="padding:24px;">
+            <h2 style="font-size:14px;font-weight:600;color:#111827;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid #f3f4f6;">Tax & Compliance</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                    <label class="form-label">Annual Rent Paid (₦)</label>
+                    <input class="form-input" type="number" min="0" step="1000" id="annualRentPaid" placeholder="Annual rent, for PAYE rent relief">
+                    <p style="font-size:11.5px;color:#9ca3af;margin-top:5px;">NTA 2025 grants 20% of annual rent (capped at ₦500,000) as tax relief.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Submit -->
         <div style="display:flex;justify-content:flex-end;gap:10px;padding-bottom:8px;">
             <a id="cancel-link" href="#" class="btn-secondary">Cancel</a>
@@ -202,6 +214,9 @@
             document.getElementById('bankAccountNumber').value = emp.bankAccountNumber || '';
             document.getElementById('bankAccountName').value = emp.bankAccountName || '';
             document.getElementById('role').value = emp.userRole || 'EMPLOYEE';
+
+            // Rent is stored in kobo; show it in naira.
+            document.getElementById('annualRentPaid').value = emp.annualRentPaid ? (emp.annualRentPaid / 100) : '';
 
             // Store IDs for later selection
             if (emp.department) selectedDepartmentId = emp.department.id;
@@ -313,7 +328,10 @@
                 probationEndDate: document.getElementById('probationEndDate').value || null,
                 bankName: document.getElementById('bankName').value.trim(),
                 bankAccountNumber: document.getElementById('bankAccountNumber').value.trim(),
-                bankAccountName: document.getElementById('bankAccountName').value.trim()
+                bankAccountName: document.getElementById('bankAccountName').value.trim(),
+                // NGN input → kobo for the API (all money is stored in kobo).
+                annualRentPaid: document.getElementById('annualRentPaid').value
+                    ? Math.round(parseFloat(document.getElementById('annualRentPaid').value) * 100) : 0
             };
 
             submitBtn.disabled = true;

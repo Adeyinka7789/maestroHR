@@ -26,6 +26,7 @@ public class EmployeeDetailsDTO {
     private String address;
     private String nin;
     private String bvn;
+    private Long annualRentPaid; // kobo; drives NTA 2025 PAYE Rent Relief
     private String jobTitle;
     private String employmentType;
     private String status;
@@ -74,6 +75,7 @@ public class EmployeeDetailsDTO {
         this.address = employee.getAddress();
         this.nin = employee.getNinEncrypted();   // might be encrypted – adjust if needed
         this.bvn = employee.getBvnEncrypted();
+        this.annualRentPaid = employee.getAnnualRentPaid();
         this.jobTitle = employee.getJobTitle();
         this.employmentType = employee.getEmploymentType() != null ? employee.getEmploymentType().name() : null;
         this.status = employee.getStatus() != null ? employee.getStatus().name() : null;

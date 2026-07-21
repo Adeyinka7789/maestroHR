@@ -86,7 +86,7 @@ public class PayrollEngine {
         // rate (see PAYECalculator), i.e. what a full-time earner at this salary owes for a
         // full month — so for a partial period it must be prorated the same way gross was,
         // or a mid-month joiner would be charged a full month's tax on a partial month's pay.
-        var payeResult = payeCalculator.calculate(grossSalary, pensionResult.getEmployeeContribution(), nhfDeduction, basicSalary, nominalMonthlyGross);
+        var payeResult = payeCalculator.calculate(grossSalary, pensionResult.getEmployeeContribution(), nhfDeduction, basicSalary, nominalMonthlyGross, employee.getAnnualRentPaid());
         Long payeTax = payeResult.getMonthlyPAYE();
         if (isProrated) {
             payeTax = Math.round(payeTax * prorationFactor);

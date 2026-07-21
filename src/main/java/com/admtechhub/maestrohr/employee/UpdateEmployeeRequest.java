@@ -47,6 +47,10 @@ public class UpdateEmployeeRequest {
     private String nin;
     private String bvn;
 
+    /** Annual rent paid (kobo), used for the NTA 2025 PAYE Rent Relief. Optional; null → 0. */
+    @PositiveOrZero(message = "Annual rent paid cannot be negative")
+    private Long annualRentPaid;
+
     @NotNull(message = "Department ID is required")
     private UUID departmentId;
 
