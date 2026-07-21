@@ -217,12 +217,27 @@ public class LeaveService {
             balance = createLeaveBalance(request.getEmployee(), request.getLeaveType(), currentYear);
         }
 
-        leaveBalanceRepository.deductLeaveDays(
+        // Re-check at approval time: the balance can shift between submit and approve (another
+        // approval, a balance reset, a request created without an up-front check), so submit's
+        // guard alone can't keep the balance non-negative here.
+        int daysRequested = request.getDaysRequested();
+        if (balance.getDaysRemaining() < daysRequested) {
+            throw new IllegalStateException("Insufficient leave balance. Available: "
+                    + balance.getDaysRemaining() + ", Requested: " + daysRequested);
+        }
+
+        // The guarded UPDATE is the real invariant: it deducts only while the result stays
+        // non-negative, so a concurrent approval that consumed the balance after our read yields
+        // 0 rows rather than driving daysRemaining below zero.
+        int rowsUpdated = leaveBalanceRepository.deductLeaveDays(
                 request.getEmployee().getId(),
                 request.getLeaveType().getId(),
                 currentYear,
-                request.getDaysRequested()
+                daysRequested
         );
+        if (rowsUpdated == 0) {
+            throw new IllegalStateException("Insufficient leave balance to approve this request");
+        }
 
         request.setStatus(LeaveStatus.APPROVED);
         request.setApprovedBy(approver);

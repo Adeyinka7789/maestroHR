@@ -158,6 +158,7 @@ class LeaveServiceTest {
                 EMPLOYEE_ID, LEAVE_TYPE_ID, 2025))
                 .thenReturn(Optional.empty());
         when(leaveBalanceRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(leaveBalanceRepository.deductLeaveDays(EMPLOYEE_ID, LEAVE_TYPE_ID, 2025, 5)).thenReturn(1);
         when(leaveRequestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         leaveService.approveLeaveRequest(REQUEST_ID, APPROVER_ID, "Approved");
@@ -167,6 +168,48 @@ class LeaveServiceTest {
         ArgumentCaptor<LeaveRequest> cap = ArgumentCaptor.forClass(LeaveRequest.class);
         verify(leaveRequestRepository).save(cap.capture());
         assertThat(cap.getValue().getStatus()).isEqualTo(LeaveStatus.APPROVED);
+    }
+
+    // 4a ── approve when the balance no longer covers the request → throws, nothing deducted/approved
+    @Test
+    void approveLeaveRequest_insufficientBalance_throwsWithoutDeducting() {
+        LeaveRequest pending = LeaveRequest.builder()
+                .status(LeaveStatus.PENDING).employee(employee).leaveType(leaveType)
+                .startDate(LocalDate.of(2025, 7, 1)).endDate(LocalDate.of(2025, 7, 5))
+                .daysRequested(5).reason("Vacation").build();
+
+        when(leaveRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(pending));
+        when(userRepository.findById(APPROVER_ID)).thenReturn(Optional.of(mock(User.class)));
+        when(leaveBalanceRepository.findByEmployeeIdAndLeaveTypeIdAndYear(EMPLOYEE_ID, LEAVE_TYPE_ID, 2025))
+                .thenReturn(Optional.of(LeaveBalance.builder()
+                        .daysRemaining(2).totalDaysEntitled(20).year(2025).build()));
+
+        assertThatThrownBy(() -> leaveService.approveLeaveRequest(REQUEST_ID, APPROVER_ID, "Approved"))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(leaveBalanceRepository, never()).deductLeaveDays(any(), any(), any(), any());
+        verify(leaveRequestRepository, never()).save(any());
+    }
+
+    // 4b ── a concurrent approval consumed the balance: the guarded UPDATE touches 0 rows → throws
+    @Test
+    void approveLeaveRequest_guardedUpdateAffectsNoRows_throws() {
+        LeaveRequest pending = LeaveRequest.builder()
+                .status(LeaveStatus.PENDING).employee(employee).leaveType(leaveType)
+                .startDate(LocalDate.of(2025, 7, 1)).endDate(LocalDate.of(2025, 7, 5))
+                .daysRequested(5).reason("Vacation").build();
+
+        when(leaveRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(pending));
+        when(userRepository.findById(APPROVER_ID)).thenReturn(Optional.of(mock(User.class)));
+        when(leaveBalanceRepository.findByEmployeeIdAndLeaveTypeIdAndYear(EMPLOYEE_ID, LEAVE_TYPE_ID, 2025))
+                .thenReturn(Optional.of(LeaveBalance.builder()
+                        .daysRemaining(10).totalDaysEntitled(20).year(2025).build()));
+        when(leaveBalanceRepository.deductLeaveDays(EMPLOYEE_ID, LEAVE_TYPE_ID, 2025, 5)).thenReturn(0);
+
+        assertThatThrownBy(() -> leaveService.approveLeaveRequest(REQUEST_ID, APPROVER_ID, "Approved"))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(leaveRequestRepository, never()).save(any());
     }
 
     // 5 ── reject: status set to REJECTED, saved once

@@ -106,6 +106,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    /**
+     * State-conflict guards (e.g. approving a non-pending leave request, or one whose balance is
+     * now insufficient). These are expected user-facing outcomes, not server faults: return 409
+     * with the message and keep them out of Sentry, rather than letting them fall to the 500
+     * catch-all below.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException ex) {
+        log.debug("State conflict: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception for request {}: {}", request.getRequestURI(), ex.getMessage(), ex);

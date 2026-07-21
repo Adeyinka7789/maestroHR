@@ -22,15 +22,23 @@ public interface LeaveBalanceRepository extends JpaRepository<LeaveBalance, UUID
     // LeaveBalance; the employee id is always the authenticated user's own.
     java.util.List<LeaveBalance> findByEmployeeIdAndYear(UUID employeeId, Integer year);
 
+    /**
+     * Atomically deducts {@code days} from the balance, but only while it stays non-negative
+     * ({@code daysRemaining >= :days}). Returns the number of rows updated: 1 on success, 0 when
+     * the balance is now insufficient. The guard lives in the WHERE clause because this is a bulk
+     * UPDATE that bypasses the entity's {@code @Version} optimistic lock, so it's the only thing
+     * standing between two concurrent approvals and a negative balance.
+     */
     @Modifying
     @Transactional
     @Query("UPDATE LeaveBalance lb SET lb.daysTaken = lb.daysTaken + :days, " +
             "lb.daysRemaining = lb.daysRemaining - :days " +
-            "WHERE lb.employee.id = :employeeId AND lb.leaveType.id = :leaveTypeId AND lb.year = :year")
-    void deductLeaveDays(@Param("employeeId") UUID employeeId,
-                         @Param("leaveTypeId") UUID leaveTypeId,
-                         @Param("year") Integer year,
-                         @Param("days") Integer days);
+            "WHERE lb.employee.id = :employeeId AND lb.leaveType.id = :leaveTypeId " +
+            "AND lb.year = :year AND lb.daysRemaining >= :days")
+    int deductLeaveDays(@Param("employeeId") UUID employeeId,
+                        @Param("leaveTypeId") UUID leaveTypeId,
+                        @Param("year") Integer year,
+                        @Param("days") Integer days);
 
     /** Resets daysTaken to 0 and restores daysRemaining for all balances in the given year (within the current tenant). */
     @Modifying
