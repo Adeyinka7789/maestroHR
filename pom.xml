@@ -62,14 +62,14 @@
         <dependency>
             <groupId>io.github.adeyinka7789</groupId>
             <artifactId>wunmi-core</artifactId>
-            <version>0.3.0</version>
+            <version>0.4.0-SNAPSHOT</version>
         </dependency>
         <!-- Self-contained flag admin console, auto-mounted at /wunmi/admin against our
              FlagEngine bean. Gated to SUPER_ADMIN in SecurityConfig. -->
         <dependency>
             <groupId>io.github.adeyinka7789</groupId>
             <artifactId>wunmi-admin-ui</artifactId>
-            <version>0.3.0</version>
+            <version>0.4.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>de.codecentric</groupId>
