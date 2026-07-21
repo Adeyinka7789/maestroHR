@@ -10,6 +10,7 @@ import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -92,6 +93,7 @@ public class LeaveListController {
      * (the double-click "already processed" race) and rendered as an in-place banner.
      */
     @PostMapping("/htmx/leave/{id}/approve")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'DEPT_MANAGER')")
     @RequiresFeature(SubscriptionFeature.LEAVE_MANAGEMENT)
     public String approve(
             @PathVariable UUID id,
@@ -106,6 +108,7 @@ public class LeaveListController {
 
     /** Reject a pending request with a reason (from the inline textarea), then re-render. */
     @PostMapping("/htmx/leave/{id}/reject")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'DEPT_MANAGER')")
     @RequiresFeature(SubscriptionFeature.LEAVE_MANAGEMENT)
     public String reject(
             @PathVariable UUID id,
