@@ -4,6 +4,7 @@ import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.loan.LoanService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class LoanSelfController {
     private final LoanSelfService loanSelfService;
     private final LoanService loanService;
     private final EmployeeService employeeService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated list + apply form under HTMX. */
     @GetMapping("/htmx/loans/me")
@@ -48,6 +50,8 @@ public class LoanSelfController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        // Gate the read like the apply write: a disabled/unentitled feature shows a locked page.
+        featureAccessService.require(SubscriptionFeature.LOAN_MANAGEMENT);
         return renderForCurrentEmployee(model);
     }
 
@@ -101,7 +105,7 @@ public class LoanSelfController {
      * (HTTP 200 so HTMX still swaps) rather than reaching the JSON handler. Rebuilt for the
      * current employee so the page stays intact behind the banner.
      */
-    @ExceptionHandler({FeatureAccessException.class, IllegalStateException.class})
+    @ExceptionHandler(IllegalStateException.class)
     public String handleActionFailure(RuntimeException ex, Model model) {
         EmployeeDetailsDTO employee = currentEmployeeOrNull();
         if (employee == null) {
@@ -111,6 +115,17 @@ public class LoanSelfController {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("view", loanSelfService.build(employee.getId(), employee.getFullName()));
         return "loans-me :: content";
+    }
+
+    /**
+     * Feature off / not entitled: render a locked state ONLY — never {@code loanSelfService.build()},
+     * so a disabled feature exposes none of the employee's loan data.
+     */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "My Loans");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     private EmployeeDetailsDTO currentEmployeeOrNull() {

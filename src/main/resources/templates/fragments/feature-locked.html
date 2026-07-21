@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+  Shared "feature not available" state for the server-rendered feature pages. A web controller
+  returns this fragment when FeatureAccessService.require / @RequiresFeature denies access (global
+  kill switch, per-tenant/plan override, or a plan that doesn't include the feature). It renders the
+  page title + a lock message ONLY — no feature data — so a disabled feature exposes nothing.
+
+  Controllers set: lockTitle (page heading) and formError (the message). Swaps into #page-content.
+-->
+<div th:fragment="locked" class="font-body-md text-on-surface">
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs" th:text="${lockTitle}">Feature</h1>
+        </div>
+    </div>
+    <div role="alert"
+         class="flex items-center gap-sm mt-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">lock</span>
+        <span th:text="${formError}">This feature is not available right now.</span>
+    </div>
+</div>
+</body>
+</html>

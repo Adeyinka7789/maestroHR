@@ -6,6 +6,7 @@ import com.admtechhub.maestrohr.document.DocumentType;
 import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class DocumentSelfController {
 
     private final DocumentService documentService;
     private final EmployeeService employeeService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated vault under HTMX. */
     @GetMapping("/htmx/documents")
@@ -48,6 +50,8 @@ public class DocumentSelfController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        // Gate the read like the upload/delete writes: a disabled feature shows a locked page.
+        featureAccessService.require(SubscriptionFeature.DOCUMENT_VAULT);
         return renderForCurrentEmployee(model);
     }
 
@@ -116,7 +120,7 @@ public class DocumentSelfController {
      * Feature-gate failures and unexpected state errors render in place (HTTP 200 so HTMX still
      * swaps) rather than reaching the JSON handler.
      */
-    @ExceptionHandler({FeatureAccessException.class, IllegalStateException.class})
+    @ExceptionHandler(IllegalStateException.class)
     public String handleActionFailure(RuntimeException ex, Model model) {
         EmployeeDetailsDTO employee = currentEmployeeOrNull();
         if (employee == null) {
@@ -127,6 +131,17 @@ public class DocumentSelfController {
         model.addAttribute("employeeName", employee.getFullName());
         model.addAttribute("documents", listFor(employee.getId()));
         return "documents-self :: content";
+    }
+
+    /**
+     * Feature off / not entitled: render a locked state ONLY — never list the employee's documents,
+     * so a disabled DOCUMENT_VAULT exposes none of the vault contents.
+     */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "My Documents");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     private java.util.List<DocumentResponseDTO> listFor(java.util.UUID employeeId) {

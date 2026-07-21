@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.loan.LoanService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.FeatureNotAvailableException;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
@@ -36,6 +37,7 @@ public class LoanListController {
 
     private final LoanService loanService;
     private final LoanListService loanListService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/loans")
@@ -43,6 +45,8 @@ public class LoanListController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        // Gate the read like the writes: a disabled/unentitled feature must not render loan data.
+        featureAccessService.require(SubscriptionFeature.LOAN_MANAGEMENT);
         model.addAttribute("view", loanListService.build());
         return "loans :: content";
     }
@@ -100,11 +104,21 @@ public class LoanListController {
      * ({@link IllegalStateException} — e.g. approving a non-pending request / the double-click
      * race) is shown as a banner on the rebuilt content rather than reaching the JSON handler.
      */
-    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class,
-            FeatureAccessException.class})
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
     public String handleActionFailure(RuntimeException ex, Model model) {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("view", loanListService.build());
         return "loans :: content";
+    }
+
+    /**
+     * Feature off / not entitled: render a locked state ONLY — never {@code loanListService.build()},
+     * which would load and leak the loan data the gate withholds.
+     */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Loans");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 }

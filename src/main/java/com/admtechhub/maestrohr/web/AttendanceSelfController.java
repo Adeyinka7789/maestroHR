@@ -3,6 +3,8 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
 import com.admtechhub.maestrohr.employee.EmployeeService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.RequiresFeature;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +53,7 @@ public class AttendanceSelfController {
     private final AttendanceSelfService attendanceSelfService;
     private final AttendanceService attendanceService;
     private final EmployeeService employeeService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated self card under HTMX. */
     @GetMapping("/htmx/attendance/me")
@@ -62,6 +65,9 @@ public class AttendanceSelfController {
             // Full-page navigation: return the app shell; the fragment is fetched next.
             return "forward:/layout.html";
         }
+
+        // Gate the read like the check-in/out writes: a disabled feature shows a locked page.
+        featureAccessService.require(SubscriptionFeature.ATTENDANCE_TRACKING);
 
         EmployeeDetailsDTO employee = currentEmployeeOrNull();
         if (employee == null) {
@@ -119,6 +125,17 @@ public class AttendanceSelfController {
         model.addAttribute("view", attendanceSelfService.build(employee.getId(), employee.getFullName()));
         model.addAttribute("error", ex.getMessage());
         return "attendance-self :: card";
+    }
+
+    /**
+     * Feature off / not entitled: render a locked state ONLY — never build the self card, so a
+     * disabled ATTENDANCE_TRACKING exposes none of the employee's attendance data.
+     */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Attendance");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     /** Resolve the authenticated user's own Employee record — the only id this page acts on. */
