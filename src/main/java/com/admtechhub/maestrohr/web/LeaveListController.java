@@ -208,9 +208,10 @@ public class LeaveListController {
         String status = request.getParameter("status");
 
         if (ex instanceof FeatureAccessException) {
-            model.addAttribute("view", leaveListService.buildContent(q, parseStatus(status)));
+            // Feature off/not-entitled: render a locked state ONLY — never buildContent, which would
+            // load and leak the leave data the gate is meant to withhold.
             model.addAttribute("formError", ex.getMessage());
-            return "leave :: content";
+            return "leave :: unavailable";
         }
 
         model.addAttribute("view", leaveListService.buildList(q, parseStatus(status)));

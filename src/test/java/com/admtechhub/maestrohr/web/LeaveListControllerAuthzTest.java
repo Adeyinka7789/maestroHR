@@ -6,6 +6,7 @@ import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.employee.EmployeeService;
 import com.admtechhub.maestrohr.leave.LeaveService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.subscription.FeatureDisabledException;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,15 +19,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -118,5 +123,24 @@ class LeaveListControllerAuthzTest {
 
         // The read now consults the feature gate, so a disabled LEAVE_MANAGEMENT blocks the page.
         verify(featureAccessService).require(SubscriptionFeature.LEAVE_MANAGEMENT);
+    }
+
+    @Test
+    void leaveRead_whenFeatureDisabled_showsLockedStateWithNoData() throws Exception {
+        mockToken("tok-hr", "hr@x.io", "HR_ADMIN");
+        doThrow(new FeatureDisabledException(SubscriptionFeature.LEAVE_MANAGEMENT))
+                .when(featureAccessService).require(SubscriptionFeature.LEAVE_MANAGEMENT);
+
+        mockMvc.perform(get("/htmx/leave/table")
+                        .header("Authorization", "Bearer tok-hr")
+                        .header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Leave management is not available right now")))
+                // The locked fragment must not carry the request table / Apply action.
+                .andExpect(content().string(not(containsString("Apply for Leave"))));
+
+        // No data was loaded: neither list nor content builder ran.
+        verify(leaveListService, never()).buildList(any(), any());
+        verify(leaveListService, never()).buildContent(any(), any());
     }
 }

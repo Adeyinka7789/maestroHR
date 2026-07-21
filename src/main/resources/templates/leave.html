@@ -37,6 +37,28 @@
 <body>
 
 <!-- ============================ CONTENT ============================ -->
+<!--
+  Feature-locked state. Returned by LeaveListController#handleActionFailure when
+  LEAVE_MANAGEMENT is off for the tenant (kill switch, per-tenant/plan override) or the plan
+  doesn't include it. Deliberately renders the header + a lock message only — no Apply action and
+  no request table — so a disabled feature exposes none of the leave data.
+-->
+<div th:fragment="unavailable" class="font-body-md text-on-surface">
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Leave Management</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Review and track employee leave requests
+            </p>
+        </div>
+    </div>
+    <div role="alert"
+         class="flex items-center gap-sm mt-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">lock</span>
+        <span th:text="${formError}">Leave management is not available right now.</span>
+    </div>
+</div>
+
 <div th:fragment="content" class="font-body-md text-on-surface">
 
     <!-- Header -->
