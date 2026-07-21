@@ -48,6 +48,22 @@ public class AdminStatsQueries {
         return count("SELECT count(*) FROM users WHERE locked_until > now()");
     }
 
+    /**
+     * Typeahead lookup for the flag-override tenant picker (wunmi admin console): tenants whose
+     * company name matches {@code query}, capped at {@code limit}. Privileged/cross-tenant, like
+     * the other reads here. Case-insensitive substring match, ordered by name.
+     */
+    public List<TenantLookup> searchTenants(String query, int limit) {
+        return jdbc.query(
+                "SELECT id, company_name FROM tenants "
+                        + "WHERE company_name ILIKE ? ORDER BY company_name ASC LIMIT ?",
+                (rs, n) -> new TenantLookup(rs.getObject("id", UUID.class), rs.getString("company_name")),
+                "%" + query + "%", limit);
+    }
+
+    /** Minimal tenant identity for pickers — id (stored value) + company name (display). */
+    public record TenantLookup(UUID id, String companyName) { }
+
     /** Mirrors {@code TenantRepository.findAllWithUserCount()}, across all tenants. */
     public List<TenantWithUserCountDTO> findAllTenantsWithUserCount() {
         return jdbc.query(
