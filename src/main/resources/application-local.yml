@@ -9,6 +9,13 @@ spring:
       properties:
         max.block.ms: 1000  # fail fast on produce instead of hanging
 
+# Consumers are off locally, so producing to Kafka would just publish events nothing consumes
+# (and block per-request when no broker is up). Skip Kafka entirely and use the synchronous/DB
+# fallbacks instead — audit writes straight to the DB, notifications/payslips send inline.
+maestrohr:
+  kafka:
+    enabled: false
+
 logging:
   level:
     org.apache.kafka: ERROR

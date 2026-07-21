@@ -2,6 +2,7 @@ package com.admtechhub.maestrohr.kafka;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,10 @@ public class PayrollEventProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    /** When false (e.g. local dev), skip Kafka so the caller falls back to synchronous dispatch. */
+    @Value("${maestrohr.kafka.enabled:true}")
+    private boolean kafkaEnabled = true;
+
     /**
      * Publishes a PayrollApprovedEvent to kick off async payslip generation + dispatch.
      * Waits up to 2 seconds for broker acknowledgment (bounded by
@@ -26,6 +31,10 @@ public class PayrollEventProducer {
      * event silently vanishing on a fire-and-forget send.
      */
     public void publishPayrollApproved(UUID payrollRunId, UUID tenantId) {
+        if (!kafkaEnabled) {
+            throw new IllegalStateException("Kafka disabled (maestrohr.kafka.enabled=false); "
+                    + "falling back to synchronous payslip dispatch for run " + payrollRunId);
+        }
         try {
             kafkaTemplate.send("maestrohr.payroll.approved", payrollRunId.toString(),
                             new PayrollApprovedEvent(payrollRunId, tenantId))

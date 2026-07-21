@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -62,5 +65,14 @@ class PayrollEventProducerTest {
         assertThrows(IllegalStateException.class,
                 () -> producer.publishPayrollApproved(UUID.randomUUID(), UUID.randomUUID()),
                 "a send() that never completes must time out rather than block indefinitely");
+    }
+
+    @Test
+    void publishPayrollApproved_kafkaDisabled_throwsWithoutTouchingKafka() {
+        ReflectionTestUtils.setField(producer, "kafkaEnabled", false);
+
+        assertThrows(IllegalStateException.class,
+                () -> producer.publishPayrollApproved(UUID.randomUUID(), UUID.randomUUID()));
+        verify(kafkaTemplate, never()).send(anyString(), anyString(), any());
     }
 }
