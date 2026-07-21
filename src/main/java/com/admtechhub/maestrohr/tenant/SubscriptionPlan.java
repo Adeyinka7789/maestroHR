@@ -51,6 +51,7 @@ public enum SubscriptionPlan {
             0,
             "Custom solutions for large organizations",
             SubscriptionFeature.UNLIMITED_EMPLOYEES,
+            SubscriptionFeature.BASIC_PAYROLL,
             SubscriptionFeature.ADVANCED_PAYROLL,
             SubscriptionFeature.API_ACCESS,
             SubscriptionFeature.PRIORITY_SUPPORT,
@@ -58,6 +59,7 @@ public enum SubscriptionPlan {
             SubscriptionFeature.SMS_NOTIFICATIONS,
             SubscriptionFeature.LEAVE_MANAGEMENT,
             SubscriptionFeature.ATTENDANCE_TRACKING,
+            SubscriptionFeature.HARDWARE_SYNC,
             SubscriptionFeature.LOAN_MANAGEMENT,
             SubscriptionFeature.DOCUMENT_VAULT
 
