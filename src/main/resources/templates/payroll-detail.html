@@ -143,6 +143,8 @@
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">NHF</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Unpaid Leave</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Absence</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right" title="Bonuses + reimbursements">Adj. +</th>
+                    <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right" title="Voluntary pension + fines/advances">Adj. −</th>
                     <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant text-right">Net</th>
                 </tr>
                 </thead>
@@ -164,12 +166,14 @@
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.nhfFormatted}">₦25,000.00</td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.unpaidLeaveDeductionFormatted}">₦0.00</td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface-variant text-right whitespace-nowrap" th:text="${row.attendanceDeductionFormatted}">₦0.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-secondary text-right whitespace-nowrap" th:text="${row.adjustmentEarningsFormatted}">₦0.00</td>
+                    <td class="px-md py-md font-table-data text-table-data text-error text-right whitespace-nowrap" th:text="${row.adjustmentDeductionsFormatted}">₦0.00</td>
                     <td class="px-md py-md font-table-data text-table-data text-on-surface text-right whitespace-nowrap font-bold" th:text="${row.netFormatted}">₦680,000.00</td>
                 </tr>
 
                 <!-- Empty state — an uncomputed draft has no entries yet -->
                 <tr th:if="${view.rows.isEmpty()}">
-                    <td colspan="8" class="px-md py-xl text-center">
+                    <td colspan="10" class="px-md py-xl text-center">
                         <p class="font-label-md text-label-md text-on-surface mb-xs">No entries yet</p>
                         <p class="font-body-sm text-body-sm text-on-surface-variant">This run has not been computed.</p>
                     </td>

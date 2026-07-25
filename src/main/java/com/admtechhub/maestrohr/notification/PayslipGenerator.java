@@ -61,6 +61,12 @@ public class PayslipGenerator {
             long attendanceDeduction = entry.getAttendanceDeduction() != null ? entry.getAttendanceDeduction() : 0L;
             long loanDeduction = entry.getLoanDeduction() != null ? entry.getLoanDeduction() : 0L;
             long otherDeductions = entry.getOtherDeductions() != null ? entry.getOtherDeductions() : 0L;
+            // One-off payroll adjustments (V61): taxable/non-taxable earnings add to gross; voluntary
+            // pension (pre-tax) and ad-hoc fines/advances (post-tax) add to deductions.
+            long taxableEarnings = entry.getTaxableEarnings() != null ? entry.getTaxableEarnings() : 0L;
+            long nonTaxableEarnings = entry.getNonTaxableEarnings() != null ? entry.getNonTaxableEarnings() : 0L;
+            long pretaxDeduction = entry.getPretaxDeduction() != null ? entry.getPretaxDeduction() : 0L;
+            long adjustmentDeduction = entry.getAdjustmentDeduction() != null ? entry.getAdjustmentDeduction() : 0L;
             int lateDaysInPeriod = entry.getLateDaysInPeriod() != null ? entry.getLateDaysInPeriod() : 0;
             long netPay = entry.getNetSalary() != null ? entry.getNetSalary() : 0L;
 
@@ -77,6 +83,10 @@ public class PayslipGenerator {
             context.setVariable("loanDeduction", loanDeduction / 100.0);
             context.setVariable("hasLoanDeduction", loanDeduction > 0);
             context.setVariable("otherDeductions", otherDeductions / 100.0);
+            context.setVariable("taxableEarnings", taxableEarnings / 100.0);
+            context.setVariable("nonTaxableEarnings", nonTaxableEarnings / 100.0);
+            context.setVariable("pretaxDeduction", pretaxDeduction / 100.0);
+            context.setVariable("adjustmentDeduction", adjustmentDeduction / 100.0);
             context.setVariable("lateDaysInPeriod", lateDaysInPeriod);
 
             boolean isProrated = Boolean.TRUE.equals(entry.getIsProrated());
@@ -98,7 +108,8 @@ public class PayslipGenerator {
             }
 
             long totalDeductions = payeTax + pensionEmployee + nhfDeduction
-                    + unpaidLeaveDeduction + attendanceDeduction + loanDeduction + otherDeductions;
+                    + unpaidLeaveDeduction + attendanceDeduction + loanDeduction + otherDeductions
+                    + pretaxDeduction + adjustmentDeduction;
             context.setVariable("totalDeductions", totalDeductions / 100.0);
             context.setVariable("netPay", netPay / 100.0);
 

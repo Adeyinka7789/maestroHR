@@ -104,7 +104,7 @@ class PayrollTemplateRenderTest {
                 ? List.of(new PayrollDetailView.EntryRow(
                         UUID.randomUUID(), "Tayo Shonibare", "E001", "TS",
                         "₦1,000,000.00", "₦120,000.00", "₦50,000.00", "₦25,000.00",
-                        "₦0.00", "₦0.00", 0, "₦680,000.00"))
+                        "₦0.00", "₦0.00", "₦0.00", "₦0.00", 0, "₦680,000.00"))
                 : List.of();
         return new PayrollDetailView(
                 UUID.randomUUID(), "2026-06", "June 2026",

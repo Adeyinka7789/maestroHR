@@ -116,6 +116,8 @@
               <tr><td>Housing Allowance</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(housingAllowance, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr><td>Transport Allowance</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(transportAllowance, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr><td>Other Allowances</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(otherAllowances, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${taxableEarnings != 0}"><td>Bonuses / Taxable Earnings</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(taxableEarnings, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${nonTaxableEarnings != 0}"><td>Reimbursements (Non-taxable)</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(nonTaxableEarnings, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr class="total-row"><td>Gross Salary</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(grossEarnings, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               </tbody>
           </table>
@@ -131,6 +133,8 @@
               <tr th:if="${unpaidLeaveDeduction != 0}"><td>Unpaid Leave Deduction</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(unpaidLeaveDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr th:if="${attendanceDeduction != 0}"><td>Attendance/Absence Deduction</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(attendanceDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr th:if="${hasLoanDeduction}"><td>Loan Repayment</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(loanDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${pretaxDeduction != 0}"><td>Voluntary Pension (AVC)</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(pretaxDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
+              <tr th:if="${adjustmentDeduction != 0}"><td>Adjustments (Fines / Advances)</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(adjustmentDeduction, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr th:if="${otherDeductions != 0}"><td>Other Deductions</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(otherDeductions, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr class="subtotal-row"><td>Total Deductions</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(totalDeductions, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>
               <tr class="total-row"><td>Net Salary</td><td class="amount" th:utext="'&#x20A6;' + ${#numbers.formatDecimal(netPay, 1, 'COMMA', 2, 'POINT')}">₦0.00</td></tr>

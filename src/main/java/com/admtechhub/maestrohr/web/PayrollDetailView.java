@@ -88,6 +88,8 @@ public record PayrollDetailView(
             String nhfFormatted,
             String unpaidLeaveDeductionFormatted,
             String attendanceDeductionFormatted,
+            String adjustmentEarningsFormatted,  // bonuses + reimbursements (V61 one-off earnings)
+            String adjustmentDeductionsFormatted, // voluntary pension + fines/advances (V61 one-off deductions)
             int lateDaysInPeriod,                // informational — not auto-deducted
             String netFormatted
     ) {}

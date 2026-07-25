@@ -153,8 +153,15 @@ public class PayrollDetailService {
                 formatNaira(e.getNhfDeduction()),
                 formatNaira(e.getUnpaidLeaveDeduction()),
                 formatNaira(e.getAttendanceDeduction()),
+                formatNaira(nz(e.getTaxableEarnings()) + nz(e.getNonTaxableEarnings())),
+                formatNaira(nz(e.getPretaxDeduction()) + nz(e.getAdjustmentDeduction())),
                 e.getLateDaysInPeriod() != null ? e.getLateDaysInPeriod() : 0,
                 formatNaira(e.getNetSalary()));
+    }
+
+    /** Null-safe kobo accessor for the optional adjustment columns. */
+    private static long nz(Long value) {
+        return value != null ? value : 0L;
     }
 
     private String initials(String first, String last) {
