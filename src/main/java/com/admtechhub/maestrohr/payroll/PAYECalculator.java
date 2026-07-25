@@ -63,6 +63,26 @@ public class PAYECalculator {
      */
     public PAYEResult calculate(Long grossSalary, Long pensionEmployee, Long nhfDeduction,
                                 Long basicSalary, Long nominalMonthlyGross, Long annualRentPaid) {
+        return calculate(grossSalary, pensionEmployee, nhfDeduction, basicSalary,
+                nominalMonthlyGross, annualRentPaid, 0L, 0L);
+    }
+
+    /**
+     * As {@link #calculate(Long, Long, Long, Long, Long, Long)}, plus one-off payroll adjustments
+     * for this period. These are NOT part of the recurring monthly run-rate, so they must not be
+     * annualized (×12) — that would grossly over-withhold a bonus. Instead they are taxed at the
+     * <em>marginal</em> rate: the extra annual tax from adding {@code (taxableEarnings −
+     * preTaxRelief)} on top of the employee's base annual taxable income is returned as
+     * {@link PAYEResult#getPeriodAdjustmentTax()} and withheld in full this period (un-prorated,
+     * since the adjustment amount does not scale with days worked). It may be negative when
+     * pre-tax relief (e.g. voluntary pension) exceeds taxable earnings — a tax reduction.
+     *
+     * @param periodTaxableEarnings one-off TAXABLE earnings this period (kobo)
+     * @param periodPreTaxRelief    one-off PRE_TAX deductions this period (kobo, e.g. voluntary pension)
+     */
+    public PAYEResult calculate(Long grossSalary, Long pensionEmployee, Long nhfDeduction,
+                                Long basicSalary, Long nominalMonthlyGross, Long annualRentPaid,
+                                long periodTaxableEarnings, long periodPreTaxRelief) {
         // Annualize off the NOMINAL (un-prorated) monthly gross, not the period's already-
         // prorated grossSalary — otherwise a mid-month joiner/leaver would be banded as if
         // their diluted partial-month gross were their true annual run-rate, understating
@@ -73,7 +93,8 @@ public class PAYECalculator {
         long minWageExemptionMonthly = platformSettingsService.getLongOrDefault(
                 "min_wage_kobo", MIN_WAGE_EXEMPTION_MONTHLY_DEFAULT);
 
-        // Step 0: Minimum-wage exemption — judged on nominal (un-prorated) monthly pay.
+        // Step 0: Minimum-wage exemption — judged on nominal (un-prorated) monthly pay. A
+        // min-wage earner stays exempt even with a one-off adjustment this month.
         if (nominalMonthlyGross <= minWageExemptionMonthly) {
             log.debug("Min-wage exempt: nominalMonthlyGross={} <= {}",
                     nominalMonthlyGross, minWageExemptionMonthly);
@@ -94,36 +115,34 @@ public class PAYECalculator {
         long rentPaid = annualRentPaid != null ? annualRentPaid : 0L;
         long annualRentRelief = Math.min(Math.round(rentPaid * rentReliefRate), rentReliefCap);
 
-        // Step 3: Taxable income = gross − pension − NHF − rent relief
+        // Step 3: Base taxable income = gross − pension − NHF − rent relief. May be ≤ 0 when
+        // reliefs exceed gross; calculateProgressiveTax handles that (returns 0), and keeping the
+        // un-clamped value here is important for the marginal adjustment tax below — unused relief
+        // room must be able to absorb part of a bonus rather than the bonus being taxed from ₦0.
         long annualGrossTaxable = annualGross - annualPension - annualNhf;
         long annualTaxableIncome = annualGrossTaxable - annualRentRelief;
 
-        if (annualTaxableIncome <= 0) {
-            log.debug("No tax payable: annualTaxableIncome={}", annualTaxableIncome);
-            return PAYEResult.builder()
-                    .annualGross(annualGross)
-                    .annualGrossTaxable(annualGrossTaxable)
-                    .annualRentRelief(annualRentRelief)
-                    .annualTaxableIncome(0L)
-                    .annualPAYE(0L)
-                    .monthlyPAYE(0L)
-                    .build();
-        }
-
-        // Step 4: Progressive tax, then monthly PAYE (integer division)
+        // Step 4: Base progressive tax on the recurring income, then base monthly PAYE.
         long annualPAYE = calculateProgressiveTax(annualTaxableIncome);
         long monthlyPAYE = annualPAYE / 12;
 
-        log.debug("PAYE (NTA 2025): annualGross={}, annualTaxable={}, annualPAYE={}, monthlyPAYE={}",
-                annualGross, annualTaxableIncome, annualPAYE, monthlyPAYE);
+        // Step 5: Marginal tax on this period's one-off adjustments (see method javadoc). Withheld
+        // in full this period, not divided by 12 and not prorated.
+        long periodNetTaxable = periodTaxableEarnings - periodPreTaxRelief;
+        long periodAdjustmentTax = periodNetTaxable == 0 ? 0L
+                : calculateProgressiveTax(annualTaxableIncome + periodNetTaxable) - annualPAYE;
+
+        log.debug("PAYE (NTA 2025): annualGross={}, annualTaxable={}, annualPAYE={}, monthlyPAYE={}, periodAdjTax={}",
+                annualGross, annualTaxableIncome, annualPAYE, monthlyPAYE, periodAdjustmentTax);
 
         return PAYEResult.builder()
                 .annualGross(annualGross)
                 .annualGrossTaxable(annualGrossTaxable)
                 .annualRentRelief(annualRentRelief)
-                .annualTaxableIncome(annualTaxableIncome)
+                .annualTaxableIncome(Math.max(0L, annualTaxableIncome))
                 .annualPAYE(annualPAYE)
                 .monthlyPAYE(monthlyPAYE)
+                .periodAdjustmentTax(periodAdjustmentTax)
                 .build();
     }
 
@@ -135,6 +154,7 @@ public class PAYECalculator {
                 .annualTaxableIncome(0L)
                 .annualPAYE(0L)
                 .monthlyPAYE(0L)
+                .periodAdjustmentTax(0L)
                 .build();
     }
 
@@ -188,5 +208,9 @@ public class PAYECalculator {
         private Long annualTaxableIncome;
         private Long annualPAYE;
         private Long monthlyPAYE;
+        /** Marginal tax on this period's one-off adjustments; withheld in full this period,
+         *  un-prorated. Negative when pre-tax relief exceeds taxable earnings. 0 when none. */
+        @lombok.Builder.Default
+        private Long periodAdjustmentTax = 0L;
     }
 }

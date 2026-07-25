@@ -1,5 +1,6 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.adjustment.AdjustmentBuckets;
 import com.admtechhub.maestrohr.attendance.AttendancePolicy;
 import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.attendance.DeductionType;
@@ -29,6 +30,15 @@ public class PayrollEngine {
     private final PlatformSettingsService platformSettingsService;
     private final AttendanceService attendanceService;
 
+    /** Overload with no one-off adjustments (zero buckets) — used by tests and any caller that
+     *  computes a plain run. Delegates to the full method below. */
+    public PayrollResult calculateEmployeePayroll(Employee employee, int daysWorked, int workingDays,
+                                                  int unpaidLeaveDays, int absentDays, int lateDays,
+                                                  long loanDeduction) {
+        return calculateEmployeePayroll(employee, daysWorked, workingDays, unpaidLeaveDays,
+                absentDays, lateDays, loanDeduction, AdjustmentBuckets.zero());
+    }
+
     /**
      * Calculate complete payroll for a single employee.
      *
@@ -43,11 +53,15 @@ public class PayrollEngine {
      * @param loanDeduction   Active-loan repayment for the period (kobo) — deducted post-statutory.
      *                        Calculated by LoanService and passed in; the engine applies the net-floor
      *                        cap and flags the result if the amount was reduced.
+     * @param adjustments     One-off payroll adjustments for the period (bonuses, reimbursements,
+     *                        fines, advances, voluntary pension), routed by tax treatment. Fixed
+     *                        amounts — never prorated. Taxable earnings are taxed at the margin,
+     *                        pre-tax deductions relieve tax, post-tax deductions are floor-protected.
      * @return Complete PayrollResult including separate deduction line items
      */
     public PayrollResult calculateEmployeePayroll(Employee employee, int daysWorked, int workingDays,
                                                   int unpaidLeaveDays, int absentDays, int lateDays,
-                                                  long loanDeduction) {
+                                                  long loanDeduction, AdjustmentBuckets adjustments) {
         PayGrade payGrade = employee.getPayGrade();
 
         // Get base salaries from pay grade (all in kobo)
@@ -73,8 +87,19 @@ public class PayrollEngine {
                     employee.getFullName(), daysWorked, workingDays, prorationFactor);
         }
 
-        // Step 1: Calculate Gross Salary
-        Long grossSalary = basicSalary + housingAllowance + transportAllowance + otherAllowances;
+        // Step 1: Base (pay-grade) gross for this period. Adjustment earnings are added to the
+        // PAID gross below but NOT here — they are fixed one-off amounts, not part of the
+        // pay-grade run-rate that drives pension/NHF/PAYE banding.
+        Long baseGross = basicSalary + housingAllowance + transportAllowance + otherAllowances;
+
+        // One-off adjustment buckets (kobo, never prorated).
+        long taxableEarnings    = adjustments.taxableEarnings();
+        long nonTaxableEarnings = adjustments.nonTaxableEarnings();
+        long preTaxDeduction    = adjustments.preTaxDeductions();
+        long postTaxDeduction   = adjustments.postTaxDeductions();
+
+        // Paid gross includes adjustment earnings (taxable + non-taxable).
+        Long grossSalary = baseGross + taxableEarnings + nonTaxableEarnings;
 
         // Step 2: Calculate Pension (on Basic + Housing + Transport)
         var pensionResult = pensionCalculator.calculate(basicSalary, housingAllowance, transportAllowance);
@@ -82,15 +107,19 @@ public class PayrollEngine {
         // Step 3: Calculate NHF (on Basic only)
         Long nhfDeduction = nhfCalculator.calculate(basicSalary);
 
-        // Step 4: Calculate PAYE. payeResult.getMonthlyPAYE() is banded off the NOMINAL annual
-        // rate (see PAYECalculator), i.e. what a full-time earner at this salary owes for a
-        // full month — so for a partial period it must be prorated the same way gross was,
-        // or a mid-month joiner would be charged a full month's tax on a partial month's pay.
-        var payeResult = payeCalculator.calculate(grossSalary, pensionResult.getEmployeeContribution(), nhfDeduction, basicSalary, nominalMonthlyGross, employee.getAnnualRentPaid());
-        Long payeTax = payeResult.getMonthlyPAYE();
+        // Step 4: Calculate PAYE off the pay-grade run-rate (nominalMonthlyGross), with this
+        // period's one-off taxable earnings and pre-tax relief taxed at the margin. The base
+        // monthly PAYE is banded off the NOMINAL annual rate, so for a partial period it is
+        // prorated the same way gross is; the one-off adjustment tax is added un-prorated (it
+        // does not scale with days worked). Total PAYE is floored at 0 (relief can exceed base).
+        var payeResult = payeCalculator.calculate(baseGross, pensionResult.getEmployeeContribution(),
+                nhfDeduction, basicSalary, nominalMonthlyGross, employee.getAnnualRentPaid(),
+                taxableEarnings, preTaxDeduction);
+        long basePaye = payeResult.getMonthlyPAYE();
         if (isProrated) {
-            payeTax = Math.round(payeTax * prorationFactor);
+            basePaye = Math.round(basePaye * prorationFactor);
         }
+        Long payeTax = Math.max(0L, basePaye + payeResult.getPeriodAdjustmentTax());
 
         // Step 5: Calculate NSITF (Employer only)
         Long nsitfEmployer = nsitfCalculator.calculateEmployerContribution(grossSalary);
@@ -118,7 +147,11 @@ public class PayrollEngine {
         // unpaidLeaveDeduction/attendanceDeduction/lateDeduction are never themselves reduced
         // by this floor — they only tighten how much loan room is left.
         Long statutoryDeductions = pensionResult.getEmployeeContribution() + nhfDeduction + payeTax;
-        long afterStatutory = grossSalary - statutoryDeductions - unpaidLeaveDeduction - attendanceDeduction - lateDeduction;
+        // Pre-tax adjustment deductions (e.g. voluntary pension) are the employee's own withheld
+        // contribution: applied unconditionally alongside statutory/attendance deductions, and NOT
+        // floor-protected. Post-tax adjustment deductions ARE floor-protected below, like loans.
+        long afterStatutory = grossSalary - statutoryDeductions - unpaidLeaveDeduction
+                - attendanceDeduction - lateDeduction - preTaxDeduction;
 
         long minWageKobo = platformSettingsService.getLongOrDefault("min_wage_kobo", 7_000_000L); // NMW default = ₦70,000
         long minNet = minWageKobo;
@@ -137,10 +170,23 @@ public class PayrollEngine {
                     employee.getFullName(), loanDeduction, effectiveLoanDeduction, minNet);
         }
 
-        // Step 8: Calculate Net Salary. Loan repayment is post-tax (Nigerian loan
-        // repayments don't reduce taxable income), so it nets out alongside the other
-        // post-statutory deductions.
-        Long netSalary = afterStatutory - effectiveLoanDeduction;
+        // Post-tax ad-hoc deductions (fines, advances) take whatever room remains after the loan,
+        // also protected by the net floor. Any uncollected remainder is simply not taken this
+        // period — HR can re-log it for the next month.
+        long afterLoan = afterStatutory - effectiveLoanDeduction;
+        long effectiveAdjustmentDeduction = postTaxDeduction;
+        boolean adjustmentCapped = false;
+        if (afterLoan - effectiveAdjustmentDeduction < minNet) {
+            effectiveAdjustmentDeduction = Math.max(0L, afterLoan - minNet);
+            adjustmentCapped = true;
+            log.warn("Ad-hoc deduction capped for {}: requested {} kobo → {} kobo (net floor {} kobo)",
+                    employee.getFullName(), postTaxDeduction, effectiveAdjustmentDeduction, minNet);
+        }
+
+        // Step 8: Calculate Net Salary. Loan repayment and post-tax adjustments are post-tax
+        // (they don't reduce taxable income), so they net out alongside the other post-statutory
+        // deductions.
+        Long netSalary = afterLoan - effectiveAdjustmentDeduction;
 
         // Final defensive clamp: net salary must never be negative. The floor above only
         // constrains the LOAN portion — it does nothing when unpaid-leave/absence/late
@@ -179,6 +225,11 @@ public class PayrollEngine {
                 .lateDeduction(lateDeduction)
                 .loanDeduction(effectiveLoanDeduction)
                 .loanDeductionCapped(loanDeductionCapped)
+                .taxableEarnings(taxableEarnings)
+                .nonTaxableEarnings(nonTaxableEarnings)
+                .preTaxDeduction(preTaxDeduction)
+                .adjustmentDeduction(effectiveAdjustmentDeduction)
+                .adjustmentCapped(adjustmentCapped)
                 .netFloorClamped(netFloorClamped)
                 .netSalary(netSalary)
                 .daysWorked(daysWorked)
@@ -277,6 +328,16 @@ public class PayrollEngine {
         private Long loanDeduction;
         /** True when the loan deduction was reduced to protect the employee's net salary floor. */
         private boolean loanDeductionCapped;
+        /** One-off TAXABLE earning adjustments added to gross (kobo). */
+        private Long taxableEarnings;
+        /** One-off NON_TAXABLE earning adjustments added to gross (kobo). */
+        private Long nonTaxableEarnings;
+        /** One-off PRE_TAX deduction adjustments (voluntary pension etc.) — relief + reduces net (kobo). */
+        private Long preTaxDeduction;
+        /** One-off POST_TAX deduction adjustments actually applied after floor protection (kobo). */
+        private Long adjustmentDeduction;
+        /** True when post-tax adjustment deductions were reduced to protect the net floor. */
+        private boolean adjustmentCapped;
         /** True when the platform-wide minimum-wage/non-negative floor clamped net salary at 0
          *  (independent of whether a LoanPolicy is configured). */
         private boolean netFloorClamped;

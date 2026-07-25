@@ -69,6 +69,31 @@ public class PayrollEntry extends BaseEntity {
     @Builder.Default
     private Long otherDeductions = 0L;
 
+    /** One-off TAXABLE earning adjustments added to gross this period (kobo). */
+    @Column(name = "taxable_earnings", nullable = false)
+    @Builder.Default
+    private Long taxableEarnings = 0L;
+
+    /** One-off NON_TAXABLE earning adjustments (reimbursements) added to gross this period (kobo). */
+    @Column(name = "non_taxable_earnings", nullable = false)
+    @Builder.Default
+    private Long nonTaxableEarnings = 0L;
+
+    /** One-off PRE_TAX deduction adjustments (voluntary pension etc.) this period (kobo). */
+    @Column(name = "pretax_deduction", nullable = false)
+    @Builder.Default
+    private Long pretaxDeduction = 0L;
+
+    /** One-off POST_TAX deduction adjustments (fines, advances) applied this period (kobo). */
+    @Column(name = "adjustment_deduction", nullable = false)
+    @Builder.Default
+    private Long adjustmentDeduction = 0L;
+
+    /** TRUE when post-tax adjustment deductions were reduced by the net-floor protection. */
+    @Column(name = "adjustment_capped", nullable = false)
+    @Builder.Default
+    private Boolean adjustmentCapped = false;
+
     @Column(name = "unpaid_leave_deduction", nullable = false)
     @Builder.Default
     private Long unpaidLeaveDeduction = 0L;

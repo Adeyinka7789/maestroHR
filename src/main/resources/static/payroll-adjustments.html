@@ -1,0 +1,397 @@
+<!-- ═══════════════════════════════════════════════════════════
+     payroll-adjustments.html — content partial (Statutory Reimbursements & Deductions)
+     Brand design system (#00236f). Scoped under `.adj`. Uses window.MaestroHR helpers.
+═══════════════════════════════════════════════════════════════ -->
+<style>
+    .adj { font-family: 'Inter', sans-serif; color: #0b1c30; }
+    .adj-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .adj-title { font-family: 'Hanken Grotesk', sans-serif; font-size: 26px; font-weight: 700; color: #00236f; line-height: 1.2; }
+    .adj-subtitle { font-size: 14px; color: #444651; margin-top: 4px; max-width: 640px; }
+
+    .adj .btn-primary { background: #00236f; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 1px 2px rgba(0,35,111,.18); }
+    .adj .btn-primary:hover { background: #001a54; }
+    .adj .btn-secondary { background: #eff4ff; color: #00236f; padding: 8px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid #c5c5d3; cursor: pointer; }
+    .adj .btn-secondary:hover { background: #e5eeff; }
+    .adj .btn-danger { background: #fee2e2; color: #b91c1c; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid #fecaca; cursor: pointer; }
+    .adj .btn-xs { padding: 5px 11px; font-size: 12px; }
+
+    .adj .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; }
+    .adj .form-input { width: 100%; padding: 11px 12px; border: 1px solid #c5c5d3; border-radius: 8px; font-size: 14px; font-family: 'Inter', sans-serif; color: #0b1c30; background: #fff; outline: none; }
+    .adj .form-input:focus { border-color: #00236f; box-shadow: 0 0 0 3px rgba(0,35,111,.12); }
+    .adj .form-label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+
+    .adj-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+    .adj-toolbar select { padding: 8px 10px; border: 1px solid #c5c5d3; border-radius: 8px; font-size: 13.5px; background: #fff; }
+
+    .adj-tabs { display: inline-flex; gap: 4px; background: #eff4ff; padding: 4px; border-radius: 12px; margin-bottom: 20px; }
+    .adj-tab { padding: 9px 18px; border: none; background: transparent; color: #64748b; font-size: 13.5px; font-weight: 600; border-radius: 9px; cursor: pointer; font-family: 'Inter', sans-serif; }
+    .adj-tab:hover { color: #00236f; }
+    .adj-tab.active { background: #fff; color: #00236f; box-shadow: 0 1px 3px rgba(0,0,0,.09); }
+
+    .adj-table { width: 100%; border-collapse: collapse; }
+    .adj-table thead th { text-align: left; padding: 12px 16px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: #64748b; font-weight: 600; background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+    .adj-table tbody td { padding: 13px 16px; font-size: 13.5px; border-bottom: 1px solid #eef2f7; }
+    .adj-table tbody tr:hover { background: #f8fafc; }
+    .adj-table tbody tr:last-child td { border-bottom: none; }
+    .adj-amount { font-family: 'DM Mono', monospace; font-weight: 500; }
+    .adj-earn { color: #166534; }
+    .adj-deduct { color: #b91c1c; }
+    .adj-muted { color: #94a3b8; }
+
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .pill-earn { background: #dcfce7; color: #166534; }
+    .pill-deduct { background: #fee2e2; color: #b91c1c; }
+    .pill-tax { background: #eef2ff; color: #3730a3; }
+    .pill-pending { background: #dce1ff; color: #00236f; }
+    .pill-applied { background: #dcfce7; color: #166534; }
+    .pill-cancelled { background: #f1f5f9; color: #64748b; }
+
+    .adj-modal { position: fixed; inset: 0; background: rgba(15,23,42,.45); backdrop-filter: blur(2px); align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .adj-modal-card { background: #fff; border-radius: 16px; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; padding: 28px; box-shadow: 0 24px 64px rgba(15,23,42,.28); }
+    .adj-modal-card h3 { font-family: 'Hanken Grotesk', sans-serif; font-size: 19px; font-weight: 700; margin-bottom: 20px; }
+    .adj-field { margin-bottom: 14px; }
+</style>
+
+<div class="adj">
+    <div class="adj-header">
+        <div>
+            <h1 class="adj-title">Reimbursements &amp; Deductions</h1>
+            <p class="adj-subtitle">Log one-off bonuses, reimbursements, fines, salary advances and voluntary pension. Pending items automatically plug into the next payroll run for their month.</p>
+        </div>
+        <button id="log-btn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Log Adjustment
+        </button>
+    </div>
+
+    <div class="adj-tabs">
+        <button id="tab-list" class="adj-tab active">Adjustments</button>
+        <button id="tab-types" class="adj-tab">Adjustment Types</button>
+    </div>
+
+    <!-- Adjustments list -->
+    <div id="list-view">
+        <div class="adj-toolbar">
+            <label class="form-label" style="margin:0;">Period</label>
+            <select id="filter-month"></select>
+            <select id="filter-year"></select>
+        </div>
+        <div class="card" style="overflow:hidden;">
+            <div class="overflow-x-auto">
+                <table class="adj-table">
+                    <thead><tr>
+                        <th>Employee</th><th>Type</th><th>Treatment</th><th style="text-align:right;">Amount</th><th>Status</th><th>Logged by</th><th style="text-align:center;">Actions</th>
+                    </tr></thead>
+                    <tbody id="list-body">
+                    <tr><td colspan="7" style="padding:44px;text-align:center;" class="adj-muted">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Types -->
+    <div id="types-view" style="display:none;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+            <button id="new-type-btn" class="btn-secondary">+ New Type</button>
+        </div>
+        <div class="card" style="overflow:hidden;">
+            <div class="overflow-x-auto">
+                <table class="adj-table">
+                    <thead><tr>
+                        <th>Name</th><th>Direction</th><th>Tax Treatment</th><th>Status</th><th style="text-align:center;">Actions</th>
+                    </tr></thead>
+                    <tbody id="types-body">
+                    <tr><td colspan="5" style="padding:44px;text-align:center;" class="adj-muted">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log adjustment modal -->
+    <div id="log-modal" class="adj-modal" style="display:none;">
+        <div class="adj-modal-card">
+            <h3>Log Adjustment</h3>
+            <div class="adj-field">
+                <label class="form-label">Employee</label>
+                <select id="f-employee" class="form-input"></select>
+            </div>
+            <div class="adj-field">
+                <label class="form-label">Adjustment type</label>
+                <select id="f-type" class="form-input"></select>
+                <div id="f-type-hint" class="adj-muted" style="font-size:12px;margin-top:5px;"></div>
+            </div>
+            <div class="adj-field">
+                <label class="form-label">Amount (₦)</label>
+                <input type="number" id="f-amount" class="form-input" min="1" step="0.01" placeholder="5000">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="adj-field">
+                    <label class="form-label">Month</label>
+                    <select id="f-month" class="form-input"></select>
+                </div>
+                <div class="adj-field">
+                    <label class="form-label">Year</label>
+                    <select id="f-year" class="form-input"></select>
+                </div>
+            </div>
+            <div class="adj-field">
+                <label class="form-label">Note <span class="adj-muted" style="font-weight:400;">(optional)</span></label>
+                <input type="text" id="f-note" class="form-input" maxlength="500" placeholder="e.g. Late arrival — 3 days">
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+                <button id="log-cancel" class="btn-secondary">Cancel</button>
+                <button id="log-save" class="btn-primary">Log adjustment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New type modal -->
+    <div id="type-modal" class="adj-modal" style="display:none;">
+        <div class="adj-modal-card">
+            <h3>New Adjustment Type</h3>
+            <div class="adj-field">
+                <label class="form-label">Name</label>
+                <input type="text" id="t-name" class="form-input" maxlength="120" placeholder="e.g. Uniform Deduction">
+            </div>
+            <div class="adj-field">
+                <label class="form-label">Direction</label>
+                <select id="t-direction" class="form-input">
+                    <option value="EARNING">Earning (adds to pay)</option>
+                    <option value="DEDUCTION">Deduction (subtracts from pay)</option>
+                </select>
+            </div>
+            <div class="adj-field">
+                <label class="form-label">Tax treatment</label>
+                <select id="t-tax" class="form-input"></select>
+                <div id="t-tax-hint" class="adj-muted" style="font-size:12px;margin-top:5px;"></div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+                <button id="type-cancel" class="btn-secondary">Cancel</button>
+                <button id="type-save" class="btn-primary">Create type</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const { apiCall, escapeHtml, showToast } = window.MaestroHR;
+
+        const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const now = new Date();
+        let activeTypes = [];
+
+        const naira = kobo => '₦' + (kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        const taxLabel = t => ({ TAXABLE:'Taxable', NON_TAXABLE:'Non-taxable', PRE_TAX:'Pre-tax relief', POST_TAX:'Post-tax' }[t] || t);
+        const taxHint = t => ({
+            TAXABLE:'Added to gross pay and taxed at the employee’s marginal band.',
+            NON_TAXABLE:'Added to pay but not taxed (e.g. a reimbursement).',
+            PRE_TAX:'Reduces taxable income (tax relief) and net pay — e.g. voluntary pension.',
+            POST_TAX:'Reduced from net pay only; protected by the ₦70,000 minimum-wage floor.'
+        }[t] || '');
+
+        // ── Period selectors ─────────────────────────────────────────
+        function fillMonths(sel, selected) {
+            sel.innerHTML = MONTHS.map((m, i) => `<option value="${i+1}" ${i+1===selected?'selected':''}>${m}</option>`).join('');
+        }
+        function fillYears(sel, selected) {
+            let out = '';
+            for (let y = now.getFullYear() + 1; y >= now.getFullYear() - 2; y--) out += `<option value="${y}" ${y===selected?'selected':''}>${y}</option>`;
+            sel.innerHTML = out;
+        }
+        fillMonths(document.getElementById('filter-month'), now.getMonth() + 1);
+        fillYears(document.getElementById('filter-year'), now.getFullYear());
+        fillMonths(document.getElementById('f-month'), now.getMonth() + 1);
+        fillYears(document.getElementById('f-year'), now.getFullYear());
+
+        // ── Loaders ──────────────────────────────────────────────────
+        async function loadAdjustments() {
+            const body = document.getElementById('list-body');
+            const month = document.getElementById('filter-month').value;
+            const year  = document.getElementById('filter-year').value;
+            try {
+                const res = await apiCall(`/api/payroll-adjustments?month=${month}&year=${year}`);
+                const result = await res.json();
+                const rows = result.data || [];
+                if (!rows.length) {
+                    body.innerHTML = '<tr><td colspan="7" style="padding:44px;text-align:center;" class="adj-muted">No adjustments logged for this period.</td></tr>';
+                    return;
+                }
+                body.innerHTML = rows.map(a => {
+                    const earn = a.direction === 'EARNING';
+                    const statusPill = { PENDING:'pill-pending', APPLIED:'pill-applied', CANCELLED:'pill-cancelled' }[a.status] || 'pill-cancelled';
+                    return `<tr>
+                        <td style="font-weight:600;">${escapeHtml(a.employeeName)}</td>
+                        <td>${escapeHtml(a.typeName)}</td>
+                        <td><span class="pill ${earn?'pill-earn':'pill-deduct'}">${earn?'Earning':'Deduction'}</span>
+                            <span class="pill pill-tax" style="margin-left:4px;">${taxLabel(a.taxTreatment)}</span></td>
+                        <td style="text-align:right;" class="adj-amount ${earn?'adj-earn':'adj-deduct'}">${earn?'+':'−'}${naira(a.amountKobo)}</td>
+                        <td><span class="pill ${statusPill}">${a.status}</span></td>
+                        <td class="adj-muted" style="font-size:12px;">${escapeHtml(a.createdBy || '—')}</td>
+                        <td style="text-align:center;">${a.status === 'PENDING' ? `<button class="cancel-adj btn-danger btn-xs" data-id="${a.id}">Cancel</button>` : '<span class="adj-muted">—</span>'}</td>
+                    </tr>`;
+                }).join('');
+            } catch (e) { console.error(e); body.innerHTML = '<tr><td colspan="7" style="padding:44px;text-align:center;color:#ef4444;">Failed to load</td></tr>'; }
+        }
+
+        async function loadTypes() {
+            try {
+                const res = await apiCall('/api/payroll-adjustments/types?includeInactive=true');
+                const result = await res.json();
+                const types = result.data || [];
+                activeTypes = types.filter(t => t.active);
+                const body = document.getElementById('types-body');
+                body.innerHTML = types.map(t => {
+                    const earn = t.direction === 'EARNING';
+                    return `<tr>
+                        <td style="font-weight:600;">${escapeHtml(t.name)}${t.system ? ' <span class="adj-muted" style="font-weight:400;font-size:11px;">(default)</span>' : ''}</td>
+                        <td><span class="pill ${earn?'pill-earn':'pill-deduct'}">${earn?'Earning':'Deduction'}</span></td>
+                        <td><span class="pill pill-tax">${taxLabel(t.taxTreatment)}</span></td>
+                        <td><span class="pill ${t.active?'pill-applied':'pill-cancelled'}">${t.active?'Active':'Inactive'}</span></td>
+                        <td style="text-align:center;"><button class="toggle-type btn-secondary btn-xs" data-id="${t.id}" data-active="${t.active}">${t.active?'Disable':'Enable'}</button></td>
+                    </tr>`;
+                }).join('');
+                populateTypeDropdown();
+            } catch (e) { console.error(e); }
+        }
+
+        function populateTypeDropdown() {
+            const sel = document.getElementById('f-type');
+            sel.innerHTML = activeTypes.map(t =>
+                `<option value="${t.id}" data-tax="${t.taxTreatment}">${escapeHtml(t.name)}</option>`).join('');
+            syncTypeHint();
+        }
+        function syncTypeHint() {
+            const opt = document.getElementById('f-type').selectedOptions[0];
+            document.getElementById('f-type-hint').textContent = opt ? taxHint(opt.dataset.tax) : '';
+        }
+
+        async function loadEmployees() {
+            try {
+                const res = await apiCall('/api/employees?size=1000');
+                const result = await res.json();
+                const emps = result.data?.content || [];
+                document.getElementById('f-employee').innerHTML =
+                    emps.map(e => `<option value="${e.id}">${escapeHtml(e.fullName)}</option>`).join('');
+            } catch (e) { console.error(e); }
+        }
+
+        // ── Actions ──────────────────────────────────────────────────
+        async function saveAdjustment() {
+            const employeeId = document.getElementById('f-employee').value;
+            const typeId = document.getElementById('f-type').value;
+            const amount = parseFloat(document.getElementById('f-amount').value);
+            if (!employeeId || !typeId) { showToast('Pick an employee and a type', 'error'); return; }
+            if (!amount || amount <= 0) { showToast('Enter an amount greater than 0', 'error'); return; }
+            const payload = {
+                employeeId, typeId,
+                amountKobo: Math.round(amount * 100),
+                periodMonth: parseInt(document.getElementById('f-month').value, 10),
+                periodYear: parseInt(document.getElementById('f-year').value, 10),
+                note: document.getElementById('f-note').value.trim() || null
+            };
+            const btn = document.getElementById('log-save'); btn.disabled = true;
+            try {
+                const res = await apiCall('/api/payroll-adjustments', { method: 'POST', body: JSON.stringify(payload) });
+                if (res.ok) {
+                    showToast('Adjustment logged', 'success');
+                    closeLogModal();
+                    document.getElementById('filter-month').value = payload.periodMonth;
+                    document.getElementById('filter-year').value = payload.periodYear;
+                    loadAdjustments();
+                } else { const b = await res.json(); showToast(b.message || 'Failed to log', 'error'); }
+            } catch (e) { showToast('Network error', 'error'); } finally { btn.disabled = false; }
+        }
+
+        async function cancelAdjustment(id) {
+            if (!confirm('Cancel this pending adjustment?')) return;
+            const res = await apiCall(`/api/payroll-adjustments/${id}/cancel`, { method: 'POST' });
+            if (res.ok) { showToast('Cancelled', 'success'); loadAdjustments(); } else showToast('Failed to cancel', 'error');
+        }
+
+        async function saveType() {
+            const name = document.getElementById('t-name').value.trim();
+            if (!name) { showToast('Enter a name', 'error'); return; }
+            const payload = {
+                name,
+                direction: document.getElementById('t-direction').value,
+                taxTreatment: document.getElementById('t-tax').value
+            };
+            const btn = document.getElementById('type-save'); btn.disabled = true;
+            try {
+                const res = await apiCall('/api/payroll-adjustments/types', { method: 'POST', body: JSON.stringify(payload) });
+                if (res.ok) { showToast('Type created', 'success'); closeTypeModal(); loadTypes(); }
+                else { const b = await res.json(); showToast(b.message || 'Failed', 'error'); }
+            } catch (e) { showToast('Network error', 'error'); } finally { btn.disabled = false; }
+        }
+
+        async function toggleType(id, active) {
+            const res = await apiCall(`/api/payroll-adjustments/types/${id}/toggle?active=${!active}`, { method: 'POST' });
+            if (res.ok) { showToast('Type updated', 'success'); loadTypes(); } else showToast('Failed', 'error');
+        }
+
+        // ── Type-direction → tax options ─────────────────────────────
+        function syncTaxOptions() {
+            const dir = document.getElementById('t-direction').value;
+            const opts = dir === 'EARNING'
+                ? [['TAXABLE','Taxable'], ['NON_TAXABLE','Non-taxable']]
+                : [['PRE_TAX','Pre-tax relief'], ['POST_TAX','Post-tax']];
+            document.getElementById('t-tax').innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+            syncTaxHint();
+        }
+        function syncTaxHint() { document.getElementById('t-tax-hint').textContent = taxHint(document.getElementById('t-tax').value); }
+
+        // ── Modals ───────────────────────────────────────────────────
+        function openLogModal() {
+            if (!activeTypes.length) { showToast('Loading types…', 'error'); loadTypes(); return; }
+            document.getElementById('f-amount').value = '';
+            document.getElementById('f-note').value = '';
+            document.getElementById('log-modal').style.display = 'flex';
+        }
+        function closeLogModal() { document.getElementById('log-modal').style.display = 'none'; }
+        function openTypeModal() { document.getElementById('t-name').value = ''; syncTaxOptions(); document.getElementById('type-modal').style.display = 'flex'; }
+        function closeTypeModal() { document.getElementById('type-modal').style.display = 'none'; }
+
+        // ── Bindings ─────────────────────────────────────────────────
+        document.getElementById('log-btn').addEventListener('click', openLogModal);
+        document.getElementById('log-cancel').addEventListener('click', closeLogModal);
+        document.getElementById('log-save').addEventListener('click', saveAdjustment);
+        document.getElementById('new-type-btn').addEventListener('click', openTypeModal);
+        document.getElementById('type-cancel').addEventListener('click', closeTypeModal);
+        document.getElementById('type-save').addEventListener('click', saveType);
+        document.getElementById('t-direction').addEventListener('change', syncTaxOptions);
+        document.getElementById('t-tax').addEventListener('change', syncTaxHint);
+        document.getElementById('f-type').addEventListener('change', syncTypeHint);
+        document.getElementById('filter-month').addEventListener('change', loadAdjustments);
+        document.getElementById('filter-year').addEventListener('change', loadAdjustments);
+        document.getElementById('log-modal').addEventListener('click', e => { if (e.target.id === 'log-modal') closeLogModal(); });
+        document.getElementById('type-modal').addEventListener('click', e => { if (e.target.id === 'type-modal') closeTypeModal(); });
+
+        document.addEventListener('click', e => {
+            if (e.target.classList.contains('cancel-adj')) cancelAdjustment(e.target.dataset.id);
+            if (e.target.classList.contains('toggle-type')) toggleType(e.target.dataset.id, e.target.dataset.active === 'true');
+        });
+
+        document.getElementById('tab-list').addEventListener('click', () => {
+            document.getElementById('list-view').style.display = 'block';
+            document.getElementById('types-view').style.display = 'none';
+            document.getElementById('tab-list').classList.add('active');
+            document.getElementById('tab-types').classList.remove('active');
+            loadAdjustments();
+        });
+        document.getElementById('tab-types').addEventListener('click', () => {
+            document.getElementById('list-view').style.display = 'none';
+            document.getElementById('types-view').style.display = 'block';
+            document.getElementById('tab-types').classList.add('active');
+            document.getElementById('tab-list').classList.remove('active');
+            loadTypes();
+        });
+
+        // ── Init ─────────────────────────────────────────────────────
+        loadEmployees();
+        loadTypes();
+        loadAdjustments();
+    }());
+</script>

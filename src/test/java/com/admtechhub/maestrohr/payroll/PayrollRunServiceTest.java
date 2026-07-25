@@ -57,6 +57,7 @@ class PayrollRunServiceTest {
     @Mock LeaveService leaveService;
     @Mock AttendanceService attendanceService;
     @Mock LoanService loanService;
+    @Mock com.admtechhub.maestrohr.adjustment.PayrollAdjustmentService payrollAdjustmentService;
     @Mock ApplicationEventPublisher eventPublisher;
 
     @InjectMocks PayrollRunService payrollRunService;
@@ -411,7 +412,7 @@ class PayrollRunServiceTest {
      * depending on PayrollEngine's real arithmetic, which is already covered by PayrollEngineTest.
      */
     private void stubEngineEchoesInputs() {
-        when(payrollEngine.calculateEmployeePayroll(any(), anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong()))
+        when(payrollEngine.calculateEmployeePayroll(any(), anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong(), any()))
                 .thenAnswer(inv -> {
                     int daysWorked = inv.getArgument(1);
                     int workingDays = inv.getArgument(2);
@@ -446,7 +447,7 @@ class PayrollRunServiceTest {
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Integer> workingDaysCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), workingDaysCap.capture(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), workingDaysCap.capture(), anyInt(), anyInt(), anyInt(), anyLong(), any());
 
         assertEquals(26, workingDaysCap.getValue(), "June 2026 has 26 working days (30 − 4 Sundays)");
         assertEquals(26, daysWorkedCap.getValue(), "a full-period employee must be credited every working day");
@@ -469,7 +470,7 @@ class PayrollRunServiceTest {
 
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong(), any());
 
         assertEquals(14, daysWorkedCap.getValue());
     }
@@ -491,7 +492,7 @@ class PayrollRunServiceTest {
 
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong(), any());
 
         assertEquals(9, daysWorkedCap.getValue());
     }
@@ -513,7 +514,7 @@ class PayrollRunServiceTest {
 
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong(), any());
 
         assertEquals(14, daysWorkedCap.getValue());
     }
@@ -537,7 +538,7 @@ class PayrollRunServiceTest {
 
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong(), any());
 
         assertEquals(14, daysWorkedCap.getValue());
     }
@@ -560,7 +561,7 @@ class PayrollRunServiceTest {
 
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), anyInt(), anyInt(), anyInt(), anyInt(), anyLong(), any());
 
         assertEquals(0, daysWorkedCap.getValue());
     }
@@ -615,7 +616,7 @@ class PayrollRunServiceTest {
         ArgumentCaptor<Integer> daysWorkedCap = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Integer> workingDaysCap = ArgumentCaptor.forClass(Integer.class);
         verify(payrollEngine).calculateEmployeePayroll(
-                any(), daysWorkedCap.capture(), workingDaysCap.capture(), anyInt(), anyInt(), anyInt(), anyLong());
+                any(), daysWorkedCap.capture(), workingDaysCap.capture(), anyInt(), anyInt(), anyInt(), anyLong(), any());
         int daysWorked = daysWorkedCap.getValue();
         int workingDays = workingDaysCap.getValue();
         assertEquals(14, daysWorked);
@@ -696,7 +697,7 @@ class PayrollRunServiceTest {
         ArgumentCaptor<Long> loanCap = ArgumentCaptor.forClass(Long.class);
         verify(payrollEngine, times(3)).calculateEmployeePayroll(
                 employeeCap.capture(), anyInt(), anyInt(), unpaidCap.capture(), absentCap.capture(),
-                lateCap.capture(), loanCap.capture());
+                lateCap.capture(), loanCap.capture(), any());
 
         Map<UUID, Integer> unpaidByEmployee = new HashMap<>();
         Map<UUID, Integer> absentByEmployee = new HashMap<>();

@@ -45,6 +45,11 @@ public class PageController {
         return htmxRequest != null ? "forward:/recruitment.html" : "forward:/layout.html";
     }
 
+    @GetMapping("/htmx/payroll-adjustments")
+    public String payrollAdjustments(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
+        return htmxRequest != null ? "forward:/payroll-adjustments.html" : "forward:/layout.html";
+    }
+
     @GetMapping("/htmx/performance-reviews")
     public String performanceReviews(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
         return htmxRequest != null ? "forward:/performance-reviews.html" : "forward:/layout.html";

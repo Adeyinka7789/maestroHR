@@ -1,5 +1,7 @@
 package com.admtechhub.maestrohr.payroll;
 
+import com.admtechhub.maestrohr.adjustment.AdjustmentBuckets;
+import com.admtechhub.maestrohr.adjustment.PayrollAdjustmentService;
 import com.admtechhub.maestrohr.attendance.AttendanceService;
 import com.admtechhub.maestrohr.auth.TenantContext;
 import com.admtechhub.maestrohr.auth.User;
@@ -47,6 +49,7 @@ public class PayrollRunService {
     private final LeaveService leaveService;
     private final AttendanceService attendanceService;
     private final LoanService loanService;
+    private final PayrollAdjustmentService payrollAdjustmentService;
     private final ApplicationEventPublisher eventPublisher;
 
     private static final String PAYROLL_PERIOD_CONFLICT_MESSAGE_TEMPLATE =
@@ -158,6 +161,12 @@ public class PayrollRunService {
         // 1 batch call instead of N
         Map<UUID, Long> loanDeductionMap = loanService.computeLoanDeductionsBatch(employeeIds);
 
+        // One-off payroll adjustments (bonuses, reimbursements, fines, advances, voluntary pension)
+        // logged for this period — aggregated per employee into engine buckets. Consumed (marked
+        // APPLIED) only at approval, exactly like loan repayments.
+        Map<UUID, AdjustmentBuckets> adjustmentBucketsMap = payrollAdjustmentService
+                .computeBucketsForPeriod(employeeIds, payrollRun.getPayrollMonth(), payrollRun.getPayrollYear());
+
         log.info("Batch prefetch complete. Building payroll entries...");
         // ================================================================
 
@@ -184,9 +193,12 @@ public class PayrollRunService {
             int absentDays      = absentDaysMap.getOrDefault(employee.getId(), 0);
             int lateDays        = lateDaysMap.getOrDefault(employee.getId(), 0);
             long loanDeduction  = loanDeductionMap.getOrDefault(employee.getId(), 0L);
+            AdjustmentBuckets adjustments = adjustmentBucketsMap.getOrDefault(
+                    employee.getId(), AdjustmentBuckets.zero());
 
             PayrollEngine.PayrollResult result = payrollEngine.calculateEmployeePayroll(
-                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays, lateDays, loanDeduction);
+                    employee, daysWorked, workingDays, unpaidLeaveDays, absentDays, lateDays,
+                    loanDeduction, adjustments);
 
             PayrollEntry entry = PayrollEntry.builder()
                     .tenant(employee.getTenant())
@@ -207,9 +219,14 @@ public class PayrollRunService {
                     .lateDeduction(result.getLateDeduction())
                     .loanDeduction(result.getLoanDeduction())
                     .loanDeductionCapped(result.isLoanDeductionCapped())
+                    .taxableEarnings(result.getTaxableEarnings())
+                    .nonTaxableEarnings(result.getNonTaxableEarnings())
+                    .pretaxDeduction(result.getPreTaxDeduction())
+                    .adjustmentDeduction(result.getAdjustmentDeduction())
+                    .adjustmentCapped(result.isAdjustmentCapped())
                     .netFloorClamped(result.isNetFloorClamped())
                     .lateDaysInPeriod(lateDays)
-                    .deductionSnapshot(buildDeductionSnapshot(unpaidLeaveDays, absentDays, lateDays, loanDeduction))
+                    .deductionSnapshot(buildDeductionSnapshot(unpaidLeaveDays, absentDays, lateDays, loanDeduction, adjustments))
                     .netSalary(result.getNetSalary())
                     .daysWorked(result.getDaysWorked())
                     .workingDays(result.getWorkingDays())
@@ -316,6 +333,11 @@ public class PayrollRunService {
         // ledger's UNIQUE(loan_id, payroll_run_id) plus canApprove() (PENDING_APPROVAL → APPROVED
         // happens once) make a double-apply impossible.
         loanService.applyRepaymentsForRun(payrollRun, payrollRun.getEntries());
+
+        // Consume this period's one-off adjustments (PENDING → APPLIED, stamped with this run), so
+        // they are counted exactly once and can be reversed with the run. Same transaction/lifecycle
+        // as the loan ledger above.
+        payrollAdjustmentService.applyForRun(payrollRun, payrollRun.getEntries());
 
         payrollRun.setApprovedBy(approvedBy);
         payrollRun.setApprovedAt(LocalDateTime.now());
@@ -445,6 +467,9 @@ public class PayrollRunService {
 
         // Roll back loan ledger (idempotent per repayment row)
         loanService.reverseRepaymentsForRun(payrollRun);
+
+        // Return this run's one-off adjustments to PENDING so they re-enter a future run.
+        payrollAdjustmentService.reverseForRun(runId);
 
         // Mark every entry reversed
         List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(runId, currentTenantId());
@@ -577,6 +602,8 @@ public class PayrollRunService {
         Map<UUID, Integer> absentDaysMap = attendanceService.getAbsentDaysBatch(employeeIds, periodStart, periodEnd);
         Map<UUID, Integer> lateDaysMap = attendanceService.getLateDaysBatch(employeeIds, periodStart, periodEnd);
         Map<UUID, Long> loanDeductionMap = loanService.computeLoanDeductionsBatch(employeeIds);
+        Map<UUID, AdjustmentBuckets> adjustmentBucketsMap = payrollAdjustmentService.computeBucketsForPeriod(
+                employeeIds, payrollRun.getPayrollMonth(), payrollRun.getPayrollYear());
 
         for (PayrollEntry entry : checkable) {
             Employee employee = entry.getEmployee();
@@ -592,8 +619,10 @@ public class PayrollRunService {
             int absentDays = absentDaysMap.getOrDefault(employee.getId(), 0);
             int lateDays = lateDaysMap.getOrDefault(employee.getId(), 0);
             long loanDeduction = loanDeductionMap.getOrDefault(employee.getId(), 0L);
+            AdjustmentBuckets adjustments = adjustmentBucketsMap.getOrDefault(
+                    employee.getId(), AdjustmentBuckets.zero());
 
-            String currentSnapshot = buildDeductionSnapshot(unpaidLeaveDays, absentDays, lateDays, loanDeduction);
+            String currentSnapshot = buildDeductionSnapshot(unpaidLeaveDays, absentDays, lateDays, loanDeduction, adjustments);
             if (!storedSnapshot.equals(currentSnapshot)) {
                 throw new IllegalStateException(
                         "Payroll inputs for " + employee.getFullName() + " changed since this payroll "
@@ -602,8 +631,16 @@ public class PayrollRunService {
         }
     }
 
-    private static String buildDeductionSnapshot(int unpaidLeaveDays, int absentDays, int lateDays, long loanDeduction) {
-        return unpaidLeaveDays + ":" + absentDays + ":" + lateDays + ":" + loanDeduction;
+    private static String buildDeductionSnapshot(int unpaidLeaveDays, int absentDays, int lateDays,
+                                                 long loanDeduction, AdjustmentBuckets adjustments) {
+        String base = unpaidLeaveDays + ":" + absentDays + ":" + lateDays + ":" + loanDeduction;
+        // Backward-compatible: a run with no adjustments produces the exact pre-adjustment
+        // snapshot string, so entries computed before this feature never false-trip the drift guard.
+        if (adjustments == null || adjustments.equals(AdjustmentBuckets.zero())) {
+            return base;
+        }
+        return base + ":" + adjustments.taxableEarnings() + "/" + adjustments.nonTaxableEarnings()
+                + "/" + adjustments.preTaxDeductions() + "/" + adjustments.postTaxDeductions();
     }
 
     private int getWorkingDays(int month, int year) {
