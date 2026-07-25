@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${job.title()} + ' – ' + ${company.companyName()}">Job</title>
+    <style>
+        :root { --brand:#00236f; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f1f5f9; --err:#b91c1c; }
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink); background:var(--bg); }
+        .top { background:var(--brand); color:#fff; padding:22px 20px; }
+        .wrap { max-width:760px; margin:0 auto; padding:0 20px; }
+        .back { display:inline-block; margin:18px 0 4px; color:var(--brand); text-decoration:none; font-size:13px; font-weight:600; }
+        .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:24px; margin:14px auto 20px; }
+        h1 { margin:0 0 10px; font-size:24px; color:var(--brand); }
+        h1.hdr { color:#fff; }
+        .meta { font-size:13px; color:var(--muted); display:flex; flex-wrap:wrap; gap:12px; margin-bottom:6px; }
+        .tag { display:inline-block; background:#eef2ff; color:var(--brand); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; }
+        .section h2 { font-size:15px; color:var(--ink); margin:20px 0 8px; }
+        .section p { font-size:14px; line-height:1.7; color:#334155; white-space:pre-line; margin:0; }
+        label { display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+        input, textarea { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit; }
+        textarea { min-height:120px; resize:vertical; }
+        .hp { position:absolute; left:-5000px; width:1px; height:1px; overflow:hidden; }
+        .btn { margin-top:18px; background:var(--brand); color:#fff; border:none; border-radius:8px;
+               padding:13px 28px; font-size:15px; font-weight:600; cursor:pointer; }
+        .hint { font-size:12px; color:var(--muted); margin-top:4px; }
+        .error { background:#fef2f2; border:1px solid #fecaca; color:var(--err); border-radius:8px; padding:12px 14px; font-size:14px; margin-bottom:8px; }
+        footer { text-align:center; color:#94a3b8; font-size:12px; padding:32px 20px; }
+    </style>
+</head>
+<body>
+<div class="top">
+    <div class="wrap"><h1 class="hdr" th:text="${company.companyName()}">Company</h1></div>
+</div>
+<div class="wrap">
+    <a class="back" th:href="@{'/careers/' + ${slug}}">← All positions</a>
+
+    <div class="card">
+        <h1 th:text="${job.title()}">Job title</h1>
+        <div class="meta">
+            <span class="tag" th:if="${job.employmentType()}" th:text="${#strings.replace(job.employmentType(),'_',' ')}">FULL TIME</span>
+            <span th:if="${job.department()}" th:text="${job.department()}">Department</span>
+            <span th:if="${job.location()}" th:text="'📍 ' + ${job.location()}">Location</span>
+        </div>
+        <div class="meta" th:if="${job.salaryRangeMin() != null or job.salaryRangeMax() != null}">
+            <span th:if="${job.salaryRangeMin() != null and job.salaryRangeMax() != null}"
+                  th:text="'₦' + ${#numbers.formatInteger(job.salaryRangeMin() / 100, 1, 'COMMA')} + ' – ₦' + ${#numbers.formatInteger(job.salaryRangeMax() / 100, 1, 'COMMA')} + ' / month'">Salary</span>
+        </div>
+
+        <div class="section">
+            <h2>About the role</h2>
+            <p th:text="${job.description()}">Description</p>
+        </div>
+        <div class="section" th:if="${job.requirements()}">
+            <h2>Requirements</h2>
+            <p th:text="${job.requirements()}">Requirements</p>
+        </div>
+        <div class="section" th:if="${job.benefits()}">
+            <h2>Benefits</h2>
+            <p th:text="${job.benefits()}">Benefits</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h1 style="font-size:20px;">Apply for this position</h1>
+        <div class="error" th:if="${error}" th:text="${error}">error</div>
+        <form th:action="@{'/careers/' + ${slug} + '/jobs/' + ${job.id()} + '/apply'}"
+              method="post" enctype="multipart/form-data">
+            <label for="applicantName">Full name *</label>
+            <input id="applicantName" name="applicantName" required th:value="${applicantName}">
+
+            <label for="applicantEmail">Email address *</label>
+            <input id="applicantEmail" name="applicantEmail" type="email" required th:value="${applicantEmail}">
+
+            <label for="applicantPhone">Phone number</label>
+            <input id="applicantPhone" name="applicantPhone" th:value="${applicantPhone}">
+
+            <label for="coverLetter">Cover letter</label>
+            <textarea id="coverLetter" name="coverLetter" th:text="${coverLetter}"></textarea>
+
+            <label for="resume">Resume / CV</label>
+            <input id="resume" name="resume" type="file" accept=".pdf,.doc,.docx">
+            <div class="hint">PDF or Word document, up to 5 MB.</div>
+
+            <!-- Honeypot: hidden from real users; bots fill it and get silently dropped. -->
+            <div class="hp" aria-hidden="true">
+                <label for="website">Website</label>
+                <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+            </div>
+
+            <button class="btn" type="submit">Submit application</button>
+        </form>
+    </div>
+</div>
+<footer>Powered by MaestroHR</footer>
+</body>
+</html>

@@ -28,6 +28,7 @@ public enum SubscriptionFeature implements FlagKey {
     ATTENDANCE_TRACKING,
     LOAN_MANAGEMENT,
     DOCUMENT_VAULT,
+    RECRUITMENT,
 
     // Reporting
     CUSTOM_REPORTING,

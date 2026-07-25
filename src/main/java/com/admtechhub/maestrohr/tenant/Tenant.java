@@ -67,6 +67,25 @@ public class Tenant extends BaseEntity {
     private String logoFileName;
 
     /**
+     * Public careers-page handle (V60). Forms the URL {@code /careers/{careers_slug}} at which
+     * this tenant's PUBLISHED job postings are listed to unauthenticated candidates. Generated
+     * at registration (see {@code platform.TenantUserWrites}) and backfilled for existing
+     * tenants; unique. No {@code @SQLRestriction} on Tenant — resolution from the public,
+     * session-less path goes through the privileged datasource ({@code CareersPublicRepository}).
+     */
+    @Column(name = "careers_slug", length = 80)
+    private String careersSlug;
+
+    /** Owner switch for the public careers page. When false the page returns "not available". */
+    @Column(name = "careers_enabled", nullable = false)
+    @Builder.Default
+    private boolean careersEnabled = true;
+
+    /** Optional tagline rendered on the careers landing page (e.g. "Join our mission..."). */
+    @Column(name = "careers_intro", length = 500)
+    private String careersIntro;
+
+    /**
      * Soft-delete marker for self-service company deletion (V55). Non-null means the owner has
      * trashed this company: it is deactivated and hidden from login/switcher, kept for a 90-day
      * grace period on the super-admin trash page, then permanently purged by

@@ -13,9 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -30,11 +27,14 @@ public class RecruitmentService {
 
     private final JobPostingRepository jobPostingRepository;
     private final JobApplicationRepository jobApplicationRepository;
+    private final JobApplicationResumeRepository jobApplicationResumeRepository;
     private final TenantRepository tenantRepository;
     private final EmployeeService employeeService;
     private final EmployeeRepository employeeRepository;
+    private final CareersService careersService;
 
-    private static final String RESUME_UPLOAD_DIR = "uploads/resumes/";
+    /** Resume upload ceiling for the internal (HR-entered) apply path; mirrors the public one. */
+    private static final long MAX_RESUME_BYTES = 5L * 1024 * 1024;
 
     // Helper to convert OffsetDateTime to LocalDateTime
     private LocalDateTime toLocalDateTime(OffsetDateTime odt) {
@@ -74,6 +74,7 @@ public class RecruitmentService {
                 .applicantEmail(app.getApplicantEmail())
                 .applicantPhone(app.getApplicantPhone())
                 .resumeUrl(app.getResumeUrl())
+                .hasResume(app.getResumeUrl() != null)
                 .coverLetter(app.getCoverLetter())
                 .status(app.getStatus())
                 .source(app.getSource())
@@ -166,16 +167,29 @@ public class RecruitmentService {
         JobPosting jobPosting = jobPostingRepository.findById(jobPostingId)
                 .orElseThrow(() -> new IllegalArgumentException("Job posting not found"));
 
-        String resumeUrl = saveResume(resume);
-
         application.setTenant(tenant);
         application.setJobPosting(jobPosting);
-        application.setResumeUrl(resumeUrl);
         application.setStatus(JobApplication.ApplicationStatus.NEW);
-        application.setSource(JobApplication.ApplicationSource.WEBSITE);
-
+        if (application.getSource() == null) {
+            application.setSource(JobApplication.ApplicationSource.WEBSITE);
+        }
         JobApplication saved = jobApplicationRepository.save(application);
+
+        // Resume bytes now live in-row (job_application_resumes, V60) rather than on local disk,
+        // so they survive restarts, respect tenant RLS, and match the public apply path.
+        if (resume != null && !resume.isEmpty()) {
+            storeResume(tenantId, saved.getId(), resume);
+            saved.setResumeUrl("/api/recruitment/applications/" + saved.getId() + "/resume");
+            saved = jobApplicationRepository.save(saved);
+        }
         return toDto(saved);
+    }
+
+    /** Full resume entity (including BYTEA) for the authenticated HR download endpoint. */
+    @Transactional(readOnly = true)
+    public JobApplicationResume getResume(UUID applicationId) {
+        return jobApplicationResumeRepository.findByApplicationId(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("No resume on file for this application"));
     }
 
     @Transactional(readOnly = true)
@@ -263,20 +277,73 @@ public class RecruitmentService {
         return employeeDto;
     }
 
-    private String saveResume(MultipartFile file) {
-        try {
-            Path uploadPath = Paths.get(RESUME_UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath);
-            return "/uploads/resumes/" + filename;
-        } catch (IOException e) {
-            log.error("Failed to save resume: {}", e.getMessage());
-            return null;
+    /** Persist the uploaded resume for an application as an in-row BYTEA (tenant-scoped via RLS). */
+    private void storeResume(UUID tenantId, UUID applicationId, MultipartFile file) {
+        if (file.getSize() > MAX_RESUME_BYTES) {
+            throw new IllegalArgumentException("Resume exceeds the 5 MB limit.");
         }
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Could not read the uploaded resume.", e);
+        }
+        JobApplicationResume resume = JobApplicationResume.builder()
+                .tenantId(tenantId)
+                .applicationId(applicationId)
+                .fileName(sanitizeFileName(file.getOriginalFilename()))
+                .contentType(file.getContentType())
+                .sizeBytes(bytes.length)
+                .data(bytes)
+                .build();
+        jobApplicationResumeRepository.save(resume);
+    }
+
+    private String sanitizeFileName(String original) {
+        if (original == null || original.isBlank()) {
+            return "resume";
+        }
+        String name = original.replace("\\", "/");
+        int slash = name.lastIndexOf('/');
+        if (slash >= 0) {
+            name = name.substring(slash + 1);
+        }
+        name = name.trim();
+        return name.isEmpty() ? "resume" : name;
+    }
+
+    // ==================== CAREERS PAGE SETTINGS (HR-facing) ====================
+
+    /** Current public careers-page settings for the caller's tenant (slug, on/off, link, tagline). */
+    @Transactional(readOnly = true)
+    public CareersSettingsDTO getCareersSettings() {
+        Tenant tenant = tenantRepository.findById(getCurrentTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        return toCareersSettings(tenant);
+    }
+
+    /** Enable/disable the public careers page and/or update its tagline. */
+    @Transactional
+    public CareersSettingsDTO updateCareersSettings(Boolean enabled, String intro) {
+        Tenant tenant = tenantRepository.findById(getCurrentTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        if (enabled != null) {
+            tenant.setCareersEnabled(enabled);
+        }
+        if (intro != null) {
+            tenant.setCareersIntro(intro.isBlank() ? null : intro.trim());
+        }
+        Tenant saved = tenantRepository.save(tenant);
+        return toCareersSettings(saved);
+    }
+
+    private CareersSettingsDTO toCareersSettings(Tenant tenant) {
+        return CareersSettingsDTO.builder()
+                .slug(tenant.getCareersSlug())
+                .enabled(tenant.isCareersEnabled())
+                .intro(tenant.getCareersIntro())
+                .publicUrl(careersService.publicUrlForSlug(tenant.getCareersSlug()))
+                .build();
     }
 
     private String generateRandomPassword() {

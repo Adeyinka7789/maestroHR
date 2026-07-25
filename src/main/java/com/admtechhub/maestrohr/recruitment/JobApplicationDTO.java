@@ -20,6 +20,7 @@ public class JobApplicationDTO {
     private String applicantEmail;
     private String applicantPhone;
     private String resumeUrl;
+    private boolean hasResume;
     private String coverLetter;
     private JobApplication.ApplicationStatus status;
     private JobApplication.ApplicationSource source;

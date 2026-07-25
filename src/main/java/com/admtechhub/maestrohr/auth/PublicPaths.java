@@ -41,6 +41,7 @@ public final class PublicPaths {
             "/api/webhooks/**",          // Paystack webhooks: HMAC-verified, tenant resolved per-event
             "/api/payment/callback",     // return-from-Paystack redirect: no Bearer header; verified with Paystack server-side
             "/api/pricing/public",
+            "/careers/**",               // public per-tenant careers pages + candidate apply (no tenant session; privileged reads/writes)
             "/actuator/health",
             "/actuator/info",
             "/css/**",

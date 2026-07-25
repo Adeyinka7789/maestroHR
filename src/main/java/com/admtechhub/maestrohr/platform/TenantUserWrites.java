@@ -45,8 +45,8 @@ public class TenantUserWrites {
 
     private static final String INSERT_TENANT =
             "INSERT INTO tenants (id, company_name, rc_number, industry, company_size, "
-                    + "subscription_plan, subscription_expires_at, is_active) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "subscription_plan, subscription_expires_at, is_active, careers_slug) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String INSERT_USER =
             "INSERT INTO users (id, tenant_id, email, password_hash, role, is_active) "
@@ -304,6 +304,9 @@ public class TenantUserWrites {
         if (tenant.getId() == null) {
             tenant.setId(UUID.randomUUID());
         }
+        if (tenant.getCareersSlug() == null || tenant.getCareersSlug().isBlank()) {
+            tenant.setCareersSlug(careersSlug(tenant.getCompanyName(), tenant.getId()));
+        }
         stampTimestamps(tenant::getCreatedAt, tenant::setCreatedAt, tenant::getUpdatedAt, tenant::setUpdatedAt);
         try (PreparedStatement ps = con.prepareStatement(INSERT_TENANT)) {
             ps.setObject(1, tenant.getId());
@@ -314,8 +317,25 @@ public class TenantUserWrites {
             ps.setString(6, tenant.getSubscriptionPlan().name());
             ps.setObject(7, tenant.getSubscriptionExpiresAt());
             ps.setBoolean(8, tenant.isActive());
+            ps.setString(9, tenant.getCareersSlug());
             ps.executeUpdate();
         }
+    }
+
+    /**
+     * Public careers-page handle for a new tenant: a slugified company name plus a short fragment
+     * of the tenant id. The id fragment guarantees uniqueness (backing the V60 unique index) even
+     * when two companies register under the same name. Mirrors the SQL backfill in V60.
+     */
+    private static String careersSlug(String companyName, UUID id) {
+        String base = companyName == null ? "" : companyName.toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-+)|(-+$)", "");
+        if (base.isBlank()) {
+            base = "company";
+        }
+        String suffix = id.toString().replace("-", "").substring(0, 6);
+        return base + "-" + suffix;
     }
 
     private void insertUser(Connection con, User user) throws SQLException {

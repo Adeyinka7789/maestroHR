@@ -43,7 +43,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.LEAVE_MANAGEMENT,
             SubscriptionFeature.ATTENDANCE_TRACKING,
             SubscriptionFeature.LOAN_MANAGEMENT,
-            SubscriptionFeature.DOCUMENT_VAULT
+            SubscriptionFeature.DOCUMENT_VAULT,
+            SubscriptionFeature.RECRUITMENT
     ),
     ENTERPRISE(
             "Enterprise",
@@ -61,8 +62,8 @@ public enum SubscriptionPlan {
             SubscriptionFeature.ATTENDANCE_TRACKING,
             SubscriptionFeature.HARDWARE_SYNC,
             SubscriptionFeature.LOAN_MANAGEMENT,
-            SubscriptionFeature.DOCUMENT_VAULT
-
+            SubscriptionFeature.DOCUMENT_VAULT,
+            SubscriptionFeature.RECRUITMENT
     );
 
     private final String displayName;

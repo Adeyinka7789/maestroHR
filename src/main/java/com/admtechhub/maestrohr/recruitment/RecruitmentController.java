@@ -1,15 +1,19 @@
 package com.admtechhub.maestrohr.recruitment;
 
 import com.admtechhub.maestrohr.common.ApiResponse;
-import com.admtechhub.maestrohr.employee.Employee;
 import com.admtechhub.maestrohr.employee.EmployeeDetailsDTO;
+import com.admtechhub.maestrohr.subscription.RequiresFeature;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,9 +26,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Internal (HR-facing) recruitment API. Gated by the {@link SubscriptionFeature#RECRUITMENT}
+ * feature at the type level — the global platform flag AND the tenant's plan entitlement must both
+ * pass (see {@code FeatureCheckAspect}), mirroring {@code DocumentController}. SUPER_ADMIN is exempt.
+ *
+ * <p>The public candidate-facing careers portal ({@code CareersPublicController}) is a separate,
+ * session-less surface: it can't use this annotation (no tenant context), so it checks the global
+ * RECRUITMENT kill switch directly via {@code CareersPublicRepository#recruitmentEnabled()}.
+ */
 @RestController
 @RequestMapping("/api/recruitment")
 @RequiredArgsConstructor
+@RequiresFeature(SubscriptionFeature.RECRUITMENT)
 @Slf4j
 public class RecruitmentController {
 
@@ -148,5 +162,38 @@ public class RecruitmentController {
     public ResponseEntity<ApiResponse<EmployeeDetailsDTO>> convertToEmployee(@PathVariable UUID id) {
         EmployeeDetailsDTO employeeDto = recruitmentService.convertToEmployee(id);
         return ResponseEntity.ok(ApiResponse.success("Converted to employee", employeeDto));
+    }
+
+    /** Download the resume attached to an application (tenant-scoped via RLS on the resume table). */
+    @GetMapping("/applications/{id}/resume")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> downloadResume(@PathVariable UUID id) {
+        JobApplicationResume resume = recruitmentService.getResume(id);
+        MediaType mediaType = resume.getContentType() != null
+                ? MediaType.parseMediaType(resume.getContentType())
+                : MediaType.APPLICATION_OCTET_STREAM;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(mediaType);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(resume.getFileName())
+                .build());
+        return ResponseEntity.ok().headers(headers).body(resume.getData());
+    }
+
+    // ==================== PUBLIC CAREERS PAGE SETTINGS ====================
+
+    @GetMapping("/careers-settings")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<CareersSettingsDTO>> getCareersSettings() {
+        return ResponseEntity.ok(ApiResponse.success("Careers settings", recruitmentService.getCareersSettings()));
+    }
+
+    @PutMapping("/careers-settings")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<CareersSettingsDTO>> updateCareersSettings(
+            @RequestParam(required = false) Boolean enabled,
+            @RequestParam(required = false) String intro) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Careers settings updated", recruitmentService.updateCareersSettings(enabled, intro)));
     }
 }
