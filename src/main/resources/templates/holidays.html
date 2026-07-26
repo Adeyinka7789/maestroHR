@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<!--
+  holidays.html — server-rendered HTMX fragment (Option 3): the Public Holiday calendar settings.
+  Rendered by PublicHolidayController as "holidays :: content". The tenant admin lists which dates
+  their business observes as holidays; the overtime calculator bills hours worked on an active
+  holiday at the policy's holiday multiplier.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Public Holidays</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
+                Choose which dates your business observes. Hours worked on an active holiday are paid at your overtime policy's holiday rate.
+            </p>
+        </div>
+    </div>
+
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+    <div th:if="${success}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Saved.</span>
+    </div>
+
+    <!-- Add holiday -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Add a holiday</h2>
+        <form th:attr="hx-post=@{/htmx/holidays/add}" hx-target="#page-content" hx-swap="innerHTML"
+              class="flex flex-wrap items-end gap-sm">
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Date *</label>
+                <input type="date" name="date" required
+                       class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+            <div class="grow" style="min-width:200px">
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Name *</label>
+                <input name="name" required placeholder="e.g. Independence Day"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <button type="submit"
+                        class="flex items-center gap-xs bg-primary text-white px-4 py-2 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all">
+                    <span class="material-symbols-outlined text-[20px]">add</span>Add
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Holidays table -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Calendar</h2>
+        <div th:if="${holidays.isEmpty()}" class="font-body-sm text-body-sm text-on-surface-variant py-md">
+            No holidays configured. Add the dates your business observes above.
+        </div>
+        <div th:unless="${holidays.isEmpty()}" class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Date</th>
+                        <th class="py-2 pr-4">Name</th>
+                        <th class="py-2 pr-4">Status</th>
+                        <th class="py-2 pr-0 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="h : ${holidays}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-3 pr-4 font-table-data text-table-data text-on-surface"
+                            th:text="${#temporals.format(h.holidayDate, 'EEE, dd MMM yyyy')}">Fri, 01 Oct 2026</td>
+                        <td class="py-3 pr-4 font-label-md text-label-md text-on-surface" th:text="${h.name}">Independence Day</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${h.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                                  th:text="${h.active ? 'Active' : 'Inactive'}">Active</span>
+                        </td>
+                        <td class="py-3 pr-0 text-right whitespace-nowrap">
+                            <form th:attr="hx-post=@{/htmx/holidays/{id}/toggle(id=${h.id})}"
+                                  hx-target="#page-content" hx-swap="innerHTML" class="inline">
+                                <input type="hidden" name="active" th:value="${!h.active}">
+                                <button type="submit" class="font-label-sm text-label-sm text-primary hover:underline mr-md"
+                                        th:text="${h.active ? 'Deactivate' : 'Activate'}">Deactivate</button>
+                            </form>
+                            <form th:attr="hx-post=@{/htmx/holidays/{id}/delete(id=${h.id})}"
+                                  hx-target="#page-content" hx-swap="innerHTML" class="inline"
+                                  hx-confirm="Remove this holiday?">
+                                <button type="submit" class="font-label-sm text-label-sm text-error hover:underline">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

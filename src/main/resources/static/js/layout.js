@@ -143,6 +143,9 @@
         // hide the nav link for other roles so it never 403s from the sidebar.
         const complianceLink = document.querySelector('a[data-route="compliance"]');
         if (complianceLink) complianceLink.style.display = 'none';
+        // Public Holidays is an HR/admin settings page (controller gates the same roles).
+        const holidaysLink = document.querySelector('a[data-route="holidays"]');
+        if (holidaysLink) holidaysLink.style.display = 'none';
     }
 
     // Direct Bank Payouts is dual-control: only FINANCE_OFFICER / SYSTEM_ADMIN (and SUPER_ADMIN,

@@ -49,7 +49,7 @@ class OvertimeTemplateRenderTest {
         UUID id = UUID.randomUUID();
         UUID empId = UUID.randomUUID();
         OvertimePageView.EntryRow draft = new OvertimePageView.EntryRow(
-                id, empId, "Sam Bello", "Guard", "2.00", "5.00", "₦100", "₦1,300",
+                id, empId, "Sam Bello", "Guard", "2.00", "5.00", "0.00", "₦100", "₦1,300",
                 "Draft", "warn", true);
 
         OvertimePageView view = new OvertimePageView(

@@ -46,6 +46,8 @@ public class OvertimeService {
     private final EmployeeRepository employeeRepository;
     private final AttendanceRepository attendanceRepository;
     private final PayrollAdjustmentService payrollAdjustmentService;
+    private final PublicHolidayService publicHolidayService;
+    private final com.admtechhub.maestrohr.notification.NotificationService notificationService;
 
     /** Outcome of a compute sweep, surfaced to the user as a banner. */
     public record ComputeResult(int employeesScanned, int entriesWithOvertime) {}
@@ -99,6 +101,10 @@ public class OvertimeService {
         LocalDate end = ym.atEndOfMonth();
         OffsetDateTime now = OffsetDateTime.now();
 
+        // Tenant's observed public holidays in the period — a day worked on one of these bills
+        // entirely at the holiday multiplier (takes precedence over weekday/weekend).
+        java.util.Set<LocalDate> holidays = publicHolidayService.activeDatesBetween(start, end);
+
         List<Employee> employees = employeeRepository.findByStatus(EmployeeStatus.ACTIVE);
         int scanned = 0, withOt = 0;
 
@@ -114,13 +120,17 @@ public class OvertimeService {
 
             BigDecimal weekdayHours = BigDecimal.ZERO;
             BigDecimal weekendHours = BigDecimal.ZERO;
+            BigDecimal holidayHours = BigDecimal.ZERO;
             for (AttendanceRecord r : records) {
                 BigDecimal worked = r.getHoursWorked();
                 if (worked == null || worked.signum() <= 0) {
                     continue;
                 }
-                DayOfWeek dow = r.getAttendanceDate().getDayOfWeek();
-                if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
+                LocalDate date = r.getAttendanceDate();
+                DayOfWeek dow = date.getDayOfWeek();
+                if (holidays.contains(date)) {
+                    holidayHours = holidayHours.add(worked); // all hours on a holiday are overtime
+                } else if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
                     weekendHours = weekendHours.add(worked); // all weekend hours are overtime
                 } else {
                     BigDecimal extra = worked.subtract(policy.getStandardDailyHours());
@@ -136,6 +146,7 @@ public class OvertimeService {
             BigDecimal rate = BigDecimal.valueOf(hourlyRateKobo);
             long amountKobo = weekdayHours.multiply(rate).multiply(policy.getWeekdayMultiplier())
                     .add(weekendHours.multiply(rate).multiply(policy.getWeekendMultiplier()))
+                    .add(holidayHours.multiply(rate).multiply(policy.getHolidayMultiplier()))
                     .setScale(0, RoundingMode.HALF_UP)
                     .longValueExact();
 
@@ -162,7 +173,7 @@ public class OvertimeService {
                     .periodMonth(month).periodYear(year).build();
             entry.setWeekdayOtHours(weekdayHours.setScale(2, RoundingMode.HALF_UP));
             entry.setWeekendOtHours(weekendHours.setScale(2, RoundingMode.HALF_UP));
-            entry.setHolidayOtHours(BigDecimal.ZERO);
+            entry.setHolidayOtHours(holidayHours.setScale(2, RoundingMode.HALF_UP));
             entry.setHourlyRateKobo(hourlyRateKobo);
             entry.setAmountKobo(amountKobo);
             entry.setStatus(OvertimeStatus.DRAFT);
@@ -188,8 +199,9 @@ public class OvertimeService {
         if (e.getAmountKobo() <= 0) {
             throw new IllegalStateException("This entry has no overtime to approve.");
         }
-        String note = String.format("Overtime %d/%d: %sh weekday + %sh weekend",
-                e.getPeriodMonth(), e.getPeriodYear(), e.getWeekdayOtHours(), e.getWeekendOtHours());
+        String note = String.format("Overtime %d/%d: %sh weekday + %sh weekend + %sh holiday",
+                e.getPeriodMonth(), e.getPeriodYear(),
+                e.getWeekdayOtHours(), e.getWeekendOtHours(), e.getHolidayOtHours());
         UUID adjustmentId = payrollAdjustmentService.createSystemAdjustment(
                 e.getEmployeeId(), "OVERTIME", e.getAmountKobo(),
                 e.getPeriodMonth(), e.getPeriodYear(), note, actor);
@@ -198,6 +210,25 @@ public class OvertimeService {
         e.setApprovedBy(actor);
         e.setApprovedAt(OffsetDateTime.now());
         entryRepository.save(e);
+
+        // Notify the employee that their overtime was approved and will hit the next payslip.
+        notifyEmployeeApproved(e);
+    }
+
+    /** In-app notice to the employee that their overtime for the period was approved. */
+    private void notifyEmployeeApproved(OvertimeEntry e) {
+        employeeRepository.findById(e.getEmployeeId()).ifPresent(emp -> {
+            if (emp.getEmail() == null || emp.getEmail().isBlank()) {
+                return;
+            }
+            String period = java.time.Month.of(e.getPeriodMonth())
+                    .getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + e.getPeriodYear();
+            String message = String.format(
+                    "Your %s overtime (%s) has been approved and will be added to your next payslip.",
+                    period, formatNaira(e.getAmountKobo()));
+            notificationService.createInAppNotification(
+                    emp.getEmail(), "OVERTIME_APPROVED", "Overtime approved", message, "/htmx/payslips");
+        });
     }
 
     /**
@@ -248,6 +279,7 @@ public class OvertimeService {
                     emp != null && emp.getJobTitle() != null ? emp.getJobTitle() : "—",
                     e.getWeekdayOtHours().toPlainString(),
                     e.getWeekendOtHours().toPlainString(),
+                    e.getHolidayOtHours().toPlainString(),
                     formatNaira(e.getHourlyRateKobo()),
                     formatNaira(e.getAmountKobo()),
                     humanize(status),

@@ -36,6 +36,7 @@ public record OvertimePageView(
             String jobTitle,
             String weekdayHours,        // e.g. "6.50"
             String weekendHours,
+            String holidayHours,
             String hourlyRateFormatted, // naira
             String amountFormatted,     // naira
             String statusLabel,         // "Draft" / "Approved" / "Rejected"

@@ -39,6 +39,8 @@ class OvertimeServiceTest {
     @Mock EmployeeRepository employeeRepository;
     @Mock AttendanceRepository attendanceRepository;
     @Mock PayrollAdjustmentService payrollAdjustmentService;
+    @Mock PublicHolidayService publicHolidayService;
+    @Mock com.admtechhub.maestrohr.notification.NotificationService notificationService;
 
     @InjectMocks OvertimeService overtimeService;
 
@@ -66,6 +68,7 @@ class OvertimeServiceTest {
         emp.setId(EMP);
 
         when(policyRepository.findFirstByActiveTrue()).thenReturn(Optional.empty());
+        when(publicHolidayService.activeDatesBetween(any(), any())).thenReturn(java.util.Set.of());
         when(employeeRepository.findByStatus(EmployeeStatus.ACTIVE)).thenReturn(List.of(emp));
         when(attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(eq(EMP), any(), any(), any()))
                 .thenReturn(List.of(
@@ -88,6 +91,40 @@ class OvertimeServiceTest {
         assertThat(e.getHourlyRateKobo()).isEqualTo(10_000L);
         assertThat(e.getAmountKobo()).isEqualTo(130_000L);
         assertThat(e.getStatus()).isEqualTo(OvertimeStatus.DRAFT);
+    }
+
+    // Wed 1 Jul 2026 marked as a public holiday → its 10h bill entirely at the holiday rate (2.0×),
+    // not as weekday overtime. Sat 4 Jul stays weekend (2.0×).
+    // amount = 10·10000·2.0 (holiday) + 5·10000·2.0 (weekend) = 200,000 + 100,000 = 300,000.
+    @Test
+    void computeForPeriod_countsHolidayHoursAtHolidayRate() {
+        PayGrade pg = PayGrade.builder().basicSalary(1_730_000L).build();
+        Employee emp = Employee.builder()
+                .status(EmployeeStatus.ACTIVE).payGrade(pg)
+                .firstName("Sam").lastName("Bello").jobTitle("Guard").build();
+        emp.setId(EMP);
+
+        when(policyRepository.findFirstByActiveTrue()).thenReturn(Optional.empty());
+        when(publicHolidayService.activeDatesBetween(any(), any()))
+                .thenReturn(java.util.Set.of(LocalDate.of(2026, 7, 1)));
+        when(employeeRepository.findByStatus(EmployeeStatus.ACTIVE)).thenReturn(List.of(emp));
+        when(attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(eq(EMP), any(), any(), any()))
+                .thenReturn(List.of(
+                        record(LocalDate.of(2026, 7, 1), "10"),   // Wednesday — but a holiday
+                        record(LocalDate.of(2026, 7, 4), "5")));   // Saturday
+        when(entryRepository.findByEmployeeIdAndPeriodYearAndPeriodMonth(EMP, 2026, 7))
+                .thenReturn(Optional.empty());
+        when(entryRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        overtimeService.computeForPeriod(7, 2026);
+
+        ArgumentCaptor<OvertimeEntry> cap = ArgumentCaptor.forClass(OvertimeEntry.class);
+        verify(entryRepository).save(cap.capture());
+        OvertimeEntry e = cap.getValue();
+        assertThat(e.getHolidayOtHours()).isEqualByComparingTo("10.00");
+        assertThat(e.getWeekdayOtHours()).isEqualByComparingTo("0.00");
+        assertThat(e.getWeekendOtHours()).isEqualByComparingTo("5.00");
+        assertThat(e.getAmountKobo()).isEqualTo(300_000L);
     }
 
     @Test

@@ -149,6 +149,7 @@
                         <th class="py-2 pr-4">Employee</th>
                         <th class="py-2 pr-4 text-right">Weekday hrs</th>
                         <th class="py-2 pr-4 text-right">Weekend hrs</th>
+                        <th class="py-2 pr-4 text-right">Holiday hrs</th>
                         <th class="py-2 pr-4 text-right">Hourly rate</th>
                         <th class="py-2 pr-4 text-right">Overtime pay</th>
                         <th class="py-2 pr-4">Status</th>
@@ -167,6 +168,7 @@
                         </td>
                         <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.weekdayHours}">6.50</td>
                         <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.weekendHours}">8.00</td>
+                        <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.holidayHours}">0.00</td>
                         <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface-variant" th:text="${row.hourlyRateFormatted}">₦1,200</td>
                         <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.amountFormatted}">₦27,600</td>
                         <td class="py-3 pr-4">

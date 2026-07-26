@@ -63,6 +63,7 @@ public class PayoutController {
     private final PayoutValidationService payoutValidationService;
     private final PaystackConfig paystackConfig;
     private final FeatureAccessService featureAccessService;
+    private final com.admtechhub.maestrohr.audit.AuditTrailService auditTrailService;
 
     @GetMapping("/htmx/disbursement")
     public String disbursement(@RequestHeader(value = "HX-Request", required = false) String htmx,
@@ -109,7 +110,19 @@ public class PayoutController {
                     + "Fix those before disbursing.");
         }
 
+        UUID tenantId = currentTenantId();
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(runId, tenantId);
+        long amount = entries.stream().mapToLong(e -> e.getNetSalary() != null ? e.getNetSalary() : 0L).sum();
+
         disbursementService.disburseSalaries(runId);
+
+        // Audit the money movement (who initiated, how much, how many, which Paystack mode) —
+        // dual-control accountability for a live payout. Best-effort; never blocks the payout.
+        auditTrailService.record(tenantId, currentUserEmail(), "DISBURSEMENT_INITIATED",
+                "PAYROLL_RUN", runId.toString(), "/htmx/disbursement/" + runId + "/disburse", "POST",
+                null, 200, String.format("Bulk disbursement initiated: %s to %d employee(s), Paystack mode %s",
+                        formatNaira(amount), entries.size(), paystackConfig.getMode()));
+
         model.addAttribute("success", "Bulk transfer initiated. Individual statuses update as Paystack confirms each transfer.");
         model.addAttribute("view", buildView(runId, null));
         return "disbursement :: content";
@@ -235,5 +248,10 @@ public class PayoutController {
             throw new IllegalStateException("No tenant context available");
         }
         return UUID.fromString(tenantId);
+    }
+
+    private String currentUserEmail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : "system";
     }
 }
