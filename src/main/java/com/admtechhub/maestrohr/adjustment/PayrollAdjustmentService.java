@@ -135,6 +135,53 @@ public class PayrollAdjustmentService {
         return toView(saved, Map.of(employee.getId(), employee), Map.of(type.getId(), type));
     }
 
+    /**
+     * Create a PENDING adjustment of a seeded system type identified by {@code typeCode}
+     * (e.g. {@code "OVERTIME"}), returning its id. Used by feeder modules — the overtime
+     * calculator — that produce adjustments programmatically rather than via the HR form.
+     * Seeds the default catalogue first so the system type is guaranteed to exist.
+     */
+    @Transactional
+    public UUID createSystemAdjustment(UUID employeeId, String typeCode, long amountKobo,
+                                       int month, int year, String note, String createdBy) {
+        if (amountKobo <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than zero.");
+        }
+        ensureDefaultsSeeded();
+        AdjustmentType type = typeRepository.findByCode(typeCode)
+                .orElseThrow(() -> new IllegalStateException("System adjustment type not found: " + typeCode));
+        PayrollAdjustment adj = PayrollAdjustment.builder()
+                .tenantId(currentTenantId())
+                .employeeId(employeeId)
+                .adjustmentTypeId(type.getId())
+                .amountKobo(amountKobo)
+                .periodMonth(month)
+                .periodYear(year)
+                .note(note)
+                .status(AdjustmentStatus.PENDING)
+                .createdBy(createdBy)
+                .build();
+        return adjustmentRepository.save(adj).getId();
+    }
+
+    /**
+     * Cancel an adjustment only if it is still PENDING (idempotent no-op otherwise) — used when a
+     * feeder record that emitted it is withdrawn. An already-APPLIED adjustment is left untouched;
+     * it can only be undone by reversing its run.
+     */
+    @Transactional
+    public void cancelIfPending(UUID adjustmentId) {
+        if (adjustmentId == null) {
+            return;
+        }
+        adjustmentRepository.findById(adjustmentId).ifPresent(adj -> {
+            if (adj.getStatus() == AdjustmentStatus.PENDING) {
+                adj.setStatus(AdjustmentStatus.CANCELLED);
+                adjustmentRepository.save(adj);
+            }
+        });
+    }
+
     /** Cancel a PENDING adjustment. Applied ones can only be undone by reversing their run. */
     @Transactional
     public void cancel(UUID adjustmentId) {

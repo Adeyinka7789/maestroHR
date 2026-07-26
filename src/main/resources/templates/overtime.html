@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<!--
+  overtime.html — server-rendered HTMX fragment (Option 3): the Overtime & Shift Allowance page.
+  Rendered by OvertimeController as "overtime :: content" for GET /htmx/overtime and swapped into
+  #page-content. HR picks a period, computes overtime from attendance, tunes the rate card, and
+  approves/rejects each employee's computed overtime (approval emits a payroll adjustment). Styled
+  with the Stitch design tokens compiled into /css/dashboard.css, matching compliance.html.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header + period selector + compute -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary">Overtime &amp; Shift Allowances</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                Compute overtime from attendance, review it, and add it to payroll for
+                <span class="font-label-md text-label-md text-on-surface" th:text="${view.periodLabel}">July 2026</span>.
+            </p>
+        </div>
+        <div class="flex items-end gap-sm">
+            <form hx-get="/htmx/overtime" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                  class="flex items-end gap-sm">
+                <div>
+                    <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Month</label>
+                    <select name="month" onchange="this.form.requestSubmit()"
+                            class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                        <option th:each="m : ${#numbers.sequence(1,12)}" th:value="${m}"
+                                th:selected="${m == view.month}"
+                                th:text="${T(java.time.Month).of(m).getDisplayName(T(java.time.format.TextStyle).FULL, T(java.util.Locale).ENGLISH)}">Month</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Year</label>
+                    <input type="number" name="year" th:value="${view.year}" min="2000" max="2100"
+                           onchange="this.form.requestSubmit()"
+                           class="w-24 px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                </div>
+            </form>
+            <form th:attr="hx-post=@{/htmx/overtime/compute}" hx-target="#page-content" hx-swap="innerHTML">
+                <input type="hidden" name="month" th:value="${view.month}">
+                <input type="hidden" name="year" th:value="${view.year}">
+                <button type="submit"
+                        class="flex items-center gap-xs bg-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
+                    <span class="material-symbols-outlined text-[20px]">calculate</span>
+                    Compute from attendance
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Banners -->
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+    <div th:if="${success}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Done.</span>
+    </div>
+
+    <!-- Summary tiles -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Draft entries</p>
+            <p class="font-headline-md text-headline-md text-on-surface" th:text="${view.draftCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Pending value</p>
+            <p class="font-headline-md text-headline-md text-on-surface" th:text="${view.totalDraftFormatted}">₦0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Approved entries</p>
+            <p class="font-headline-md text-headline-md text-secondary" th:text="${view.approvedCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Approved value</p>
+            <p class="font-headline-md text-headline-md text-secondary" th:text="${view.totalApprovedFormatted}">₦0</p>
+        </div>
+    </div>
+
+    <!-- Rate card (policy) -->
+    <details class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <summary class="cursor-pointer list-none flex items-center justify-between">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Overtime rate card</h2>
+            <span class="material-symbols-outlined text-[20px] text-on-surface-variant">tune</span>
+        </summary>
+        <form th:attr="hx-post=@{/htmx/overtime/policy}" hx-target="#page-content" hx-swap="innerHTML"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mt-md">
+            <input type="hidden" name="month" th:value="${view.month}">
+            <input type="hidden" name="year" th:value="${view.year}">
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Standard daily hours</label>
+                <input type="number" step="0.25" min="0.5" max="24" name="standardDailyHours"
+                       th:value="${view.policy.standardDailyHours}"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Standard monthly hours</label>
+                <input type="number" step="1" min="1" name="standardMonthlyHours"
+                       th:value="${view.policy.standardMonthlyHours}"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Weekday multiplier</label>
+                <input type="number" step="0.05" min="1" name="weekdayMultiplier"
+                       th:value="${view.policy.weekdayMultiplier}"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Weekend multiplier</label>
+                <input type="number" step="0.05" min="1" name="weekendMultiplier"
+                       th:value="${view.policy.weekendMultiplier}"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            </div>
+            <div class="sm:col-span-2 lg:col-span-4">
+                <button type="submit"
+                        class="bg-white border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all">
+                    Save rate card
+                </button>
+                <span class="ml-sm font-body-sm text-body-sm text-on-surface-variant">
+                    Hourly rate = monthly gross ÷ standard monthly hours. Weekday hours beyond the standard day, and all weekend hours, are overtime.
+                </span>
+            </div>
+        </form>
+    </details>
+
+    <!-- Entries -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg">
+        <div class="flex items-center justify-between mb-md">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Computed overtime</h2>
+        </div>
+
+        <div th:if="${!view.hasEntries()}" class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant py-md">
+            <span class="material-symbols-outlined text-[20px]">schedule</span>
+            No overtime computed for this period yet. Click “Compute from attendance” to generate it.
+        </div>
+
+        <div th:if="${view.hasEntries()}" class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Employee</th>
+                        <th class="py-2 pr-4 text-right">Weekday hrs</th>
+                        <th class="py-2 pr-4 text-right">Weekend hrs</th>
+                        <th class="py-2 pr-4 text-right">Hourly rate</th>
+                        <th class="py-2 pr-4 text-right">Overtime pay</th>
+                        <th class="py-2 pr-4">Status</th>
+                        <th class="py-2 pr-0 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row : ${view.entries}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-3 pr-4">
+                            <a th:href="@{/htmx/employee-view(id=${row.employeeId})}"
+                               th:attr="hx-get=@{/htmx/employee-view(id=${row.employeeId})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="font-label-md text-label-md text-primary hover:underline cursor-pointer"
+                               th:text="${row.employeeName}">Tayo Shonibare</a>
+                            <div class="font-body-sm text-body-sm text-on-surface-variant" th:text="${row.jobTitle}">Security Officer</div>
+                        </td>
+                        <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.weekdayHours}">6.50</td>
+                        <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.weekendHours}">8.00</td>
+                        <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface-variant" th:text="${row.hourlyRateFormatted}">₦1,200</td>
+                        <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${row.amountFormatted}">₦27,600</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${row.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (row.statusKind == 'error' ? 'bg-error-container text-on-error-container' : 'bg-primary-fixed text-on-primary-fixed-variant')}"
+                                  th:text="${row.statusLabel}">Draft</span>
+                        </td>
+                        <td class="py-3 pr-0 text-right whitespace-nowrap">
+                            <div th:if="${row.canDecide}" class="inline-flex gap-xs">
+                                <form th:attr="hx-post=@{/htmx/overtime/{id}/approve(id=${row.id})}"
+                                      hx-target="#page-content" hx-swap="innerHTML" class="inline">
+                                    <input type="hidden" name="month" th:value="${view.month}">
+                                    <input type="hidden" name="year" th:value="${view.year}">
+                                    <button type="submit"
+                                            class="inline-flex items-center gap-xs bg-secondary text-white px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                        <span class="material-symbols-outlined text-[18px]">check</span>Approve
+                                    </button>
+                                </form>
+                                <form th:attr="hx-post=@{/htmx/overtime/{id}/reject(id=${row.id})}"
+                                      hx-target="#page-content" hx-swap="innerHTML" class="inline"
+                                      hx-confirm="Reject this overtime entry?">
+                                    <input type="hidden" name="month" th:value="${view.month}">
+                                    <input type="hidden" name="year" th:value="${view.year}">
+                                    <button type="submit"
+                                            class="inline-flex items-center gap-xs bg-white border border-error text-error px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-error-container transition-colors">
+                                        <span class="material-symbols-outlined text-[18px]">close</span>Reject
+                                    </button>
+                                </form>
+                            </div>
+                            <span th:unless="${row.canDecide}" class="font-body-sm text-body-sm text-on-surface-variant">—</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
