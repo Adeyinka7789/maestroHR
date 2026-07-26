@@ -83,7 +83,10 @@ public record EmployeeDetailView(
         boolean canConfirm,              // HR/super-admin AND the employee is on probation
 
         // Fixed-term contract end date (see V63). "Permanent" when none is set.
-        String contractEndFormatted
+        String contractEndFormatted,
+
+        // Cost center / branch name (see V65), or "Unassigned".
+        String costCenterDisplay
 ) {
 
     /** A single loan summarised for the employee detail page; money pre-formatted as naira. */

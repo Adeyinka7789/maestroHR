@@ -52,6 +52,7 @@ class EmployeeServiceTest {
     @Mock AttendanceRepository   attendanceRepository;
     @Mock OnboardingService      onboardingService;
     @Mock AuditTrailService      auditTrailService;
+    @Mock com.admtechhub.maestrohr.gl.CostCenterRepository costCenterRepository;
     @Mock
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 

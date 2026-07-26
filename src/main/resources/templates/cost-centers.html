@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!--
+  cost-centers.html — server-rendered HTMX fragment (Option 3): the Cost Center manager + GL
+  account mapping. Rendered by CostCenterController as "cost-centers :: content". Cost centers tag
+  employees for per-branch GL attribution; the account codes drive the journal export.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary">Cost Centers &amp; GL Mapping</h1>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+            Tag employees to branches / cost centers, and map the account codes used by the payroll journal export.
+        </p>
+    </div>
+
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+    <div th:if="${success}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Saved.</span>
+    </div>
+
+    <!-- Create cost center -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Add a cost center</h2>
+        <form th:attr="hx-post=@{/htmx/cost-centers/create}" hx-target="#page-content" hx-swap="innerHTML"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-md items-end">
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Name *</label>
+                <input name="name" required placeholder="Lekki Outlet"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Code</label>
+                <input name="code" placeholder="auto"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Location</label>
+                <input name="location" placeholder="Lagos"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">GL account</label>
+                <input name="glAccountCode" placeholder="default"
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <button type="submit"
+                        class="w-full flex items-center justify-center gap-xs bg-primary text-white px-4 py-2 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all">
+                    <span class="material-symbols-outlined text-[20px]">add</span>Add
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Cost centers table -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Cost centers</h2>
+        <div th:if="${costCenters.isEmpty()}" class="font-body-sm text-body-sm text-on-surface-variant py-md">
+            No cost centers yet. Add one above, then assign employees to it from their profile.
+        </div>
+        <div th:unless="${costCenters.isEmpty()}" class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Name</th>
+                        <th class="py-2 pr-4">Code</th>
+                        <th class="py-2 pr-4">Location</th>
+                        <th class="py-2 pr-4">GL account</th>
+                        <th class="py-2 pr-4 text-right">Employees</th>
+                        <th class="py-2 pr-4">Status</th>
+                        <th class="py-2 pr-0 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="cc : ${costCenters}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-3 pr-4 font-label-md text-label-md text-on-surface" th:text="${cc.name}">Lekki Outlet</td>
+                        <td class="py-3 pr-4 font-table-data text-table-data text-on-surface-variant" th:text="${cc.code}">LEKKI</td>
+                        <td class="py-3 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${cc.location} ?: '—'">Lagos</td>
+                        <td class="py-3 pr-4 font-table-data text-table-data text-on-surface-variant" th:text="${cc.glAccountCode} ?: 'default'">6000</td>
+                        <td class="py-3 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${cc.employeeCount}">12</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${cc.active ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container text-on-surface-variant'}"
+                                  th:text="${cc.active ? 'Active' : 'Inactive'}">Active</span>
+                        </td>
+                        <td class="py-3 pr-0 text-right">
+                            <form th:attr="hx-post=@{/htmx/cost-centers/{id}/toggle(id=${cc.id})}"
+                                  hx-target="#page-content" hx-swap="innerHTML" class="inline">
+                                <input type="hidden" name="active" th:value="${!cc.active}">
+                                <button type="submit"
+                                        class="font-label-sm text-label-sm text-primary hover:underline"
+                                        th:text="${cc.active ? 'Deactivate' : 'Activate'}">Deactivate</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- GL account mapping -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">GL account mapping</h2>
+        <form th:attr="hx-post=@{/htmx/gl-config}" hx-target="#page-content" hx-swap="innerHTML"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Salary/Wages expense (Dr)</label>
+                <input name="salaryExpenseAccount" th:value="${config.salaryExpenseAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Employer pension expense (Dr)</label>
+                <input name="pensionExpenseAccount" th:value="${config.pensionExpenseAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Net pay / bank (Cr)</label>
+                <input name="netPayAccount" th:value="${config.netPayAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">PAYE payable (Cr)</label>
+                <input name="payePayableAccount" th:value="${config.payePayableAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Pension payable (Cr)</label>
+                <input name="pensionPayableAccount" th:value="${config.pensionPayableAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">NHF payable (Cr)</label>
+                <input name="nhfPayableAccount" th:value="${config.nhfPayableAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Other deductions payable (Cr)</label>
+                <input name="otherDeductionsAccount" th:value="${config.otherDeductionsAccount}" required
+                       class="w-full px-3 py-2 bg-white border border-outline-variant rounded-lg font-table-data text-table-data focus:outline-none focus:border-primary">
+            </div>
+            <div class="flex items-end">
+                <button type="submit"
+                        class="w-full bg-white border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all">
+                    Save mapping
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

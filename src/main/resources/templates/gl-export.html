@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--
+  gl-export.html — server-rendered HTMX fragment (Option 3): the GL & Accounting Export page.
+  Rendered by GlExportController as "gl-export :: content". Pick a finalized payroll run, preview its
+  balanced journal, and download it as a generic or QuickBooks-shaped CSV.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary">GL &amp; Accounting Export</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                ERP-ready journal entries for a finalized payroll run — expenses attributed per cost center, statutory credits consolidated.
+            </p>
+        </div>
+        <form hx-get="/htmx/gl-export" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+              th:if="${runs != null and !runs.isEmpty()}">
+            <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Payroll run</label>
+            <select name="runId" onchange="this.form.requestSubmit()"
+                    class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+                <option th:each="r : ${runs}" th:value="${r.runId}" th:selected="${r.runId == selectedRunId}"
+                        th:text="${r.periodLabel} + ' (' + ${r.status} + ')'">July 2026 (Approved)</option>
+            </select>
+        </form>
+    </div>
+
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+
+    <!-- No finalized runs -->
+    <div th:if="${runs == null or runs.isEmpty()}"
+         class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+        No finalized payroll runs yet. Approve a payroll run to generate its journal.
+    </div>
+
+    <!-- Journal preview -->
+    <div th:if="${journal != null}" class="bg-white border border-outline-variant rounded-xl p-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-sm mb-md">
+            <div class="flex items-center gap-sm">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">
+                    Journal — <span th:text="${journal.periodLabel}">July 2026</span>
+                </h2>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                      th:classappend="${journal.balanced ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}"
+                      th:text="${journal.balanced ? 'Balanced' : 'Unbalanced'}">Balanced</span>
+            </div>
+            <div class="flex gap-xs">
+                <a th:href="@{/gl-export/{id}/download(id=${selectedRunId}, format='GENERIC')}"
+                   class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all">
+                    <span class="material-symbols-outlined text-[18px]">download</span>CSV
+                </a>
+                <a th:href="@{/gl-export/{id}/download(id=${selectedRunId}, format='QUICKBOOKS')}"
+                   class="inline-flex items-center gap-xs bg-primary text-white px-4 py-2 rounded-lg font-label-sm text-label-sm shadow-md hover:opacity-90 transition-all">
+                    <span class="material-symbols-outlined text-[18px]">download</span>QuickBooks
+                </a>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Account</th>
+                        <th class="py-2 pr-4">Description</th>
+                        <th class="py-2 pr-4">Cost Center</th>
+                        <th class="py-2 pr-4 text-right">Debit</th>
+                        <th class="py-2 pr-4 text-right">Credit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="l : ${journal.lines}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-2 pr-4 font-table-data text-table-data text-on-surface" th:text="${l.accountCode}">6000</td>
+                        <td class="py-2 pr-4 font-body-sm text-body-sm text-on-surface" th:text="${l.accountName}">Salary &amp; Wages Expense</td>
+                        <td class="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${l.costCenter} ?: ''">Lekki Outlet</td>
+                        <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${l.debitFormatted}"></td>
+                        <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${l.creditFormatted}"></td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="border-t-2 border-outline font-label-md text-label-md">
+                        <td class="py-2 pr-4" colspan="3">Totals</td>
+                        <td class="py-2 pr-4 text-right text-primary" th:text="${journal.totalDebitFormatted}">₦0</td>
+                        <td class="py-2 pr-4 text-right text-primary" th:text="${journal.totalCreditFormatted}">₦0</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

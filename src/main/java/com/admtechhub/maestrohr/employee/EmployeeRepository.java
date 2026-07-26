@@ -113,6 +113,10 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     List<Employee> findProbationDueThrough(@Param("through") LocalDate through,
                                            @Param("terminated") EmployeeStatus terminated);
 
+    /** [costCenterId, count] for assigned employees — backs the cost-center manager's counts. */
+    @Query("SELECT e.costCenter.id, COUNT(e) FROM Employee e WHERE e.costCenter.id IS NOT NULL GROUP BY e.costCenter.id")
+    List<Object[]> countByCostCenter();
+
     /**
      * Compliance dashboard — employees on a fixed-term contract whose {@code contractEndDate}
      * falls on or before {@code through}, which also captures contracts that have already lapsed

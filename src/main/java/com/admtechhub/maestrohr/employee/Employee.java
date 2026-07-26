@@ -80,6 +80,11 @@ public class Employee extends BaseEntity {
     @JoinColumn(name = "shift_id")
     private Shift shift;
 
+    /** Optional cost center / branch for GL attribution (see V65); null = unassigned. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cost_center_id")
+    private com.admtechhub.maestrohr.gl.CostCenter costCenter;
+
     @Column(name = "job_title", nullable = false)
     private String jobTitle;
 

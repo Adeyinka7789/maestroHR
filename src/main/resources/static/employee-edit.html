@@ -95,6 +95,12 @@
                         <option value="">Loading shifts...</option>
                     </select>
                 </div>
+                <div>
+                    <label class="form-label">Cost Center</label>
+                    <select class="form-input" id="costCenterId">
+                        <option value="">No cost center</option>
+                    </select>
+                </div>
                 <div><label class="form-label">Start Date *</label><input class="form-input" type="date" id="employmentStartDate" required></div>
                 <div><label class="form-label">Probation End Date</label><input class="form-input" type="date" id="probationEndDate"></div>
                 <div><label class="form-label">Contract End Date</label><input class="form-input" type="date" id="contractEndDate"></div>
@@ -159,6 +165,7 @@
         let selectedDepartmentId = null;
         let selectedPayGradeId = null;
         let selectedShiftId = null;
+        let selectedCostCenterId = null;
 
         async function loadEmployeeData() {
             try {
@@ -224,6 +231,7 @@
             if (emp.department) selectedDepartmentId = emp.department.id;
             if (emp.payGrade) selectedPayGradeId = emp.payGrade.id;
             selectedShiftId = emp.shiftId || null;
+            selectedCostCenterId = emp.costCenterId || null;
         }
 
         async function loadDepartments() {
@@ -281,6 +289,25 @@
             }
         }
 
+        async function loadCostCenters() {
+            try {
+                const response = await apiCall('/api/cost-centers');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    const select = document.getElementById('costCenterId');
+                    let options = '<option value="">No cost center</option>';
+                    result.data.forEach(cc => {
+                        const selected = (selectedCostCenterId === cc.id) ? 'selected' : '';
+                        const loc = cc.location ? ` — ${escapeHtml(cc.location)}` : '';
+                        options += `<option value="${cc.id}" ${selected}>${escapeHtml(cc.name)}${loc}</option>`;
+                    });
+                    select.innerHTML = options;
+                }
+            } catch (error) {
+                console.error('Failed to load cost centers:', error);
+            }
+        }
+
         // Submit update
         const submitBtn = document.getElementById('submit-btn');
         const submitText = document.getElementById('submit-text');
@@ -326,6 +353,7 @@
                 departmentId: document.getElementById('departmentId').value,
                 payGradeId: document.getElementById('payGradeId').value,
                 shiftId: document.getElementById('shiftId').value || null,
+                costCenterId: document.getElementById('costCenterId').value || null,
                 employmentStartDate: document.getElementById('employmentStartDate').value,
                 probationEndDate: document.getElementById('probationEndDate').value || null,
                 contractEndDate: document.getElementById('contractEndDate').value || null,
@@ -372,5 +400,6 @@
         loadDepartments();
         loadPayGrades();
         loadShifts();
+        loadCostCenters();
     })();
 </script>

@@ -57,7 +57,7 @@ class EmployeeDetailProbationRenderTest {
                 true, false,
                 List.of(),
                 onProbation, confirmed, confirmedFormatted, confirmedBy, stateLabel, stateKind, canConfirm,
-                "Permanent");
+                "Permanent", "Unassigned");
     }
 
     @Test

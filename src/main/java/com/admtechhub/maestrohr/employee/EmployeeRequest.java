@@ -72,6 +72,9 @@ public class EmployeeRequest {
     /** Optional fixed-term contract end date; null for permanent staff. */
     private LocalDate contractEndDate;
 
+    /** Optional cost center / branch for GL attribution; null = unassigned. */
+    private UUID costCenterId;
+
     @NotBlank(message = "Bank name is required")
     @Size(max = 100)
     private String bankName;

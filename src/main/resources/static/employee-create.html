@@ -92,6 +92,12 @@
                 <div><label class="form-label">Start Date *</label><input class="form-input" type="date" id="employmentStartDate" required></div>
                 <div><label class="form-label">Probation End Date</label><input class="form-input" type="date" id="probationEndDate"></div>
                 <div><label class="form-label">Contract End Date</label><input class="form-input" type="date" id="contractEndDate"></div>
+                <div>
+                    <label class="form-label">Cost Center</label>
+                    <select class="form-input" id="costCenterId">
+                        <option value="">No cost center</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -161,6 +167,23 @@
             }
         }
 
+        async function loadCostCenters() {
+            try {
+                const response = await apiCall('/api/cost-centers');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    document.getElementById('costCenterId').innerHTML =
+                        '<option value="">No cost center</option>' +
+                        result.data.map(cc => {
+                            const loc = cc.location ? ` — ${escapeHtml(cc.location)}` : '';
+                            return `<option value="${cc.id}">${escapeHtml(cc.name)}${loc}</option>`;
+                        }).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load cost centers:', error);
+            }
+        }
+
         async function loadPayGrades() {
             try {
                 const response = await apiCall('/api/pay-grades');
@@ -223,6 +246,7 @@
                 role: document.getElementById('role').value,
                 departmentId: document.getElementById('departmentId').value,
                 payGradeId: document.getElementById('payGradeId').value,
+                costCenterId: document.getElementById('costCenterId').value || null,
                 employmentStartDate: document.getElementById('employmentStartDate').value,
                 probationEndDate: document.getElementById('probationEndDate').value || null,
                 contractEndDate: document.getElementById('contractEndDate').value || null,
@@ -266,5 +290,6 @@
 
         loadDepartments();
         loadPayGrades();
+        loadCostCenters();
     })();
 </script>

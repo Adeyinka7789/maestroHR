@@ -9,6 +9,8 @@ import com.admtechhub.maestrohr.attendance.AttendanceRepository;
 import com.admtechhub.maestrohr.attendance.Shift;
 import com.admtechhub.maestrohr.attendance.ShiftRepository;
 import com.admtechhub.maestrohr.document.OnboardingService;
+import com.admtechhub.maestrohr.gl.CostCenter;
+import com.admtechhub.maestrohr.gl.CostCenterRepository;
 import com.admtechhub.maestrohr.employee.event.EmployeeCreatedEvent;
 import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
 import com.admtechhub.maestrohr.notification.NotificationService;
@@ -67,6 +69,7 @@ public class EmployeeService {
     private final OnboardingService onboardingService;
     private final AuditTrailService auditTrailService;
     private final ApplicationEventPublisher eventPublisher;
+    private final CostCenterRepository costCenterRepository;
 
     private static final String EMPLOYEE_NUMBER_PREFIX = "EMP";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -145,6 +148,12 @@ public class EmployeeService {
             throw new IllegalArgumentException("Employee with email " + request.getEmail() + " already exists");
         }
 
+        // Optional cost center; a supplied id must resolve within this tenant (RLS-scoped).
+        CostCenter costCenter = request.getCostCenterId() != null
+                ? costCenterRepository.findById(request.getCostCenterId())
+                        .orElseThrow(() -> new IllegalArgumentException("Cost center not found: " + request.getCostCenterId()))
+                : null;
+
         String employeeNumber = generateEmployeeNumber(tenantId);
 
         final UserRole assignedRole;
@@ -210,6 +219,7 @@ public class EmployeeService {
                 .employmentStartDate(request.getEmploymentStartDate())
                 .probationEndDate(request.getProbationEndDate())
                 .contractEndDate(request.getContractEndDate())
+                .costCenter(costCenter)
                 .bankName(request.getBankName())
                 .bankAccountNumber(request.getBankAccountNumber())
                 .bankAccountName(request.getBankAccountName())
@@ -339,6 +349,12 @@ public class EmployeeService {
         employee.setEmploymentStartDate(request.getEmploymentStartDate());
         employee.setProbationEndDate(request.getProbationEndDate());
         employee.setContractEndDate(request.getContractEndDate());
+        // Cost center: null clears the assignment; a supplied id must resolve within this tenant.
+        CostCenter costCenter = request.getCostCenterId() != null
+                ? costCenterRepository.findById(request.getCostCenterId())
+                        .orElseThrow(() -> new IllegalArgumentException("Cost center not found: " + request.getCostCenterId()))
+                : null;
+        employee.setCostCenter(costCenter);
         employee.setBankName(request.getBankName());
         employee.setBankAccountNumber(request.getBankAccountNumber());
         employee.setBankAccountName(request.getBankAccountName());

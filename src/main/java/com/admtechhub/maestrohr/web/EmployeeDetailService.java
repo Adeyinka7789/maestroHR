@@ -142,7 +142,10 @@ public class EmployeeDetailService {
                 canConfirm,
 
                 // Fixed-term contract
-                e.getContractEndDate() != null ? formatDate(e.getContractEndDate()) : "Permanent");
+                e.getContractEndDate() != null ? formatDate(e.getContractEndDate()) : "Permanent",
+
+                // Cost center
+                e.getCostCenter() != null ? e.getCostCenter().getName() : "Unassigned");
     }
 
     /**

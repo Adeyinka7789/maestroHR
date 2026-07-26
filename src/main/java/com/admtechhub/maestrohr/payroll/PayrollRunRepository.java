@@ -22,6 +22,11 @@ public interface PayrollRunRepository extends JpaRepository<PayrollRun, UUID> {
     List<PayrollRun> findByStatus(PayrollStatus status);
     List<PayrollRun> findByTenant_IdAndStatus(UUID tenantId, PayrollStatus status);
 
+    /** Finalized (journal-worthy) runs for the current tenant, newest period first — GL export. */
+    @Query("SELECT p FROM PayrollRun p WHERE p.status IN :statuses " +
+            "ORDER BY p.payrollYear DESC, p.payrollMonth DESC, p.createdAt DESC")
+    List<PayrollRun> findByStatusInOrderByPeriodDesc(@Param("statuses") List<PayrollStatus> statuses);
+
     // Count by tenant and status
     @Query("SELECT COUNT(p) FROM PayrollRun p WHERE p.tenant.id = :tenantId AND p.status = :status")
     long countByTenantIdAndStatus(@Param("tenantId") UUID tenantId, @Param("status") PayrollStatus status);
