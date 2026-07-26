@@ -12,44 +12,46 @@
 <!-- ============================ CONTENT ============================ -->
 <div th:fragment="content" class="font-body-md text-on-surface">
 
-    <!-- Header + period selector + compute -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
-        <div>
-            <h1 class="font-headline-lg text-headline-lg text-primary">Overtime &amp; Shift Allowances</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Overtime &amp; Shift Allowances</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
                 Compute overtime from attendance, review it, and add it to payroll for
                 <span class="font-label-md text-label-md text-on-surface" th:text="${view.periodLabel}">July 2026</span>.
             </p>
         </div>
-        <div class="flex items-end gap-sm">
-            <form hx-get="/htmx/overtime" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
-                  class="flex items-end gap-sm">
-                <div>
-                    <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Month</label>
-                    <select name="month" onchange="this.form.requestSubmit()"
-                            class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
-                        <option th:each="m : ${#numbers.sequence(1,12)}" th:value="${m}"
-                                th:selected="${m == view.month}"
-                                th:text="${T(java.time.Month).of(m).getDisplayName(T(java.time.format.TextStyle).FULL, T(java.util.Locale).ENGLISH)}">Month</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Year</label>
-                    <input type="number" name="year" th:value="${view.year}" min="2000" max="2100"
-                           onchange="this.form.requestSubmit()"
-                           class="w-24 px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
-                </div>
-            </form>
-            <form th:attr="hx-post=@{/htmx/overtime/compute}" hx-target="#page-content" hx-swap="innerHTML">
-                <input type="hidden" name="month" th:value="${view.month}">
-                <input type="hidden" name="year" th:value="${view.year}">
-                <button type="submit"
-                        class="flex items-center gap-xs bg-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
-                    <span class="material-symbols-outlined text-[20px]">calculate</span>
-                    Compute from attendance
-                </button>
-            </form>
-        </div>
+    </div>
+
+    <!-- Period selector + compute -->
+    <div class="flex flex-wrap items-end gap-sm mb-lg">
+        <form hx-get="/htmx/overtime" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+              class="flex items-end gap-sm">
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Month</label>
+                <select name="month" onchange="this.form.requestSubmit()"
+                        class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+                    <option th:each="m : ${#numbers.sequence(1,12)}" th:value="${m}"
+                            th:selected="${m == view.month}"
+                            th:text="${T(java.time.Month).of(m).getDisplayName(T(java.time.format.TextStyle).FULL, T(java.util.Locale).ENGLISH)}">Month</option>
+                </select>
+            </div>
+            <div>
+                <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Year</label>
+                <input type="number" name="year" th:value="${view.year}" min="2000" max="2100"
+                       onchange="this.form.requestSubmit()"
+                       class="w-24 px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary">
+            </div>
+        </form>
+        <form th:attr="hx-post=@{/htmx/overtime/compute}" hx-target="#page-content" hx-swap="innerHTML">
+            <input type="hidden" name="month" th:value="${view.month}">
+            <input type="hidden" name="year" th:value="${view.year}">
+            <button type="submit"
+                    class="flex items-center gap-xs bg-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
+                <span class="material-symbols-outlined text-[20px]">calculate</span>
+                Compute from attendance
+            </button>
+        </form>
     </div>
 
     <!-- Banners -->

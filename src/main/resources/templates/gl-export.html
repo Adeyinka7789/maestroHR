@@ -9,23 +9,26 @@
 
 <div th:fragment="content" class="font-body-md text-on-surface">
 
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
-        <div>
-            <h1 class="font-headline-lg text-headline-lg text-primary">GL &amp; Accounting Export</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">GL &amp; Accounting Export</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
                 ERP-ready journal entries for a finalized payroll run — expenses attributed per cost center, statutory credits consolidated.
             </p>
         </div>
-        <form hx-get="/htmx/gl-export" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
-              th:if="${runs != null and !runs.isEmpty()}">
-            <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Payroll run</label>
-            <select name="runId" onchange="this.form.requestSubmit()"
-                    class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
-                <option th:each="r : ${runs}" th:value="${r.runId}" th:selected="${r.runId == selectedRunId}"
-                        th:text="${r.periodLabel} + ' (' + ${r.status} + ')'">July 2026 (Approved)</option>
-            </select>
-        </form>
     </div>
+
+    <!-- Run selector -->
+    <form hx-get="/htmx/gl-export" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+          th:if="${runs != null and !runs.isEmpty()}" class="mb-lg">
+        <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Payroll run</label>
+        <select name="runId" onchange="this.form.requestSubmit()"
+                class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            <option th:each="r : ${runs}" th:value="${r.runId}" th:selected="${r.runId == selectedRunId}"
+                    th:text="${r.periodLabel} + ' (' + ${r.status} + ')'">July 2026 (Approved)</option>
+        </select>
+    </form>
 
     <div th:if="${error}" role="alert"
          class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
