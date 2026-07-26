@@ -97,6 +97,7 @@
                 </div>
                 <div><label class="form-label">Start Date *</label><input class="form-input" type="date" id="employmentStartDate" required></div>
                 <div><label class="form-label">Probation End Date</label><input class="form-input" type="date" id="probationEndDate"></div>
+                <div><label class="form-label">Contract End Date</label><input class="form-input" type="date" id="contractEndDate"></div>
             </div>
         </div>
 
@@ -208,6 +209,7 @@
             document.getElementById('employmentType').value = emp.employmentType || 'FULL_TIME';
             document.getElementById('employmentStartDate').value = emp.employmentStartDate || '';
             document.getElementById('probationEndDate').value = emp.probationEndDate || '';
+            document.getElementById('contractEndDate').value = emp.contractEndDate || '';
 
             // Bank info
             document.getElementById('bankName').value = emp.bankName || '';
@@ -326,6 +328,7 @@
                 shiftId: document.getElementById('shiftId').value || null,
                 employmentStartDate: document.getElementById('employmentStartDate').value,
                 probationEndDate: document.getElementById('probationEndDate').value || null,
+                contractEndDate: document.getElementById('contractEndDate').value || null,
                 bankName: document.getElementById('bankName').value.trim(),
                 bankAccountNumber: document.getElementById('bankAccountNumber').value.trim(),
                 bankAccountName: document.getElementById('bankAccountName').value.trim(),

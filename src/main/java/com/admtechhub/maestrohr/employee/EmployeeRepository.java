@@ -114,6 +114,21 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
                                            @Param("terminated") EmployeeStatus terminated);
 
     /**
+     * Compliance dashboard — employees on a fixed-term contract whose {@code contractEndDate}
+     * falls on or before {@code through}, which also captures contracts that have already lapsed
+     * (contractEndDate &lt; today). Terminated staff are excluded. Tenant isolation + soft-delete
+     * filtering come from the entity {@code @SQLRestriction}; the partial index from V63 backs
+     * this scan. Ordered soonest-first.
+     */
+    @Query("SELECT e FROM Employee e " +
+            "WHERE e.contractEndDate IS NOT NULL " +
+            "AND e.contractEndDate <= :through " +
+            "AND e.status <> :terminated " +
+            "ORDER BY e.contractEndDate ASC")
+    List<Employee> findContractsEndingThrough(@Param("through") LocalDate through,
+                                              @Param("terminated") EmployeeStatus terminated);
+
+    /**
      * For payroll computation: active employees plus those terminated within the period.
      *
      * FETCH OPTIMIZED: Eagerly loads department and payGrade to prevent N+1 queries

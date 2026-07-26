@@ -80,7 +80,10 @@ public record EmployeeDetailView(
         String confirmedBy,              // actor email once confirmed, else "—"
         String probationStateLabel,      // "On Probation" / "Confirmed" / "—"
         String probationStateKind,       // badge bucket: warn / success / neutral
-        boolean canConfirm               // HR/super-admin AND the employee is on probation
+        boolean canConfirm,              // HR/super-admin AND the employee is on probation
+
+        // Fixed-term contract end date (see V63). "Permanent" when none is set.
+        String contractEndFormatted
 ) {
 
     /** A single loan summarised for the employee detail page; money pre-formatted as naira. */

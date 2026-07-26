@@ -32,6 +32,7 @@ public class EmployeeDetailsDTO {
     private String status;
     private LocalDate employmentStartDate;
     private LocalDate probationEndDate;
+    private LocalDate contractEndDate;
     private LocalDate terminationDate;
     private String bankName;
     private String bankAccountNumber;
@@ -81,6 +82,7 @@ public class EmployeeDetailsDTO {
         this.status = employee.getStatus() != null ? employee.getStatus().name() : null;
         this.employmentStartDate = employee.getEmploymentStartDate();
         this.probationEndDate = employee.getProbationEndDate();
+        this.contractEndDate = employee.getContractEndDate();
         this.terminationDate = employee.getTerminationDate();
         this.bankName = employee.getBankName();
         this.bankAccountNumber = employee.getBankAccountNumber();

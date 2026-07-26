@@ -209,6 +209,7 @@ public class EmployeeService {
                 .employmentType(request.getEmploymentType())
                 .employmentStartDate(request.getEmploymentStartDate())
                 .probationEndDate(request.getProbationEndDate())
+                .contractEndDate(request.getContractEndDate())
                 .bankName(request.getBankName())
                 .bankAccountNumber(request.getBankAccountNumber())
                 .bankAccountName(request.getBankAccountName())
@@ -337,6 +338,7 @@ public class EmployeeService {
         employee.setEmploymentType(request.getEmploymentType());
         employee.setEmploymentStartDate(request.getEmploymentStartDate());
         employee.setProbationEndDate(request.getProbationEndDate());
+        employee.setContractEndDate(request.getContractEndDate());
         employee.setBankName(request.getBankName());
         employee.setBankAccountNumber(request.getBankAccountNumber());
         employee.setBankAccountName(request.getBankAccountName());

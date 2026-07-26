@@ -66,6 +66,30 @@ class ComplianceDashboardServiceTest {
     }
 
     @Test
+    void build_bucketsContractsByUrgency() {
+        LocalDate today = LocalDate.now();
+        Employee lapsed = emp("A", "One", null);
+        lapsed.setContractEndDate(today.minusDays(4));
+        Employee ending = emp("B", "Two", null);
+        ending.setContractEndDate(today.plusDays(15));
+        Employee later = emp("C", "Three", null);
+        later.setContractEndDate(today.plusDays(60));
+        when(employeeRepository.findProbationDueThrough(any(), any())).thenReturn(List.of());
+        when(employeeRepository.findContractsEndingThrough(any(), any()))
+                .thenReturn(List.of(lapsed, ending, later));
+        when(featureAccessService.isAvailable(SubscriptionFeature.DOCUMENT_VAULT)).thenReturn(false);
+
+        ComplianceDashboardView v = service.build();
+
+        assertThat(v.contractsLapsedCount()).isEqualTo(1);
+        assertThat(v.contractsEnding30Count()).isEqualTo(1);
+        assertThat(v.contractsEnding90Count()).isEqualTo(1);
+        assertThat(v.contractsTotal()).isEqualTo(3);
+        assertThat(v.contractRows().get(0).bucketKind()).isEqualTo("error"); // lapsed, soonest first
+        assertThat(v.contractRows().get(0).daysRemaining()).isNegative();
+    }
+
+    @Test
     void build_documentSectionInertWhenFeatureOff() {
         when(employeeRepository.findProbationDueThrough(any(), any())).thenReturn(List.of());
         when(featureAccessService.isAvailable(SubscriptionFeature.DOCUMENT_VAULT)).thenReturn(false);

@@ -37,7 +37,7 @@
         <span th:text="${success}">Employee confirmed.</span>
     </div>
 
-    <!-- Summary tiles -->
+    <!-- Summary tiles: the headline urgency of each compliance concern -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
         <div class="bg-white border border-outline-variant rounded-xl p-lg">
             <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Probation overdue</p>
@@ -46,19 +46,20 @@
                th:text="${view.probationOverdueCount}">0</p>
         </div>
         <div class="bg-white border border-outline-variant rounded-xl p-lg">
-            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Due within 7 days</p>
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Probation due ≤7 days</p>
             <p class="font-headline-md text-headline-md text-on-surface" th:text="${view.probationDueSoonCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Contracts lapsed</p>
+            <p class="font-headline-md text-headline-md"
+               th:classappend="${view.contractsLapsedCount > 0 ? 'text-error' : 'text-on-surface'}"
+               th:text="${view.contractsLapsedCount}">0</p>
         </div>
         <div class="bg-white border border-outline-variant rounded-xl p-lg">
             <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Documents expired</p>
             <p class="font-headline-md text-headline-md"
                th:classappend="${view.docsExpiredCount > 0 ? 'text-error' : 'text-on-surface'}"
                th:text="${view.documentsAvailable ? view.docsExpiredCount : '—'}">0</p>
-        </div>
-        <div class="bg-white border border-outline-variant rounded-xl p-lg">
-            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Expiring in 30 days</p>
-            <p class="font-headline-md text-headline-md text-on-surface"
-               th:text="${view.documentsAvailable ? view.docsExpiring30Count : '—'}">0</p>
         </div>
     </div>
 
@@ -112,6 +113,50 @@
                                     Confirm
                                 </button>
                             </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Fixed-term contracts ending ───────────────────────────────────────── -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <div class="flex items-center justify-between mb-md">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Fixed-term contracts ending</h2>
+            <span class="font-body-sm text-body-sm text-on-surface-variant" th:text="${view.contractsTotal} + ' flagged'">0 flagged</span>
+        </div>
+
+        <div th:if="${!view.hasContracts()}" class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant py-md">
+            <span class="material-symbols-outlined text-[20px] text-secondary">task_alt</span>
+            No fixed-term contracts ending in the next 90 days.
+        </div>
+
+        <div th:if="${view.hasContracts()}" class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Employee</th>
+                        <th class="py-2 pr-4">Job Title</th>
+                        <th class="py-2 pr-4">Contract End</th>
+                        <th class="py-2 pr-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row : ${view.contractRows}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-3 pr-4">
+                            <a th:href="@{/htmx/employee-view(id=${row.employeeId})}"
+                               th:attr="hx-get=@{/htmx/employee-view(id=${row.employeeId})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="font-label-md text-label-md text-primary hover:underline cursor-pointer"
+                               th:text="${row.fullName}">Tayo Shonibare</a>
+                        </td>
+                        <td class="py-3 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${row.jobTitle}">Security Officer</td>
+                        <td class="py-3 pr-4 font-table-data text-table-data text-on-surface" th:text="${row.contractEndFormatted}">31 Dec 2026</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${row.bucketKind == 'error' ? 'bg-error-container text-on-error-container' : (row.bucketKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                                  th:text="${row.bucketLabel}">Ends in 21d</span>
                         </td>
                     </tr>
                 </tbody>

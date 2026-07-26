@@ -50,11 +50,14 @@ class ComplianceTemplateRenderTest {
         UUID empId = UUID.randomUUID();
         ComplianceDashboardView.ProbationRow probation = new ComplianceDashboardView.ProbationRow(
                 empId, "Tayo Shonibare", "Marketing Lead", "12 Aug 2026", -3, "Overdue by 3d", "error");
+        ComplianceDashboardView.ContractRow contract = new ComplianceDashboardView.ContractRow(
+                empId, "Bola Adewale", "Security Officer", "31 Dec 2026", 21, "Ends in 21d", "warn");
         ComplianceDashboardView.DocumentRow document = new ComplianceDashboardView.DocumentRow(
                 empId, "Tayo Shonibare", "Work Permit", "cerpac-2026.pdf", "30 Sep 2026", 20, "Expires in 20d", "warn");
 
         ComplianceDashboardView view = new ComplianceDashboardView(
                 1, 0, 0, List.of(probation),
+                0, 1, 0, List.of(contract),
                 true, 0, 1, 0, List.of(document));
 
         String html = render(view);
@@ -64,6 +67,10 @@ class ComplianceTemplateRenderTest {
         assertTrue(html.contains("Overdue by 3d"), "probation bucket label");
         assertTrue(html.contains("Confirm"), "one-click confirm affordance");
         assertTrue(html.contains("/htmx/compliance/confirm/" + empId), "confirm endpoint wired with the employee id");
+        assertTrue(html.contains("Fixed-term contracts ending"), "contract section heading");
+        assertTrue(html.contains("Bola Adewale"), "contract employee name");
+        assertTrue(html.contains("31 Dec 2026"), "contract end date");
+        assertTrue(html.contains("Ends in 21d"), "contract bucket label");
         assertTrue(html.contains("Work Permit"), "document type");
         assertTrue(html.contains("cerpac-2026.pdf"), "document file name");
         assertTrue(html.contains("Expires in 20d"), "document bucket label");
@@ -74,11 +81,13 @@ class ComplianceTemplateRenderTest {
         // Feature off, nothing due: probation empty-state + document feature-locked notice.
         ComplianceDashboardView view = new ComplianceDashboardView(
                 0, 0, 0, List.of(),
+                0, 0, 0, List.of(),
                 false, 0, 0, 0, List.of());
 
         String html = render(view);
 
         assertTrue(html.contains("No probation reviews due"), "probation empty state");
+        assertTrue(html.contains("No fixed-term contracts ending"), "contract empty state");
         assertTrue(html.contains("isn't on your current plan"), "document feature-locked notice");
         assertFalse(html.contains("/htmx/compliance/confirm/"), "no confirm buttons when nothing is due");
     }

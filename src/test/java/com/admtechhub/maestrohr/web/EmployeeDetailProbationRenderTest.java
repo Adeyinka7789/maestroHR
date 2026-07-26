@@ -56,7 +56,8 @@ class EmployeeDetailProbationRenderTest {
                 "02 Jun 2025", "02 Jun 2025",
                 true, false,
                 List.of(),
-                onProbation, confirmed, confirmedFormatted, confirmedBy, stateLabel, stateKind, canConfirm);
+                onProbation, confirmed, confirmedFormatted, confirmedBy, stateLabel, stateKind, canConfirm,
+                "Permanent");
     }
 
     @Test

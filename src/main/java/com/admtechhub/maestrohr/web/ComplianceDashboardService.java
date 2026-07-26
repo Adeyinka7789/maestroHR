@@ -41,6 +41,7 @@ public class ComplianceDashboardService {
             DateTimeFormatter.ofPattern("dd MMM uuuu", Locale.ENGLISH);
 
     private static final int PROBATION_HORIZON_DAYS = 30;
+    private static final int CONTRACT_HORIZON_DAYS = 90;
     private static final int DOCUMENT_HORIZON_DAYS = 90;
 
     private final EmployeeRepository employeeRepository;
@@ -77,6 +78,34 @@ public class ComplianceDashboardService {
             probationRows.add(new ComplianceDashboardView.ProbationRow(
                     e.getId(), e.getFullName(), orDash(e.getJobTitle()),
                     e.getProbationEndDate().format(DATE_FORMAT), days, label, kind));
+        }
+
+        // ── Fixed-term contracts ending ──────────────────────────────────────────
+        List<Employee> endingContracts = employeeRepository.findContractsEndingThrough(
+                today.plusDays(CONTRACT_HORIZON_DAYS), EmployeeStatus.TERMINATED);
+
+        List<ComplianceDashboardView.ContractRow> contractRows = new ArrayList<>(endingContracts.size());
+        int lapsed = 0, ending30 = 0, ending90 = 0;
+        for (Employee e : endingContracts) {
+            long days = ChronoUnit.DAYS.between(today, e.getContractEndDate());
+            String label;
+            String kind;
+            if (days < 0) {
+                label = "Lapsed " + (-days) + "d ago";
+                kind = "error";
+                lapsed++;
+            } else if (days <= 30) {
+                label = days == 0 ? "Ends today" : "Ends in " + days + "d";
+                kind = "warn";
+                ending30++;
+            } else {
+                label = "Ends in " + days + "d";
+                kind = "neutral";
+                ending90++;
+            }
+            contractRows.add(new ComplianceDashboardView.ContractRow(
+                    e.getId(), e.getFullName(), orDash(e.getJobTitle()),
+                    e.getContractEndDate().format(DATE_FORMAT), days, label, kind));
         }
 
         // ── Document & contract expiries (gated on DOCUMENT_VAULT) ────────────────
@@ -117,6 +146,7 @@ public class ComplianceDashboardService {
 
         return new ComplianceDashboardView(
                 overdue, soon, later, probationRows,
+                lapsed, ending30, ending90, contractRows,
                 documentsAvailable, expired, exp30, exp90, documentRows);
     }
 

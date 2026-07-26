@@ -38,6 +38,7 @@ public class EmployeeResponse {
     private EmploymentType employmentType;
     private LocalDate employmentStartDate;
     private LocalDate probationEndDate;
+    private LocalDate contractEndDate;
     private String bankName;
     private String bankAccountNumber;
     private String bankAccountName;

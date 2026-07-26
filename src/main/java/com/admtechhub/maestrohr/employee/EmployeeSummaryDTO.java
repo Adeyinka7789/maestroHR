@@ -33,6 +33,7 @@ public class EmployeeSummaryDTO {
     private LocalDate createdAt;
     private String employmentType;
     private LocalDate probationEndDate;
+    private LocalDate contractEndDate;
     private Integer payrollCount;
     private Integer leaveDaysTaken;
 
@@ -61,6 +62,7 @@ public class EmployeeSummaryDTO {
         this.bankAccountName = employee.getBankAccountName();
         this.paystackRecipientCode = employee.getPaystackRecipientCode();
         this.probationEndDate = employee.getProbationEndDate();
+        this.contractEndDate = employee.getContractEndDate();
         this.createdAt = employee.getCreatedAt() != null ? employee.getCreatedAt().toLocalDate() : null;
 
         // Lazy-loaded relationships (safe)

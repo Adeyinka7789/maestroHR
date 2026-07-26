@@ -72,6 +72,9 @@ public class UpdateEmployeeRequest {
 
     private LocalDate probationEndDate;
 
+    /** Optional fixed-term contract end date; null for permanent staff. */
+    private LocalDate contractEndDate;
+
     @NotBlank(message = "Bank name is required")
     @Size(max = 100)
     private String bankName;

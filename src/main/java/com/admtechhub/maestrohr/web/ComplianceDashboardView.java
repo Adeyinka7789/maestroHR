@@ -18,6 +18,12 @@ public record ComplianceDashboardView(
         int probationDueLaterCount,   // due in 8..30 days
         List<ProbationRow> probationRows,
 
+        // Fixed-term contracts ending (contractEndDate within 90 days or already lapsed)
+        int contractsLapsedCount,
+        int contractsEnding30Count,
+        int contractsEnding90Count,
+        List<ContractRow> contractRows,
+
         // Document & contract expiries (gated on the DOCUMENT_VAULT feature)
         boolean documentsAvailable,
         int docsExpiredCount,
@@ -37,6 +43,17 @@ public record ComplianceDashboardView(
             String bucketKind          // error / warn / neutral
     ) {}
 
+    /** One employee whose fixed-term contract is ending or has lapsed. */
+    public record ContractRow(
+            UUID employeeId,
+            String fullName,
+            String jobTitle,
+            String contractEndFormatted,
+            long daysRemaining,        // negative when the contract has already lapsed
+            String bucketLabel,        // e.g. "Lapsed 4d ago" / "Ends today" / "Ends in 21d"
+            String bucketKind          // error / warn / neutral
+    ) {}
+
     /** One document nearing or past expiry, linking back to its owning employee. */
     public record DocumentRow(
             UUID employeeId,
@@ -51,6 +68,14 @@ public record ComplianceDashboardView(
 
     public boolean hasProbation() {
         return !probationRows.isEmpty();
+    }
+
+    public boolean hasContracts() {
+        return !contractRows.isEmpty();
+    }
+
+    public int contractsTotal() {
+        return contractRows.size();
     }
 
     public boolean hasDocuments() {

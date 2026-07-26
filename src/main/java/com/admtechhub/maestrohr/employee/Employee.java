@@ -93,6 +93,14 @@ public class Employee extends BaseEntity {
     @Column(name = "probation_end_date")
     private LocalDate probationEndDate;
 
+    /**
+     * Fixed-term contract end date (see V63). Null for permanent staff. Surfaced on the
+     * Compliance &amp; Expiry dashboard so HR can renew before it lapses; distinct from the
+     * probation window above and from any CONTRACT document in the vault.
+     */
+    @Column(name = "contract_end_date")
+    private LocalDate contractEndDate;
+
     @Column(name = "bank_name", nullable = false)
     private String bankName;
 

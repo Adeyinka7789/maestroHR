@@ -139,7 +139,10 @@ public class EmployeeDetailService {
                 confirmed && e.getConfirmedBy() != null ? e.getConfirmedBy() : "—",
                 probationStateLabel,
                 probationStateKind,
-                canConfirm);
+                canConfirm,
+
+                // Fixed-term contract
+                e.getContractEndDate() != null ? formatDate(e.getContractEndDate()) : "Permanent");
     }
 
     /**
