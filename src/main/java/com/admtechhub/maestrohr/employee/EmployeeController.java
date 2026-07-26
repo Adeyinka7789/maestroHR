@@ -102,6 +102,17 @@ public class EmployeeController {
         return ResponseEntity.ok(ApiResponse.success("Employee terminated successfully", null));
     }
 
+    /**
+     * Probation → Confirmation: one-click trigger that marks the employee as confirmed
+     * (unlocking pay-grade changes). HR/super-admin only; idempotent on the service side.
+     */
+    @PostMapping("/{id}/confirm")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<EmployeeDetailsDTO>> confirmEmployee(@PathVariable UUID id) {
+        EmployeeDetailsDTO confirmed = employeeService.confirmEmployee(id);
+        return ResponseEntity.ok(ApiResponse.success("Employee confirmed", confirmed));
+    }
+
     @GetMapping("/export/excel")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> exportEmployeesToExcel() {

@@ -68,6 +68,14 @@ public class EmployeeDetailService {
         boolean canTerminate = hasAnyRole("ROLE_HR_ADMIN", "ROLE_SYSTEM_ADMIN", "ROLE_SUPER_ADMIN") && !terminated;
         boolean canHardDelete = hasAnyRole("ROLE_SUPER_ADMIN") && employeeService.canHardDelete(e.getId());
 
+        // Probation → Confirmation state (see V62).
+        boolean onProbation = e.isOnProbation();
+        boolean confirmed = e.isConfirmed();
+        boolean canConfirm = onProbation
+                && hasAnyRole("ROLE_HR_ADMIN", "ROLE_SYSTEM_ADMIN", "ROLE_SUPER_ADMIN");
+        String probationStateLabel = onProbation ? "On Probation" : confirmed ? "Confirmed" : "—";
+        String probationStateKind = onProbation ? "warn" : confirmed ? "success" : "neutral";
+
         return new EmployeeDetailView(
                 e.getId(),
                 e.getFullName(),
@@ -122,7 +130,16 @@ public class EmployeeDetailService {
                 canHardDelete,
 
                 // Loans
-                buildLoanSummaries(e.getId()));
+                buildLoanSummaries(e.getId()),
+
+                // Probation → Confirmation
+                onProbation,
+                confirmed,
+                formatDate(e.getConfirmedAt()),
+                confirmed && e.getConfirmedBy() != null ? e.getConfirmedBy() : "—",
+                probationStateLabel,
+                probationStateKind,
+                canConfirm);
     }
 
     /**

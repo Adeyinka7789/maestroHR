@@ -113,6 +113,16 @@ public class Employee extends BaseEntity {
     @Column(name = "termination_date")
     private LocalDate terminationDate;
 
+    // Probation → Confirmation overlay (see V62). An employee is "on probation" while these
+    // are null AND a probationEndDate is set; confirmation stamps both. Kept separate from
+    // EmployeeStatus (which stays ACTIVE throughout) so probation staff remain in payroll,
+    // headcount and the retirement/birthday sweeps, all of which filter status = ACTIVE.
+    @Column(name = "confirmed_at")
+    private OffsetDateTime confirmedAt;
+
+    @Column(name = "confirmed_by")
+    private String confirmedBy;
+
     // Soft-delete marker: when set, the employee is trashed and hidden from scoped
     // reads (see @SQLRestriction) until the cleanup job purges it after the 90-day
     // window. Distinct from status=TERMINATED, which keeps the employee visible.
@@ -139,5 +149,21 @@ public class Employee extends BaseEntity {
     // Helper method to check if employee is active
     public boolean isActive() {
         return status == EmployeeStatus.ACTIVE;
+    }
+
+    /** True once HR has recorded the probation confirmation (see V62). */
+    public boolean isConfirmed() {
+        return confirmedAt != null;
+    }
+
+    /**
+     * On probation = a probation window was set, it has not yet been confirmed, and the
+     * employee is still on the books (not terminated). Drives the confirmation affordance
+     * on the detail page and the pay-grade lock in {@code EmployeeService.updateEmployee}.
+     */
+    public boolean isOnProbation() {
+        return probationEndDate != null
+                && confirmedAt == null
+                && status != EmployeeStatus.TERMINATED;
     }
 }

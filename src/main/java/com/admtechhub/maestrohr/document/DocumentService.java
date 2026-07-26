@@ -106,6 +106,16 @@ public class DocumentService {
         return documentRepository.findByExpiryDateBetweenOrderByExpiryDateAsc(today, today.plusDays(days));
     }
 
+    /**
+     * Documents whose expiry falls on or before {@code through} — includes already-expired
+     * documents — for the compliance dashboard. Tenant-scoped (RLS + {@code @SQLRestriction}).
+     * The lower bound is a fixed sentinel well before any real record.
+     */
+    @Transactional(readOnly = true)
+    public List<EmployeeDocumentSummary> getExpiringThrough(LocalDate through) {
+        return documentRepository.findByExpiryDateBetweenOrderByExpiryDateAsc(LocalDate.of(1970, 1, 1), through);
+    }
+
     /** Owning employee of a document, for the self-service IDOR guard. */
     @Transactional(readOnly = true)
     public UUID ownerEmployeeId(UUID documentId) {

@@ -23,8 +23,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -215,5 +217,93 @@ class EmployeeServiceTest {
         assertThatThrownBy(() -> employeeService.getEmployeeById(EMP_ID))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not found");
+    }
+
+    // 9 ── confirmEmployee stamps confirmedAt/by, audits, and notifies the employee
+    @Test
+    void confirmEmployee_stampsAuditsAndNotifies() {
+        Employee e = active();
+        e.setEmail(EMAIL);
+        e.setProbationEndDate(LocalDate.now().plusMonths(1));
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
+        when(employeeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        employeeService.confirmEmployee(EMP_ID);
+
+        assertThat(e.getConfirmedAt()).isNotNull();
+        assertThat(e.getConfirmedBy()).isNotNull();
+        assertThat(e.isConfirmed()).isTrue();
+        assertThat(e.isOnProbation()).isFalse();
+        verify(employeeRepository).save(e);
+        verify(auditTrailService).record(any(), any(), eq("EMPLOYEE_CONFIRMED"),
+                any(), any(), any(), any(), any(), anyInt(), any());
+        verify(notificationService).createInAppNotification(
+                eq(EMAIL), eq("EMPLOYEE_CONFIRMED"), anyString(), anyString(), anyString());
+    }
+
+    // 10 ── confirmEmployee is idempotent: a second call is a no-op (no save/audit/notify)
+    @Test
+    void confirmEmployee_idempotent_whenAlreadyConfirmed() {
+        Employee e = active();
+        e.setEmail(EMAIL);
+        e.setProbationEndDate(LocalDate.now().plusMonths(1));
+        e.setConfirmedAt(OffsetDateTime.now().minusDays(3));
+        e.setConfirmedBy("hr@maestro.com");
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
+
+        employeeService.confirmEmployee(EMP_ID);
+
+        verify(employeeRepository, never()).save(any());
+        verify(auditTrailService, never()).record(any(), any(), anyString(),
+                any(), any(), any(), any(), any(), anyInt(), any());
+        verify(notificationService, never()).createInAppNotification(
+                anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    // 11 ── a terminated employee cannot be confirmed
+    @Test
+    void confirmEmployee_terminated_throws() {
+        Employee e = Employee.builder().status(EmployeeStatus.TERMINATED).build();
+        e.setId(EMP_ID);
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
+
+        assertThatThrownBy(() -> employeeService.confirmEmployee(EMP_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("terminated");
+
+        verify(employeeRepository, never()).save(any());
+    }
+
+    // 12 ── pay-grade change is blocked while an employee is on probation
+    @Test
+    void updateEmployee_payGradeChangeOnProbation_throws() {
+        UUID newPayGradeId = UUID.randomUUID();
+
+        Employee e = active();
+        e.setEmail(EMAIL);
+        e.setProbationEndDate(LocalDate.now().plusMonths(1)); // on probation (unconfirmed)
+        PayGrade oldPg = PayGrade.builder().build();
+        oldPg.setId(PG_ID);
+        e.setPayGrade(oldPg);
+
+        UpdateEmployeeRequest req = UpdateEmployeeRequest.builder()
+                .firstName("John").lastName("Doe").email(EMAIL).phone("08012345678")
+                .departmentId(DEPT_ID).payGradeId(newPayGradeId)   // changing the grade
+                .jobTitle("Analyst").employmentType(EmploymentType.FULL_TIME)
+                .employmentStartDate(LocalDate.now().minusMonths(2))
+                .bankName("GTBank").bankAccountNumber("1234567890").bankAccountName("John Doe")
+                .build();
+
+        Department d = new Department(); d.setId(DEPT_ID);
+        PayGrade newPg = PayGrade.builder().build(); newPg.setId(newPayGradeId);
+        when(employeeRepository.findByIdAndTenantId(eq(EMP_ID), any(UUID.class))).thenReturn(Optional.of(e));
+        when(departmentRepository.findById(DEPT_ID)).thenReturn(Optional.of(d));
+        when(payGradeRepository.findById(newPayGradeId)).thenReturn(Optional.of(newPg));
+
+        assertThatThrownBy(() -> employeeService.updateEmployee(EMP_ID, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("probation");
+
+        verify(employeeRepository, never()).save(any());
     }
 }

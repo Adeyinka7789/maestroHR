@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<!--
+  compliance.html — server-rendered HTMX fragment (Option 3): the Compliance & Expiry
+  dashboard. Rendered by ComplianceController as "compliance :: content" for
+  GET /htmx/compliance and swapped into #page-content. Two concerns on one page:
+  probation reviews falling due (with one-click confirm) and employee documents
+  (contracts / work permits / IDs) nearing or past expiry. Styled with the Stitch
+  design tokens compiled into /css/dashboard.css, matching employee-detail.html.
+
+  The html/body wrapper exists purely so Thymeleaf's parser sees a well-formed
+  document; only the th:fragment node is emitted.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!-- ============================ CONTENT ============================ -->
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <!-- Header -->
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary">Compliance &amp; Expiry</h1>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+            Probation reviews falling due and employee documents nearing expiry, in one place.
+        </p>
+    </div>
+
+    <!-- Action error banner -->
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+
+    <!-- Action success banner -->
+    <div th:if="${success}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Employee confirmed.</span>
+    </div>
+
+    <!-- Summary tiles -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Probation overdue</p>
+            <p class="font-headline-md text-headline-md"
+               th:classappend="${view.probationOverdueCount > 0 ? 'text-error' : 'text-on-surface'}"
+               th:text="${view.probationOverdueCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Due within 7 days</p>
+            <p class="font-headline-md text-headline-md text-on-surface" th:text="${view.probationDueSoonCount}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Documents expired</p>
+            <p class="font-headline-md text-headline-md"
+               th:classappend="${view.docsExpiredCount > 0 ? 'text-error' : 'text-on-surface'}"
+               th:text="${view.documentsAvailable ? view.docsExpiredCount : '—'}">0</p>
+        </div>
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-xs">Expiring in 30 days</p>
+            <p class="font-headline-md text-headline-md text-on-surface"
+               th:text="${view.documentsAvailable ? view.docsExpiring30Count : '—'}">0</p>
+        </div>
+    </div>
+
+    <!-- ── Probation reviews due ─────────────────────────────────────────────── -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <div class="flex items-center justify-between mb-md">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Probation reviews due</h2>
+            <span class="font-body-sm text-body-sm text-on-surface-variant" th:text="${view.probationTotal} + ' due'">0 due</span>
+        </div>
+
+        <div th:if="${!view.hasProbation()}" class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant py-md">
+            <span class="material-symbols-outlined text-[20px] text-secondary">task_alt</span>
+            No probation reviews due in the next 30 days.
+        </div>
+
+        <div th:if="${view.hasProbation()}" class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Employee</th>
+                        <th class="py-2 pr-4">Job Title</th>
+                        <th class="py-2 pr-4">Probation End</th>
+                        <th class="py-2 pr-4">Status</th>
+                        <th class="py-2 pr-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="row : ${view.probationRows}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-3 pr-4">
+                            <a th:href="@{/htmx/employee-view(id=${row.employeeId})}"
+                               th:attr="hx-get=@{/htmx/employee-view(id=${row.employeeId})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="font-label-md text-label-md text-primary hover:underline cursor-pointer"
+                               th:text="${row.fullName}">Tayo Shonibare</a>
+                        </td>
+                        <td class="py-3 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${row.jobTitle}">Marketing Lead</td>
+                        <td class="py-3 pr-4 font-table-data text-table-data text-on-surface" th:text="${row.probationEndFormatted}">12 Aug 2026</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${row.bucketKind == 'error' ? 'bg-error-container text-on-error-container' : (row.bucketKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                                  th:text="${row.bucketLabel}">Overdue by 3d</span>
+                        </td>
+                        <td class="py-3 pr-0 text-right">
+                            <form th:attr="hx-post=@{/htmx/compliance/confirm/{id}(id=${row.employeeId})}"
+                                  hx-target="#page-content" hx-swap="innerHTML"
+                                  hx-confirm="Confirm this employee? This ends their probation and unlocks pay-grade changes."
+                                  class="inline">
+                                <button type="submit"
+                                        class="inline-flex items-center gap-xs bg-secondary text-white px-4 py-1.5 rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                    <span class="material-symbols-outlined text-[18px]">verified</span>
+                                    Confirm
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Document & contract expiries ──────────────────────────────────────── -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg">
+        <div class="flex items-center justify-between mb-md">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Document &amp; contract expiries</h2>
+            <span th:if="${view.documentsAvailable}" class="font-body-sm text-body-sm text-on-surface-variant"
+                  th:text="${view.documentsTotal} + ' flagged'">0 flagged</span>
+        </div>
+
+        <!-- Feature locked -->
+        <div th:if="${!view.documentsAvailable}"
+             class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant py-md">
+            <span class="material-symbols-outlined text-[20px]">lock</span>
+            Document expiry tracking is part of the Document Vault feature, which isn't on your current plan.
+        </div>
+
+        <div th:if="${view.documentsAvailable and !view.hasDocuments()}"
+             class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant py-md">
+            <span class="material-symbols-outlined text-[20px] text-secondary">task_alt</span>
+            No documents expiring in the next 90 days.
+        </div>
+
+        <div th:if="${view.documentsAvailable and view.hasDocuments()}" class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                        <th class="py-2 pr-4">Employee</th>
+                        <th class="py-2 pr-4">Type</th>
+                        <th class="py-2 pr-4">Document</th>
+                        <th class="py-2 pr-4">Expiry</th>
+                        <th class="py-2 pr-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="doc : ${view.documentRows}" class="border-b border-outline-variant last:border-0">
+                        <td class="py-3 pr-4">
+                            <a th:href="@{/htmx/employee-view(id=${doc.employeeId})}"
+                               th:attr="hx-get=@{/htmx/employee-view(id=${doc.employeeId})}"
+                               hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                               class="font-label-md text-label-md text-primary hover:underline cursor-pointer"
+                               th:text="${doc.employeeName}">Tayo Shonibare</a>
+                        </td>
+                        <td class="py-3 pr-4 font-body-sm text-body-sm text-on-surface" th:text="${doc.documentType}">Work Permit</td>
+                        <td class="py-3 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${doc.fileName}">cerpac-2026.pdf</td>
+                        <td class="py-3 pr-4 font-table-data text-table-data text-on-surface" th:text="${doc.expiryFormatted}">30 Sep 2026</td>
+                        <td class="py-3 pr-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                  th:classappend="${doc.bucketKind == 'error' ? 'bg-error-container text-on-error-container' : (doc.bucketKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                                  th:text="${doc.bucketLabel}">Expires in 20d</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

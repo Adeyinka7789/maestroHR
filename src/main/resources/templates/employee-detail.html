@@ -72,6 +72,10 @@
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold"
                       th:classappend="${detail.statusKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (detail.statusKind == 'error' ? 'bg-error-container text-on-error-container' : (detail.statusKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
                       th:text="${detail.statusLabel}">Active</span>
+                <!-- Probation → Confirmation badge (see V62): amber while on probation, green once confirmed. -->
+                <span th:if="${detail.onProbation or detail.confirmed}" class="px-2 py-0.5 rounded text-[10px] font-bold"
+                      th:classappend="${detail.probationStateKind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (detail.probationStateKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                      th:text="${detail.probationStateLabel}">On Probation</span>
             </div>
             <div class="flex flex-wrap items-center gap-md font-body-sm text-body-sm text-on-surface-variant">
                 <span class="inline-flex items-center gap-xs">
@@ -92,6 +96,20 @@
                 <span class="material-symbols-outlined text-[20px]">edit</span>
                 Edit
             </a>
+
+            <!-- Confirm (probation → confirmation) — HR/super-admin, shown only while the employee
+                 is on probation (see V62). One click ends probation and unlocks pay-grade changes;
+                 hx-confirm guards against an accidental submit. Re-renders the detail fragment. -->
+            <form th:if="${detail.canConfirm}"
+                  th:attr="hx-post=@{/htmx/employee-view/{id}/confirm(id=${detail.id})}"
+                  hx-target="#page-content" hx-swap="innerHTML"
+                  hx-confirm="Confirm this employee? This ends their probation and unlocks pay-grade changes.">
+                <button type="submit"
+                        class="flex items-center gap-xs bg-secondary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all duration-300">
+                    <span class="material-symbols-outlined text-[20px]">verified</span>
+                    Confirm
+                </button>
+            </form>
 
             <!-- Terminate (soft delete) — HR/super-admin, hidden once already terminated.
                  Inline <details> confirm with a termination-date input (defaults to today),
@@ -181,6 +199,13 @@
                     <div>
                         <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Probation End</p>
                         <p class="font-body-md text-body-md text-on-surface" th:text="${detail.probationEndFormatted}">Completed</p>
+                        <p th:if="${detail.confirmed}" class="font-body-sm text-body-sm text-secondary mt-0.5">
+                            Confirmed <span th:text="${detail.confirmedFormatted}">12 Aug 2026</span><span
+                                th:if="${detail.confirmedBy != '—'}" th:text="' · ' + ${detail.confirmedBy}"></span>
+                        </p>
+                        <p th:if="${detail.onProbation}" class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                            On probation — not yet confirmed
+                        </p>
                     </div>
                     <div>
                         <p class="font-label-sm text-label-sm text-on-surface-variant mb-0.5">Shift</p>

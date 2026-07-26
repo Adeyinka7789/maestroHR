@@ -267,6 +267,14 @@ public class EmployeeService {
         PayGrade payGrade = payGradeRepository.findById(request.getPayGradeId())
                 .orElseThrow(() -> new IllegalArgumentException("Pay grade not found: " + request.getPayGradeId()));
 
+        // Pay-grade changes are locked while an employee is on probation; confirming them
+        // unlocks it (see V62 / confirmEmployee). SUPER_ADMIN may override for corrections.
+        boolean payGradeChanged = oldPayGradeId != null && !request.getPayGradeId().equals(oldPayGradeId);
+        if (payGradeChanged && employee.isOnProbation() && !currentUserIsSuperAdmin()) {
+            throw new IllegalArgumentException(
+                    "This employee is on probation. Confirm them before changing their pay grade.");
+        }
+
         // Optional: null clears the assignment (falls back to the tenant default shift at check-in time).
         Shift shift = request.getShiftId() != null
                 ? shiftRepository.findById(request.getShiftId())
@@ -351,6 +359,45 @@ public class EmployeeService {
         }
 
         return toDetailsDto(updatedEmployee);
+    }
+
+    /**
+     * Probation → Confirmation (see V62). Stamps {@code confirmed_at/by}, records an audit
+     * entry, and notifies the employee. Idempotent: a second call on an already-confirmed
+     * employee is a no-op (no duplicate audit/notification). A terminated employee cannot be
+     * confirmed. Once confirmed, {@link #updateEmployee} no longer blocks pay-grade changes.
+     */
+    @Transactional
+    public EmployeeDetailsDTO confirmEmployee(UUID id) {
+        UUID tenantId = getCurrentTenantId();
+        Employee employee = employeeRepository.findByIdAndTenantId(id, tenantId)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + id));
+
+        if (employee.getStatus() == EmployeeStatus.TERMINATED) {
+            throw new IllegalStateException("A terminated employee cannot be confirmed.");
+        }
+        if (employee.isConfirmed()) {
+            return toDetailsDto(employee);
+        }
+
+        String actor = currentUserEmail();
+        employee.setConfirmedAt(OffsetDateTime.now());
+        employee.setConfirmedBy(actor);
+        employeeRepository.save(employee);
+
+        auditTrailService.record(tenantId, actor, "EMPLOYEE_CONFIRMED",
+                "EMPLOYEE", id.toString(), "/api/employees/" + id + "/confirm", "POST",
+                null, 200, "Probation confirmed for " + employee.getFullName());
+
+        if (employee.getEmail() != null && !employee.getEmail().isBlank()) {
+            notificationService.createInAppNotification(
+                    employee.getEmail(), "EMPLOYEE_CONFIRMED",
+                    "Probation confirmed",
+                    "Congratulations — your probation has been confirmed and your employment is now permanent.",
+                    "/htmx/dashboard");
+        }
+        log.info("Confirmed employee {} by {}", id, actor);
+        return toDetailsDto(employee);
     }
 
     @Transactional

@@ -147,6 +147,22 @@ public class EmployeesController {
     }
 
     /**
+     * Probation → Confirmation from the detail page: one click marks the employee confirmed
+     * (unlocking pay-grade changes), then re-renders the detail fragment with the badge now
+     * showing "Confirmed" and the Confirm button gone. Mirrors REST
+     * {@code POST /api/employees/{id}/confirm}; idempotent on the service side. Role gate
+     * matches that endpoint (HR_ADMIN/SUPER_ADMIN), overriding the class default.
+     */
+    @PostMapping("/htmx/employee-view/{id}/confirm")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'SUPER_ADMIN')")
+    public String confirm(@PathVariable UUID id, Model model) {
+        employeeService.confirmEmployee(id);
+        model.addAttribute("success", "Employee confirmed.");
+        model.addAttribute("detail", employeeDetailService.buildDetail(id));
+        return "employee-detail :: content";
+    }
+
+    /**
      * Soft-delete the employee — move it to the 90-day trash (SUPER_ADMIN only), allowed by the
      * service only when no records depend on it; otherwise {@link IllegalStateException} bubbles to
      * the handler below, which re-renders the list with the reason. On success the employee is

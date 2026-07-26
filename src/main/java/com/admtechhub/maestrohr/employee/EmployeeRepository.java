@@ -98,6 +98,22 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
                                 Pageable pageable);
 
     /**
+     * Compliance dashboard — employees still on probation (unconfirmed, with a probation end
+     * date) whose window closes on or before {@code through}, which by design also captures
+     * anyone already overdue (probationEndDate &lt; today). Terminated staff are excluded.
+     * Tenant isolation + soft-delete filtering come from the entity {@code @SQLRestriction};
+     * the partial index from V62 backs this scan. Ordered soonest-first.
+     */
+    @Query("SELECT e FROM Employee e " +
+            "WHERE e.confirmedAt IS NULL " +
+            "AND e.probationEndDate IS NOT NULL " +
+            "AND e.probationEndDate <= :through " +
+            "AND e.status <> :terminated " +
+            "ORDER BY e.probationEndDate ASC")
+    List<Employee> findProbationDueThrough(@Param("through") LocalDate through,
+                                           @Param("terminated") EmployeeStatus terminated);
+
+    /**
      * For payroll computation: active employees plus those terminated within the period.
      *
      * FETCH OPTIMIZED: Eagerly loads department and payGrade to prevent N+1 queries

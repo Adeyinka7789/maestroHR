@@ -139,6 +139,10 @@
     if (userRole !== 'HR_ADMIN' && userRole !== 'SUPER_ADMIN' && userRole !== 'SYSTEM_ADMIN') {
         const auditLink = document.querySelector('a[data-route="audit"]');
         if (auditLink) auditLink.style.display = 'none';
+        // Compliance & Expiry is HR/admin only (the controller gates to HR_ADMIN/SUPER_ADMIN);
+        // hide the nav link for other roles so it never 403s from the sidebar.
+        const complianceLink = document.querySelector('a[data-route="compliance"]');
+        if (complianceLink) complianceLink.style.display = 'none';
     }
 
     // Hide the help-panel "Settings" link for non‑authorized roles. layout.html is served as a

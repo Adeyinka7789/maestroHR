@@ -70,7 +70,17 @@ public record EmployeeDetailView(
         boolean canHardDelete,     // SUPER_ADMIN and the employee has no dependent records
 
         // Loans — read-only summary of this employee's loans (newest first), or empty.
-        List<LoanSummary> loans
+        List<LoanSummary> loans,
+
+        // Probation → Confirmation state (see V62). An ACTIVE employee with a probation end
+        // date and no confirmation is "on probation"; confirming them stamps confirmedFormatted.
+        boolean onProbation,
+        boolean confirmed,
+        String confirmedFormatted,       // "12 Aug 2026" once confirmed, else "—"
+        String confirmedBy,              // actor email once confirmed, else "—"
+        String probationStateLabel,      // "On Probation" / "Confirmed" / "—"
+        String probationStateKind,       // badge bucket: warn / success / neutral
+        boolean canConfirm               // HR/super-admin AND the employee is on probation
 ) {
 
     /** A single loan summarised for the employee detail page; money pre-formatted as naira. */
