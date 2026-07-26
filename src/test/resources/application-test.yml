@@ -17,6 +17,18 @@ spring:
   datasource:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    # Cap the primary Hikari pool per Spring test context. The suite caches many contexts
+    # (up to the default 32), and each holds its own primary pool — with the default pool
+    # size of 10 that can demand ~320 connections and trips Postgres "FATAL: sorry, too many
+    # clients already" late in a full run. Tests are single-threaded per fork, so a small
+    # pool is plenty; minimum-idle 0 + a short idle-timeout lets idle (cached-but-inactive)
+    # contexts release their connections so concurrent usage stays well under max_connections.
+    # A few payroll paths use REQUIRES_NEW on this datasource, so keep at least 3.
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      idle-timeout: 10000
+      max-lifetime: 60000
   kafka:
     # Resolve KAFKA_BOOTSTRAP_SERVERS without requiring the env var in CI/test runners.
     # fail-fast: false so missing broker does not abort context startup.
