@@ -16,6 +16,9 @@ public final class GlDtos {
     /** Request to create/update a cost center (from the htmx form). */
     public record CostCenterForm(String name, String code, String location, String glAccountCode) {}
 
+    /** An employee shown in the bulk-assign checklist, with their current cost center (or "—"). */
+    public record EmployeeAssignRow(UUID id, String name, String employeeNumber, String currentCostCenter) {}
+
     /** The tenant's GL account codes, for the config form. */
     public record GlConfigView(
             String salaryExpenseAccount, String pensionExpenseAccount, String netPayAccount,

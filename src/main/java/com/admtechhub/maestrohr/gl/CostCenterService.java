@@ -75,6 +75,37 @@ public class CostCenterService {
         costCenterRepository.save(cc);
     }
 
+    /** Active employees for the bulk-assign checklist, with their current cost center. */
+    @Transactional(readOnly = true)
+    public List<GlDtos.EmployeeAssignRow> listAssignableEmployees() {
+        return employeeRepository.findByStatus(com.admtechhub.maestrohr.employee.EmployeeStatus.ACTIVE).stream()
+                .sorted(java.util.Comparator.comparing(com.admtechhub.maestrohr.employee.Employee::getFullName,
+                        String.CASE_INSENSITIVE_ORDER))
+                .map(e -> new GlDtos.EmployeeAssignRow(e.getId(), e.getFullName(), e.getEmployeeNumber(),
+                        e.getCostCenter() != null ? e.getCostCenter().getName() : "—"))
+                .toList();
+    }
+
+    /**
+     * Assign the given employees to {@code costCenterId} in one action, or unassign them all when
+     * it is null/blank. Returns the number of employees updated.
+     */
+    @Transactional
+    public int assignToCostCenter(UUID costCenterId, List<UUID> employeeIds) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one employee to assign.");
+        }
+        CostCenter cc = costCenterId != null
+                ? costCenterRepository.findById(costCenterId)
+                        .orElseThrow(() -> new IllegalArgumentException("Cost center not found."))
+                : null;
+        List<com.admtechhub.maestrohr.employee.Employee> employees =
+                employeeRepository.findAllById(employeeIds);
+        employees.forEach(e -> e.setCostCenter(cc));
+        employeeRepository.saveAll(employees);
+        return employees.size();
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────────
 
     private Map<UUID, Long> employeeCounts() {

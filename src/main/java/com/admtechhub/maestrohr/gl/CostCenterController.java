@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -89,6 +90,21 @@ public class CostCenterController {
         return "cost-centers :: content";
     }
 
+    /** Bulk-assign the selected employees to a cost center (blank id = unassign), then re-render. */
+    @PostMapping("/htmx/cost-centers/assign")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+    @RequiresFeature(SubscriptionFeature.BASIC_PAYROLL)
+    public String assign(@RequestParam(required = false) UUID costCenterId,
+                         @RequestParam(name = "employeeIds", required = false) List<UUID> employeeIds,
+                         Model model) {
+        int n = costCenterService.assignToCostCenter(costCenterId, employeeIds);
+        model.addAttribute("success", costCenterId != null
+                ? n + " employee(s) assigned to the cost center."
+                : n + " employee(s) unassigned.");
+        populate(model);
+        return "cost-centers :: content";
+    }
+
     @PostMapping("/htmx/gl-config")
     @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
     @RequiresFeature(SubscriptionFeature.BASIC_PAYROLL)
@@ -135,6 +151,7 @@ public class CostCenterController {
     private void populate(Model model) {
         model.addAttribute("costCenters", costCenterService.list());
         model.addAttribute("config", glExportService.getConfigView());
+        model.addAttribute("assignable", costCenterService.listAssignableEmployees());
     }
 
     private void gate() {

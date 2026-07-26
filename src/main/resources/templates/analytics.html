@@ -79,7 +79,19 @@
 
         <!-- Dept RCOL -->
         <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg" th:if="${view.hasDeptRcol()}">
-            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Cost by department</h2>
+            <div class="flex items-center justify-between mb-md">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Cost by department</h2>
+                <div class="flex gap-xs">
+                    <a th:href="@{/analytics/rcol/export(format='csv')}"
+                       class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all">
+                        <span class="material-symbols-outlined text-[18px]">download</span>CSV
+                    </a>
+                    <a th:href="@{/analytics/rcol/export(format='excel')}"
+                       class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-3 py-1.5 rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-all">
+                        <span class="material-symbols-outlined text-[18px]">download</span>Excel
+                    </a>
+                </div>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>

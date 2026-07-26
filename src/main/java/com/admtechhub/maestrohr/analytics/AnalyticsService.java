@@ -155,6 +155,53 @@ public class AnalyticsService {
                 burnout.size(), burnout);
     }
 
+    // ── RCOL export (raw kobo breakdown for CSV/Excel) ──────────────────────────
+
+    /** Per-department RCOL breakdown (raw kobo) for the latest finalized run, plus a totals row. */
+    @Transactional(readOnly = true)
+    public RcolReport buildRcolReport() {
+        List<PayrollRun> runs = payrollRunRepository.findByStatusInOrderByPeriodDesc(FINALIZED);
+        if (runs.isEmpty()) {
+            return new RcolReport(false, "", List.of(), null);
+        }
+        PayrollRun latest = runs.get(0);
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunIdWithEntities(latest.getId());
+
+        // dept -> [headcount, gross, employerPension, nsitf, itf, rcol]
+        Map<String, long[]> agg = new LinkedHashMap<>();
+        long tHead = 0, tGross = 0, tPension = 0, tNsitf = 0, tItf = 0, tRcol = 0;
+        for (PayrollEntry e : entries) {
+            long gross = n(e.getGrossSalary());
+            long pension = n(e.getPensionEmployer());
+            long nsitf = gross * NSITF_BP / 100;
+            long itf = gross * ITF_BP / 100;
+            long rcol = gross + pension + nsitf + itf;
+            long[] a = agg.computeIfAbsent(departmentName(e.getEmployee()), k -> new long[6]);
+            a[0]++;
+            a[1] += gross;
+            a[2] += pension;
+            a[3] += nsitf;
+            a[4] += itf;
+            a[5] += rcol;
+            tHead++;
+            tGross += gross;
+            tPension += pension;
+            tNsitf += nsitf;
+            tItf += itf;
+            tRcol += rcol;
+        }
+
+        List<RcolReport.Row> rows = agg.entrySet().stream()
+                .sorted((x, y) -> Long.compare(y.getValue()[5], x.getValue()[5]))
+                .map(en -> {
+                    long[] a = en.getValue();
+                    return new RcolReport.Row(en.getKey(), (int) a[0], a[1], a[2], a[3], a[4], a[5]);
+                })
+                .toList();
+        RcolReport.Row totals = new RcolReport.Row("TOTAL", (int) tHead, tGross, tPension, tNsitf, tItf, tRcol);
+        return new RcolReport(true, periodLabel(latest), rows, totals);
+    }
+
     // ── RCOL trend geometry ─────────────────────────────────────────────────────
 
     private record Trend(boolean hasTrend, List<AnalyticsView.TrendPoint> points,

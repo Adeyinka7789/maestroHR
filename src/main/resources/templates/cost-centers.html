@@ -106,6 +106,39 @@
         </div>
     </div>
 
+    <!-- Bulk assign employees -->
+    <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg" th:if="${!assignable.isEmpty()}">
+        <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Bulk assign employees</h2>
+        <form th:attr="hx-post=@{/htmx/cost-centers/assign}" hx-target="#page-content" hx-swap="innerHTML">
+            <div class="flex flex-wrap items-end gap-sm mb-md">
+                <div>
+                    <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Assign selected to</label>
+                    <select name="costCenterId"
+                            class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+                        <option value="">— Unassign —</option>
+                        <option th:each="cc : ${costCenters}" th:if="${cc.active}" th:value="${cc.id}" th:text="${cc.name}">Lekki Outlet</option>
+                    </select>
+                </div>
+                <button type="submit"
+                        class="flex items-center gap-xs bg-primary text-white px-4 py-2 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all">
+                    <span class="material-symbols-outlined text-[20px]">how_to_reg</span>Apply
+                </button>
+                <span class="font-body-sm text-body-sm text-on-surface-variant">Tick employees below, choose a cost center, then Apply.</span>
+            </div>
+            <div class="border border-outline-variant rounded-lg" style="max-height:320px;overflow-y:auto">
+                <label th:each="emp : ${assignable}"
+                       class="flex items-center gap-sm px-3 py-2 border-b border-outline-variant last:border-0 cursor-pointer hover:bg-surface-container-low">
+                    <input type="checkbox" name="employeeIds" th:value="${emp.id}"
+                           class="w-4 h-4 accent-primary">
+                    <span class="font-label-md text-label-md text-on-surface" th:text="${emp.name}">Tayo Shonibare</span>
+                    <span class="font-table-data text-table-data text-on-surface-variant" th:text="${emp.employeeNumber}">EMP-0001</span>
+                    <span class="ml-auto font-body-sm text-body-sm text-on-surface-variant"
+                          th:text="'Now: ' + ${emp.currentCostCenter}">Now: —</span>
+                </label>
+            </div>
+        </form>
+    </div>
+
     <!-- GL account mapping -->
     <div class="bg-white border border-outline-variant rounded-xl p-lg">
         <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">GL account mapping</h2>

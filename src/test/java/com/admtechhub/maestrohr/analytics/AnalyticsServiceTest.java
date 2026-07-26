@@ -127,6 +127,27 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    void buildRcolReport_aggregatesPerDepartmentWithTotals() {
+        Department sales = dept("Sales");
+        Employee e1 = employee(sales, LocalDate.now().minusYears(1));
+        Employee e2 = employee(sales, LocalDate.now().minusYears(1));
+        PayrollRun latest = run(7, 2026);
+        when(payrollRunRepository.findByStatusInOrderByPeriodDesc(any())).thenReturn(List.of(latest));
+        when(payrollEntryRepository.findByPayrollRunIdWithEntities(latest.getId()))
+                .thenReturn(List.of(entry(e1, 1_000_000L, 100_000L), entry(e2, 500_000L, 50_000L)));
+
+        RcolReport report = service.buildRcolReport();
+
+        // Sales: gross 1.5M + pension 150k + NSITF 15k + ITF 15k = 1,680,000 kobo; 2 staff.
+        assertThat(report.hasData()).isTrue();
+        assertThat(report.rows()).hasSize(1);
+        assertThat(report.rows().get(0).department()).isEqualTo("Sales");
+        assertThat(report.rows().get(0).rcolKobo()).isEqualTo(1_680_000L);
+        assertThat(report.totals().headcount()).isEqualTo(2);
+        assertThat(report.totals().rcolKobo()).isEqualTo(1_680_000L);
+    }
+
+    @Test
     void build_noFinalizedRun_hasNoData() {
         when(payrollRunRepository.findByStatusInOrderByPeriodDesc(any())).thenReturn(List.of());
 

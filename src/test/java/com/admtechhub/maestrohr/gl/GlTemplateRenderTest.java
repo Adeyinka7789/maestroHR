@@ -1,6 +1,7 @@
 package com.admtechhub.maestrohr.gl;
 
 import com.admtechhub.maestrohr.gl.GlDtos.CostCenterView;
+import com.admtechhub.maestrohr.gl.GlDtos.EmployeeAssignRow;
 import com.admtechhub.maestrohr.gl.GlDtos.GlConfigView;
 import com.admtechhub.maestrohr.gl.GlDtos.JournalView;
 import com.admtechhub.maestrohr.gl.GlDtos.JournalView.JournalLine;
@@ -49,13 +50,19 @@ class GlTemplateRenderTest {
         CostCenterView cc = new CostCenterView(
                 UUID.randomUUID(), "Lekki Outlet", "LEKKI", "Lagos", "6001", true, 12);
         GlConfigView config = new GlConfigView("6000", "6100", "2000", "2100", "2200", "2300", "2400");
+        EmployeeAssignRow emp = new EmployeeAssignRow(
+                UUID.randomUUID(), "Tayo Shonibare", "EMP-0001", "—");
 
-        String html = render("cost-centers", Map.of("costCenters", List.of(cc), "config", config));
+        String html = render("cost-centers", Map.of(
+                "costCenters", List.of(cc), "config", config, "assignable", List.of(emp)));
 
         assertTrue(html.contains("Cost Centers &amp; GL Mapping"), "page heading");
         assertTrue(html.contains("Lekki Outlet"), "cost center name");
         assertTrue(html.contains("GL account mapping"), "config section");
         assertTrue(html.contains("value=\"6000\""), "salary expense account prefilled");
+        assertTrue(html.contains("Bulk assign employees"), "bulk-assign card");
+        assertTrue(html.contains("Tayo Shonibare"), "assignable employee listed");
+        assertTrue(html.contains("/htmx/cost-centers/assign"), "assign endpoint wired");
     }
 
     @Test

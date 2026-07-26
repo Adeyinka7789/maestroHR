@@ -4,7 +4,12 @@ import com.admtechhub.maestrohr.subscription.FeatureAccessException;
 import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,6 +18,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Executive / CEO analytics dashboard (server-rendered HTMX fragment). Read-only lenses over
@@ -25,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+    private final RcolExportService rcolExportService;
     private final FeatureAccessService featureAccessService;
 
     private static final String[] ROLES = {
@@ -39,6 +46,29 @@ public class AnalyticsController {
         gate();
         model.addAttribute("view", analyticsService.build());
         return "analytics :: content";
+    }
+
+    /**
+     * Download the RCOL / department breakdown for the latest finalized run as CSV or Excel.
+     * Plain GET (a normal link); gated the same as the page.
+     */
+    @GetMapping("/analytics/rcol/export")
+    @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    public ResponseEntity<byte[]> exportRcol(@RequestParam(defaultValue = "csv") String format) {
+        featureAccessService.require(SubscriptionFeature.CUSTOM_REPORTING);
+        RcolReport report = analyticsService.buildRcolReport();
+        boolean excel = "excel".equalsIgnoreCase(format) || "xlsx".equalsIgnoreCase(format);
+
+        byte[] body = excel ? rcolExportService.toExcel(report) : rcolExportService.toCsv(report);
+        String fileName = rcolExportService.fileName(report, excel ? "xlsx" : "csv");
+        MediaType contentType = excel
+                ? MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                : MediaType.parseMediaType("text/csv");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(contentType);
+        headers.setContentDisposition(ContentDisposition.attachment().filename(fileName).build());
+        return ResponseEntity.ok().headers(headers).body(body);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
