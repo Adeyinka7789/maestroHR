@@ -49,6 +49,11 @@ class AnalyticsTemplateRenderTest {
                 "₦11,200,000", "₦10,000,000", "₦1,000,000", "₦100,000", "₦100,000",
                 42, "₦266,667",
                 List.of(new DeptRcolRow("Sales", 20, "₦6,000,000", "54%")),
+                true,
+                List.of(new AnalyticsView.TrendPoint("Jun '26", "₦10,600,000", 8.0, 50.0),
+                        new AnalyticsView.TrendPoint("Jul '26", "₦11,200,000", 312.0, 12.0)),
+                "8.0,50.0 312.0,12.0",
+                "8.0,60.0 8.0,50.0 312.0,12.0 312.0,60.0",
                 true, "June 2026",
                 List.of(new SpikeRow("Sales", "₦6,000,000", "₦5,080,000", "+18%", "warn", true, "incl. ₦450,000 overtime")),
                 1,
@@ -59,6 +64,9 @@ class AnalyticsTemplateRenderTest {
         assertTrue(html.contains("Executive Growth &amp; Labor Insights"), "page heading");
         assertTrue(html.contains("Real Cost of Labor"), "RCOL card");
         assertTrue(html.contains("₦11,200,000"), "total RCOL");
+        assertTrue(html.contains("Real cost of labor — last"), "RCOL trend sparkline heading");
+        assertTrue(html.contains("8.0,50.0 312.0,12.0"), "sparkline polyline points rendered");
+        assertTrue(html.contains("₦10,600,000"), "earlier trend-point value shown (in the point tooltip)");
         assertTrue(html.contains("Sales"), "department row");
         assertTrue(html.contains("+18%"), "spike change");
         assertTrue(html.contains("incl. ₦450,000 overtime"), "overtime attribution note");
@@ -70,7 +78,8 @@ class AnalyticsTemplateRenderTest {
     void rendersNoDataState() {
         AnalyticsView view = new AnalyticsView(
                 false, "", "₦0", "₦0", "₦0", "₦0", "₦0", 0, "₦0",
-                List.of(), false, "", List.of(), 0, List.of());
+                List.of(), false, List.of(), "", "",
+                false, "", List.of(), 0, List.of());
 
         String html = render(view);
 

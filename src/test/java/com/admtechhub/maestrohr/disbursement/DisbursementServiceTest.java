@@ -227,4 +227,68 @@ class DisbursementServiceTest {
         verify(transactionPhases).recordReconciliationResult(runB, tenantB, "failed");
         assertNull(TenantContext.getCurrentTenant(), "tenant context must be cleared even after a mid-loop error");
     }
+
+    // ── retryFailedTransfers orchestration ───────────────────────────────────────────────────
+
+    private DisbursementTransactionPhases.RetryAttempt retryAttempt(List<UUID> entryIds) {
+        PaystackRequest.Transfer transfer = PaystackRequest.Transfer.builder()
+                .amount(500_000).recipient("RCP_1").reference("SAL-REF-1-R123").reason("Salary retry").build();
+        return new DisbursementTransactionPhases.RetryAttempt(List.of(transfer), entryIds);
+    }
+
+    @Test
+    void retryFailedTransfers_success_marksEntriesDisbursing() {
+        List<UUID> ids = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var attempt = retryAttempt(ids);
+        when(transactionPhases.markFailedEntriesRetrying(RUN_ID, TENANT_ID)).thenReturn(attempt);
+        when(paystackClient.initiateBulkTransfer(attempt.transfers()))
+                .thenReturn(PaystackResponse.builder().status(true).build());
+
+        DisbursementService.RetryResult result = disbursementService.retryFailedTransfers(RUN_ID);
+
+        verify(transactionPhases).finalizeRetry(RUN_ID, TENANT_ID, ids,
+                com.admtechhub.maestrohr.payroll.TransferStatus.DISBURSING);
+        org.junit.jupiter.api.Assertions.assertEquals(2, result.count());
+    }
+
+    @Test
+    void retryFailedTransfers_noEligible_skipsPaystack() {
+        when(transactionPhases.markFailedEntriesRetrying(RUN_ID, TENANT_ID))
+                .thenReturn(new DisbursementTransactionPhases.RetryAttempt(List.of(), List.of()));
+
+        DisbursementService.RetryResult result = disbursementService.retryFailedTransfers(RUN_ID);
+
+        verify(paystackClient, never()).initiateBulkTransfer(any());
+        verify(transactionPhases, never()).finalizeRetry(any(), any(), any(), any());
+        org.junit.jupiter.api.Assertions.assertEquals(0, result.count());
+    }
+
+    @Test
+    void retryFailedTransfers_paystackRejects_marksEntriesFailedAndThrows() {
+        List<UUID> ids = List.of(UUID.randomUUID());
+        var attempt = retryAttempt(ids);
+        when(transactionPhases.markFailedEntriesRetrying(RUN_ID, TENANT_ID)).thenReturn(attempt);
+        when(paystackClient.initiateBulkTransfer(attempt.transfers()))
+                .thenThrow(new PaystackApiException("Insufficient balance"));
+
+        assertThrows(IllegalStateException.class, () -> disbursementService.retryFailedTransfers(RUN_ID));
+
+        verify(transactionPhases).finalizeRetry(RUN_ID, TENANT_ID, ids,
+                com.admtechhub.maestrohr.payroll.TransferStatus.FAILED);
+    }
+
+    @Test
+    void retryFailedTransfers_unknownState_leavesEntriesDisbursingForWebhook() {
+        List<UUID> ids = List.of(UUID.randomUUID());
+        var attempt = retryAttempt(ids);
+        when(transactionPhases.markFailedEntriesRetrying(RUN_ID, TENANT_ID)).thenReturn(attempt);
+        when(paystackClient.initiateBulkTransfer(attempt.transfers()))
+                .thenThrow(new PaystackUnknownStateException("timeout", new RuntimeException("boom")));
+
+        DisbursementService.RetryResult result = disbursementService.retryFailedTransfers(RUN_ID);
+
+        verify(transactionPhases).finalizeRetry(RUN_ID, TENANT_ID, ids,
+                com.admtechhub.maestrohr.payroll.TransferStatus.DISBURSING);
+        org.junit.jupiter.api.Assertions.assertEquals(1, result.count());
+    }
 }

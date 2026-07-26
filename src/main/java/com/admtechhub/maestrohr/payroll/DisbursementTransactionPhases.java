@@ -187,6 +187,75 @@ public class DisbursementTransactionPhases {
         }
     }
 
+    // ── Per-entry retry of FAILED / REVERSED transfers ──────────────────────────────
+
+    /** What Phase 1 of a retry hands the orchestrator: the transfers plus the entries they cover. */
+    public record RetryAttempt(List<PaystackRequest.Transfer> transfers, List<UUID> entryIds) {}
+
+    /**
+     * Retry Phase 1 (own transaction) — collect this run's FAILED / REVERSED entries that have a
+     * linked bank recipient, stamp each with a FRESH unique transfer reference (the original one
+     * was already consumed at Paystack, so it can't be reused), flip them to PENDING, and build the
+     * transfer list. Entries without a recipient code are left untouched (nothing to send).
+     */
+    @Transactional
+    public RetryAttempt markFailedEntriesRetrying(UUID payrollRunId, UUID tenantId) {
+        PayrollRun run = payrollRunRepository.findById(payrollRunId)
+                .orElseThrow(() -> new IllegalArgumentException("Payroll run not found: " + payrollRunId));
+
+        List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, tenantId);
+        List<PaystackRequest.Transfer> transfers = new ArrayList<>();
+        List<UUID> entryIds = new ArrayList<>();
+        long suffix = System.currentTimeMillis() / 1000;
+
+        for (PayrollEntry entry : entries) {
+            if (entry.getTransferStatus() != TransferStatus.FAILED
+                    && entry.getTransferStatus() != TransferStatus.REVERSED) {
+                continue;
+            }
+            String recipientCode = entry.getEmployee().getPaystackRecipientCode();
+            if (recipientCode == null) {
+                continue; // no payment method — leave it flagged for HR to fix
+            }
+            String reference = generateReference(entry) + "-R" + suffix;
+            entry.setTransferReference(reference);
+            entry.setPaystackTransferCode(null);
+            entry.setTransferStatus(TransferStatus.PENDING);
+            payrollEntryRepository.save(entry);
+            entryIds.add(entry.getId());
+
+            transfers.add(PaystackRequest.Transfer.builder()
+                    .amount(Math.toIntExact(entry.getNetSalary()))
+                    .recipient(recipientCode)
+                    .reference(reference)
+                    .reason("Salary retry for " + run.getPeriod())
+                    .build());
+        }
+        return new RetryAttempt(transfers, entryIds);
+    }
+
+    /**
+     * Retry Phase 3 (own transaction) — move the just-retried entries to {@code finalStatus}
+     * ({@code DISBURSING} on a submitted retry, so the transfer webhook reconciles them by
+     * reference; {@code FAILED} when Paystack outright rejected). Only touches entries still
+     * PENDING, so a webhook that already resolved one is not clobbered.
+     */
+    @Transactional
+    public void finalizeRetry(UUID payrollRunId, UUID tenantId, List<UUID> entryIds, TransferStatus finalStatus) {
+        java.util.Set<UUID> ids = new java.util.HashSet<>(entryIds);
+        for (PayrollEntry entry : payrollEntryRepository.findByPayrollRunId(payrollRunId, tenantId)) {
+            if (!ids.contains(entry.getId()) || entry.getTransferStatus() != TransferStatus.PENDING) {
+                continue;
+            }
+            if (finalStatus == TransferStatus.FAILED) {
+                entry.setTransferReference(null);
+                entry.setPaystackTransferCode(null);
+            }
+            entry.setTransferStatus(finalStatus);
+            payrollEntryRepository.save(entry);
+        }
+    }
+
     /** Update entries to DISBURSING status when transfer confirmed. */
     private void updateEntriesToDisbursing(UUID payrollRunId, UUID tenantId) {
         List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(payrollRunId, tenantId);

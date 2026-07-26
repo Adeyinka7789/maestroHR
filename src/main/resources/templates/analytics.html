@@ -59,6 +59,24 @@
             </div>
         </div>
 
+        <!-- RCOL trend sparkline (single series, brand hue; title names it so no legend) -->
+        <div th:if="${view.hasTrend}" class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-sm">
+                Real cost of labor — last <span th:text="${view.rcolTrend.size()}">6</span> runs
+            </h2>
+            <svg viewBox="0 0 320 70" style="width:100%;height:auto" role="img" aria-label="Real cost of labor trend by month">
+                <polygon th:attr="points=${view.rcolTrendAreaPoints}" fill="#00236f" fill-opacity="0.08"></polygon>
+                <polyline th:attr="points=${view.rcolTrendLinePoints}" fill="none" stroke="#00236f"
+                          stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                <circle th:each="p : ${view.rcolTrend}" th:attr="cx=${p.cx},cy=${p.cy}" r="2.6" fill="#00236f">
+                    <title th:text="${p.periodLabel} + ' · ' + ${p.rcolFormatted}">Jul '26 · ₦0</title>
+                </circle>
+            </svg>
+            <div class="flex justify-between mt-xs font-body-sm text-body-sm text-on-surface-variant">
+                <span th:each="p : ${view.rcolTrend}" th:text="${p.periodLabel}">Jul '26</span>
+            </div>
+        </div>
+
         <!-- Dept RCOL -->
         <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg" th:if="${view.hasDeptRcol()}">
             <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Cost by department</h2>

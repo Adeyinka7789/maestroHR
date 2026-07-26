@@ -48,6 +48,7 @@ public final class DisbursementDtos {
             String selectedStatus,
             boolean runApproved,        // only an APPROVED run may be disbursed via Paystack
             int transferCount,
+            int retryableCount,         // FAILED + REVERSED entries eligible for a retry
             String amountFormatted,     // total net to disburse
             List<StatusCount> entryStatus,
             ValidationResult validation) {

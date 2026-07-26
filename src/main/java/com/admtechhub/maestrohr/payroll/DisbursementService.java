@@ -73,6 +73,48 @@ public class DisbursementService {
         }
     }
 
+    /** Outcome of a retry sweep, surfaced to the operator as a banner. */
+    public record RetryResult(int count, String message) {}
+
+    /**
+     * Self-service retry of a run's FAILED / REVERSED transfers. Same phase discipline as
+     * {@link #disburseSalaries} but scoped to the failed subset: Phase 1 stamps fresh unique
+     * references and rebuilds the transfer list (committed before the HTTP call); Phase 2 is the
+     * Paystack bulk call; Phase 3 records the outcome — DISBURSING on a submitted retry (the
+     * transfer webhook reconciles by reference), FAILED when Paystack rejected. Not
+     * {@code @Transactional}: no DB connection is held across the HTTP call.
+     */
+    public RetryResult retryFailedTransfers(UUID payrollRunId) {
+        UUID tenantId = currentTenantId();
+
+        DisbursementTransactionPhases.RetryAttempt attempt =
+                transactionPhases.markFailedEntriesRetrying(payrollRunId, tenantId);
+        if (attempt.transfers().isEmpty()) {
+            return new RetryResult(0,
+                    "No eligible failed or reversed transfers to retry — each needs a linked bank recipient.");
+        }
+
+        try {
+            paystackClient.initiateBulkTransfer(attempt.transfers());
+            transactionPhases.finalizeRetry(payrollRunId, tenantId, attempt.entryIds(), TransferStatus.DISBURSING);
+            log.info("Retry initiated for {} transfer(s) on run {}", attempt.entryIds().size(), payrollRunId);
+            return new RetryResult(attempt.entryIds().size(),
+                    attempt.entryIds().size() + " transfer(s) re-initiated — statuses update as Paystack confirms.");
+
+        } catch (PaystackUnknownStateException e) {
+            // Almost certainly submitted; leave DISBURSING for the transfer.* webhook to reconcile.
+            transactionPhases.finalizeRetry(payrollRunId, tenantId, attempt.entryIds(), TransferStatus.DISBURSING);
+            log.error("Retry unknown state for run {}; left DISBURSING for webhook reconciliation", payrollRunId, e);
+            return new RetryResult(attempt.entryIds().size(),
+                    "Retry submitted; confirmation is pending and will update automatically.");
+
+        } catch (PaystackException e) {
+            transactionPhases.finalizeRetry(payrollRunId, tenantId, attempt.entryIds(), TransferStatus.FAILED);
+            log.error("Retry rejected by Paystack for run {}", payrollRunId, e);
+            throw new IllegalStateException("Paystack rejected the retry: " + e.getMessage());
+        }
+    }
+
     /**
      * Best-effort immediate verification call, made outside any transaction. Returns the raw
      * Paystack status string, or null if the call itself failed or returned no data - either of

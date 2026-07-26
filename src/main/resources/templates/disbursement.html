@@ -84,6 +84,16 @@
                         <span class="material-symbols-outlined text-[20px]">fact_check</span>Validate accounts
                     </button>
                 </form>
+                <form th:if="${view.retryableCount > 0}"
+                      th:attr="hx-post=@{/htmx/disbursement/{id}/retry(id=${view.selectedRunId})},
+                               hx-confirm=${'Retry ' + view.retryableCount + ' failed/reversed transfer(s)' + (view.liveMode ? ' — this moves REAL money from your Paystack LIVE balance.' : ' in TEST mode (no real funds).')}"
+                      hx-target="#page-content" hx-swap="innerHTML">
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs bg-white border border-error text-error px-5 py-2.5 rounded-lg font-label-md text-label-md hover:bg-error-container transition-all">
+                        <span class="material-symbols-outlined text-[20px]">replay</span>
+                        Retry failed (<span th:text="${view.retryableCount}">0</span>)
+                    </button>
+                </form>
                 <form th:if="${view.runApproved}"
                       th:attr="hx-post=@{/htmx/disbursement/{id}/disburse(id=${view.selectedRunId})},
                                hx-confirm=${'You are about to disburse ' + view.amountFormatted + ' to ' + view.transferCount + ' employees ' + (view.liveMode ? 'from your Paystack LIVE balance — this moves REAL money.' : 'in TEST mode (no real funds).')}"

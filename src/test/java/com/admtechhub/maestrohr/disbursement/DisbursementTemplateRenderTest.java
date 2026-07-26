@@ -57,8 +57,8 @@ class DisbursementTemplateRenderTest {
         DisbursementPageView view = new DisbursementPageView(
                 "LIVE", true,
                 List.of(new RunOption(runId, "July 2026", "Approved")),
-                runId, "July 2026", "Approved", true, 2, "₦2,000",
-                List.of(new StatusCount("Pending", 2, "neutral")),
+                runId, "July 2026", "Approved", true, 2, 1, "₦2,000",
+                List.of(new StatusCount("Failed", 1, "error"), new StatusCount("Pending", 1, "neutral")),
                 validation);
 
         String html = render(view);
@@ -68,6 +68,8 @@ class DisbursementTemplateRenderTest {
         assertTrue(html.contains("Disburse via Paystack"), "disburse button (run approved)");
         assertTrue(html.contains("/htmx/disbursement/" + runId + "/disburse"), "disburse endpoint wired");
         assertTrue(html.contains("/htmx/disbursement/" + runId + "/validate"), "validate endpoint wired");
+        assertTrue(html.contains("/htmx/disbursement/" + runId + "/retry"), "retry endpoint wired (failed transfers present)");
+        assertTrue(html.contains("Retry failed"), "retry button shown");
         assertTrue(html.contains("Account validation"), "validation panel");
         assertTrue(html.contains("Name mismatch"), "mismatch reason shown");
     }
@@ -75,7 +77,7 @@ class DisbursementTemplateRenderTest {
     @Test
     void rendersNoRunsState() {
         DisbursementPageView view = new DisbursementPageView(
-                "TEST", false, List.of(), null, "", "", false, 0, "₦0", List.of(), null);
+                "TEST", false, List.of(), null, "", "", false, 0, 0, "₦0", List.of(), null);
 
         String html = render(view);
 

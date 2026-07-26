@@ -120,6 +120,10 @@ class AnalyticsServiceTest {
         assertThat(v.spikes().get(0).department()).isEqualTo("Sales");
         assertThat(v.spikes().get(0).changePercent()).isEqualTo("+18%");
         assertThat(v.spikes().get(0).flagged()).isTrue();
+        // Two finalized runs → a 2-point RCOL trend sparkline (oldest → newest).
+        assertThat(v.hasTrend()).isTrue();
+        assertThat(v.rcolTrend()).hasSize(2);
+        assertThat(v.rcolTrendLinePoints()).isNotBlank();
     }
 
     @Test

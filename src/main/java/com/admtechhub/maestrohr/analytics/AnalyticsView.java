@@ -23,6 +23,13 @@ public record AnalyticsView(
         String avgRcolFormatted,
         List<DeptRcolRow> deptRcol,
 
+        // Real Cost of Labor trend over the last few finalized runs (oldest → newest). The SVG
+        // geometry is precomputed here so the template just drops it into a sparkline.
+        boolean hasTrend,
+        List<TrendPoint> rcolTrend,
+        String rcolTrendLinePoints,   // SVG polyline "x,y x,y …"
+        String rcolTrendAreaPoints,   // SVG polygon (line closed to the baseline)
+
         // ── Departmental payroll spikes (latest vs prior finalized run) ──
         boolean hasComparison,
         String priorPeriodLabel,
@@ -34,6 +41,9 @@ public record AnalyticsView(
 ) {
 
     public record DeptRcolRow(String department, int headcount, String rcolFormatted, String sharePercent) {}
+
+    /** One month on the RCOL trend sparkline: label + value + its plotted SVG coordinates. */
+    public record TrendPoint(String periodLabel, String rcolFormatted, double cx, double cy) {}
 
     public record SpikeRow(
             String department,

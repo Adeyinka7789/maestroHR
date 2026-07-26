@@ -128,6 +128,25 @@ public class PayoutController {
         return "disbursement :: content";
     }
 
+    /**
+     * Self-service retry of the run's FAILED / REVERSED transfers. Same dual-control gate as
+     * disburse; delegates to {@link DisbursementService#retryFailedTransfers} (fresh references,
+     * phase-safe) and audits the action.
+     */
+    @PostMapping("/htmx/disbursement/{runId}/retry")
+    @PreAuthorize("hasAnyRole('FINANCE_OFFICER', 'SUPER_ADMIN', 'SYSTEM_ADMIN')")
+    @RequiresFeature(SubscriptionFeature.BASIC_PAYROLL)
+    public String retry(@PathVariable UUID runId, Model model) {
+        DisbursementService.RetryResult result = disbursementService.retryFailedTransfers(runId);
+        auditTrailService.record(currentTenantId(), currentUserEmail(), "DISBURSEMENT_RETRIED",
+                "PAYROLL_RUN", runId.toString(), "/htmx/disbursement/" + runId + "/retry", "POST",
+                null, 200, String.format("Retried %d failed/reversed transfer(s), Paystack mode %s",
+                        result.count(), paystackConfig.getMode()));
+        model.addAttribute(result.count() > 0 ? "success" : "error", result.message());
+        model.addAttribute("view", buildView(runId, null));
+        return "disbursement :: content";
+    }
+
     // ── failure rendering ──────────────────────────────────────────────────────────
 
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
@@ -165,6 +184,7 @@ public class PayoutController {
         String status = "";
         boolean approved = false;
         int count = 0;
+        int retryable = 0;
         long amount = 0;
         List<StatusCount> statusCounts = List.of();
 
@@ -177,12 +197,15 @@ public class PayoutController {
                 List<PayrollEntry> entries = payrollEntryRepository.findByPayrollRunId(selected, currentTenantId());
                 count = entries.size();
                 amount = entries.stream().mapToLong(e -> e.getNetSalary() != null ? e.getNetSalary() : 0L).sum();
+                retryable = (int) entries.stream().filter(e ->
+                        e.getTransferStatus() == TransferStatus.FAILED
+                                || e.getTransferStatus() == TransferStatus.REVERSED).count();
                 statusCounts = statusCounts(entries);
             }
         }
 
         return new DisbursementPageView(paystackConfig.getMode(), paystackConfig.isLiveMode(),
-                runOptions, selected, periodLabel, status, approved, count, formatNaira(amount),
+                runOptions, selected, periodLabel, status, approved, count, retryable, formatNaira(amount),
                 statusCounts, validation);
     }
 

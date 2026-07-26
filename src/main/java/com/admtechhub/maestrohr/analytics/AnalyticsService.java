@@ -60,6 +60,9 @@ public class AnalyticsService {
     private static final int BURNOUT_NO_LEAVE_MONTHS = 12;
     private static final BigDecimal BURNOUT_OVERTIME_HOURS = new BigDecimal("24");
     private static final int OVERTIME_LOOKBACK_MONTHS = 3;
+    private static final int TREND_MONTHS = 6;
+    // Sparkline geometry (SVG user units); the template scales it to the card width.
+    private static final double SVG_W = 320, SVG_H = 70, SVG_PAD_X = 8, SVG_PAD_TOP = 10, SVG_PAD_BOTTOM = 10;
 
     private final PayrollRunRepository payrollRunRepository;
     private final PayrollEntryRepository payrollEntryRepository;
@@ -115,6 +118,19 @@ public class AnalyticsService {
 
         String latestLabel = periodLabel(latest);
 
+        // ── RCOL trend sparkline (last few finalized runs, oldest → newest) ──
+        int trendCount = Math.min(TREND_MONTHS, runs.size());
+        List<Long> trendValues = new ArrayList<>(trendCount);
+        List<String> trendLabels = new ArrayList<>(trendCount);
+        for (int i = trendCount - 1; i >= 0; i--) {   // runs is newest-first; walk back for chronological order
+            PayrollRun r = runs.get(i);
+            long rcol = (i == 0) ? totalRcol
+                    : rcolForEntries(payrollEntryRepository.findByPayrollRunIdWithEntities(r.getId()));
+            trendValues.add(rcol);
+            trendLabels.add(shortPeriodLabel(r));
+        }
+        Trend trend = buildTrend(trendValues, trendLabels);
+
         // ── Departmental payroll spikes ──
         boolean hasComparison = runs.size() >= 2;
         String priorLabel = "";
@@ -134,8 +150,66 @@ public class AnalyticsService {
         return new AnalyticsView(true, latestLabel,
                 formatNaira(totalRcol), formatNaira(totalGross), formatNaira(totalEmpPension),
                 formatNaira(totalNsitf), formatNaira(totalItf), headcount, formatNaira(avgRcol), deptRcol,
+                trend.hasTrend(), trend.points(), trend.linePoints(), trend.areaPoints(),
                 hasComparison, priorLabel, spikes,
                 burnout.size(), burnout);
+    }
+
+    // ── RCOL trend geometry ─────────────────────────────────────────────────────
+
+    private record Trend(boolean hasTrend, List<AnalyticsView.TrendPoint> points,
+                         String linePoints, String areaPoints) {}
+
+    /** Total employer cost (RCOL) for a run's entries: gross + employer pension + NSITF + ITF. */
+    private long rcolForEntries(List<PayrollEntry> entries) {
+        long total = 0;
+        for (PayrollEntry e : entries) {
+            long gross = n(e.getGrossSalary());
+            total += gross + n(e.getPensionEmployer()) + gross * NSITF_BP / 100 + gross * ITF_BP / 100;
+        }
+        return total;
+    }
+
+    /** Turn RCOL values into an SVG polyline + baseline-closed area + labelled points. */
+    private Trend buildTrend(List<Long> values, List<String> labels) {
+        int n = values.size();
+        if (n < 2) {
+            return new Trend(false, List.of(), "", "");
+        }
+        long min = values.stream().mapToLong(Long::longValue).min().orElse(0);
+        long max = values.stream().mapToLong(Long::longValue).max().orElse(0);
+        double plotW = SVG_W - 2 * SVG_PAD_X;
+        double plotH = SVG_H - SVG_PAD_TOP - SVG_PAD_BOTTOM;
+        double baseline = SVG_H - SVG_PAD_BOTTOM;
+
+        List<AnalyticsView.TrendPoint> points = new ArrayList<>(n);
+        StringBuilder line = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            double cx = SVG_PAD_X + i * plotW / (n - 1);
+            double frac = (max == min) ? 0.5 : (double) (values.get(i) - min) / (max - min);
+            double cy = baseline - frac * plotH;
+            if (i > 0) {
+                line.append(' ');
+            }
+            line.append(coord(cx)).append(',').append(coord(cy));
+            points.add(new AnalyticsView.TrendPoint(labels.get(i), formatNaira(values.get(i)),
+                    Double.parseDouble(coord(cx)), Double.parseDouble(coord(cy))));
+        }
+        String linePoints = line.toString();
+        String areaPoints = coord(SVG_PAD_X) + "," + coord(baseline) + " " + linePoints + " "
+                + coord(SVG_PAD_X + plotW) + "," + coord(baseline);
+        return new Trend(true, points, linePoints, areaPoints);
+    }
+
+    /** SVG coordinate with a dot decimal separator (never a locale comma, which would break paths). */
+    private String coord(double v) {
+        return String.format(Locale.ENGLISH, "%.1f", v);
+    }
+
+    /** Short month label for the sparkline axis, e.g. "Jul '26". */
+    private String shortPeriodLabel(PayrollRun run) {
+        return Month.of(run.getPayrollMonth()).getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+                + " '" + String.format("%02d", run.getPayrollYear() % 100);
     }
 
     // ── spikes ──────────────────────────────────────────────────────────────────
@@ -256,7 +330,9 @@ public class AnalyticsService {
 
     private AnalyticsView empty() {
         return new AnalyticsView(false, "", "₦0", "₦0", "₦0", "₦0", "₦0",
-                0, "₦0", List.of(), false, "", List.of(), 0, List.of());
+                0, "₦0", List.of(),
+                false, List.of(), "", "",
+                false, "", List.of(), 0, List.of());
     }
 
     private String departmentName(Employee e) {
