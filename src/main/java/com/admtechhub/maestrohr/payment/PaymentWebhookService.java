@@ -334,6 +334,57 @@ public class PaymentWebhookService {
     }
 
     /**
+     * Handle transfer.reversed: a previously-successful salary transfer that Paystack later
+     * reversed (e.g. the receiving bank bounced it after the fact). Marks the PayrollEntry
+     * REVERSED — surfacing the reversal credit back on the run's ledger — and alerts HR to
+     * re-pay the employee out of band. Idempotent: a re-delivered event is a no-op.
+     */
+    @Transactional
+    public void handleTransferReversed(PaystackWebhookPayload payload) {
+        String reference = payload.getData().getReference();
+        if (reference == null || reference.isBlank()) {
+            log.warn("transfer.reversed without a reference; ignoring");
+            return;
+        }
+
+        Optional<UUID> tenantIdOpt = webhookTenantResolver.findTenantIdByTransferReference(reference);
+        if (tenantIdOpt.isEmpty()) {
+            log.debug("transfer.reversed for reference {} — no matching payroll entry, skipping", reference);
+            return;
+        }
+        UUID tenantId = tenantIdOpt.get();
+        bindTenantSession(tenantId);
+
+        PayrollEntry entry = payrollEntryRepository.findByTransferReference(reference).orElse(null);
+        if (entry == null) {
+            log.warn("transfer.reversed: entry not visible for reference {} after binding tenant {}", reference, tenantId);
+            return;
+        }
+        if (entry.getTransferStatus() == TransferStatus.REVERSED) {
+            log.info("transfer.reversed for {} already processed; ignoring (idempotent)", reference);
+            return;
+        }
+
+        entry.setTransferStatus(TransferStatus.REVERSED);
+        payrollEntryRepository.save(entry);
+
+        String employeeName = entry.getEmployee().getFullName();
+        String period = entry.getPayrollRun().getPeriod();
+        String alertMessage = String.format(
+                "Salary transfer was REVERSED for %s (%s) — the credit returned. Re-pay this employee. Reference: %s",
+                employeeName, period, reference);
+
+        List<String> hrEmails = webhookTenantResolver.findHrAdminEmails(tenantId);
+        for (String hrEmail : hrEmails) {
+            notificationService.createInAppNotification(hrEmail,
+                    "TRANSFER_REVERSED", "Salary transfer reversed", alertMessage,
+                    "/payroll/" + entry.getPayrollRun().getId());
+        }
+
+        log.info("transfer.reversed processed: entry {} → REVERSED, {} HR admin(s) notified", entry.getId(), hrEmails.size());
+    }
+
+    /**
      * Determine SubscriptionPlan from amount in kobo by reverse-looking-up the price in
      * pricing_config (the single source of truth for prices), falling back to BASIC.
      */

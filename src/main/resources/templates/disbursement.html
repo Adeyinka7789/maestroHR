@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!--
+  disbursement.html — server-rendered HTMX fragment (Option 3): Direct Bank Payouts. Rendered by
+  PayoutController as "disbursement :: content". Finance validates every account against Paystack
+  name-enquiry, then triggers the bulk transfer (dual-control; APPROVED runs only). A prominent
+  LIVE-mode banner warns when real money moves.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
+        <div>
+            <h1 class="font-headline-lg text-headline-lg text-primary">Direct Bank Payouts</h1>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+                Validate accounts, then disburse an approved payroll run straight to employees' banks via Paystack.
+            </p>
+        </div>
+        <form hx-get="/htmx/disbursement" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+              th:if="${view.hasRuns()}">
+            <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Payroll run</label>
+            <select name="runId" onchange="this.form.requestSubmit()"
+                    class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+                <option th:each="r : ${view.runs}" th:value="${r.runId}" th:selected="${r.runId == view.selectedRunId}"
+                        th:text="${r.periodLabel} + ' (' + ${r.status} + ')'">July 2026 (Approved)</option>
+            </select>
+        </form>
+    </div>
+
+    <!-- Mode banner -->
+    <div th:if="${view.liveMode}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-label-md text-label-md">
+        <span class="material-symbols-outlined text-[20px]">warning</span>
+        LIVE mode — disbursing here moves real money from your Paystack live balance.
+    </div>
+    <div th:unless="${view.liveMode}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-primary-fixed text-on-primary-fixed-variant font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">science</span>
+        <span th:text="'Paystack mode: ' + ${view.paystackMode} + ' — no real funds move in TEST/UNSET mode.'">Paystack mode: TEST</span>
+    </div>
+
+    <div th:if="${error}" role="alert"
+         class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+        <span th:text="${error}">Error</span>
+    </div>
+    <div th:if="${success}" role="alert"
+         class="flex items-center gap-sm mb-md px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-body-sm text-body-sm">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span th:text="${success}">Done.</span>
+    </div>
+
+    <!-- No runs -->
+    <div th:if="${!view.hasRuns()}"
+         class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">account_balance</span>
+        No approved payroll runs awaiting disbursement.
+    </div>
+
+    <!-- Selected run -->
+    <div th:if="${view.hasSelection()}" class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-md mb-md">
+            <div>
+                <h2 class="font-headline-md text-headline-md text-primary" th:text="${view.selectedPeriodLabel}">July 2026</h2>
+                <p class="font-body-sm text-body-sm text-on-surface-variant">
+                    <span th:text="${view.transferCount}">0</span> transfers ·
+                    <span class="font-label-md text-label-md text-on-surface" th:text="${view.amountFormatted}">₦0</span> total net ·
+                    status <span th:text="${view.selectedStatus}">Approved</span>
+                </p>
+                <div class="flex flex-wrap gap-xs mt-xs">
+                    <span th:each="sc : ${view.entryStatus}" class="px-2 py-0.5 rounded text-[10px] font-bold"
+                          th:classappend="${sc.kind == 'success' ? 'bg-secondary-container text-on-secondary-container' : (sc.kind == 'error' ? 'bg-error-container text-on-error-container' : (sc.kind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant'))}"
+                          th:text="${sc.count} + ' ' + ${sc.label}">10 Paid</span>
+                </div>
+            </div>
+            <div class="flex gap-xs">
+                <form th:attr="hx-post=@{/htmx/disbursement/{id}/validate(id=${view.selectedRunId})}"
+                      hx-target="#page-content" hx-swap="innerHTML">
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-all">
+                        <span class="material-symbols-outlined text-[20px]">fact_check</span>Validate accounts
+                    </button>
+                </form>
+                <form th:if="${view.runApproved}"
+                      th:attr="hx-post=@{/htmx/disbursement/{id}/disburse(id=${view.selectedRunId})},
+                               hx-confirm=${'You are about to disburse ' + view.amountFormatted + ' to ' + view.transferCount + ' employees ' + (view.liveMode ? 'from your Paystack LIVE balance — this moves REAL money.' : 'in TEST mode (no real funds).')}"
+                      hx-target="#page-content" hx-swap="innerHTML">
+                    <button type="submit"
+                            class="inline-flex items-center gap-xs bg-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-md hover:opacity-90 transition-all">
+                        <span class="material-symbols-outlined text-[20px]">send_money</span>Disburse via Paystack
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Validation panel -->
+        <div th:if="${view.validation != null}" class="mt-md border-t border-outline-variant pt-md">
+            <div class="flex items-center gap-sm mb-md">
+                <h3 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Account validation</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-secondary-container text-on-secondary-container"
+                      th:text="${view.validation.okCount} + ' OK'">0 OK</span>
+                <span th:if="${view.validation.warnCount > 0}" class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-fixed text-on-primary-fixed-variant"
+                      th:text="${view.validation.warnCount} + ' review'">0 review</span>
+                <span th:if="${view.validation.errorCount > 0}" class="px-2 py-0.5 rounded text-[10px] font-bold bg-error-container text-on-error-container"
+                      th:text="${view.validation.errorCount} + ' blocking'">0 blocking</span>
+            </div>
+            <div th:if="${view.validation.hasErrors()}" class="mb-md px-4 py-3 rounded-lg bg-error-container text-on-error-container font-body-sm text-body-sm">
+                Fix the blocking accounts (missing/invalid bank details) before disbursing.
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                            <th class="py-2 pr-4">Employee</th>
+                            <th class="py-2 pr-4">Bank</th>
+                            <th class="py-2 pr-4">Account</th>
+                            <th class="py-2 pr-4">Resolved name</th>
+                            <th class="py-2 pr-4">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="v : ${view.validation.rows}" class="border-b border-outline-variant last:border-0">
+                            <td class="py-2 pr-4">
+                                <a th:href="@{/htmx/employee-view(id=${v.employeeId})}"
+                                   th:attr="hx-get=@{/htmx/employee-view(id=${v.employeeId})}"
+                                   hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                                   class="font-label-md text-label-md text-primary hover:underline cursor-pointer"
+                                   th:text="${v.employeeName}">Okeke Michael</a>
+                            </td>
+                            <td class="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${v.bank}">GTBank</td>
+                            <td class="py-2 pr-4 font-table-data text-table-data text-on-surface-variant" th:text="${v.accountNumber}">0123456789</td>
+                            <td class="py-2 pr-4 font-body-sm text-body-sm text-on-surface" th:text="${v.resolvedName}">Okeke Michael</td>
+                            <td class="py-2 pr-4">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold mr-xs"
+                                      th:classappend="${v.status == 'OK' ? 'bg-secondary-container text-on-secondary-container' : (v.status == 'ERROR' ? 'bg-error-container text-on-error-container' : 'bg-primary-fixed text-on-primary-fixed-variant')}"
+                                      th:text="${v.status}">OK</span>
+                                <span class="font-body-sm text-body-sm text-on-surface-variant" th:text="${v.message}"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

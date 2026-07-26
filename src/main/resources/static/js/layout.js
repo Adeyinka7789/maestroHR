@@ -145,6 +145,14 @@
         if (complianceLink) complianceLink.style.display = 'none';
     }
 
+    // Direct Bank Payouts is dual-control: only FINANCE_OFFICER / SYSTEM_ADMIN (and SUPER_ADMIN,
+    // who uses the separate admin console) may move money. Hide it for everyone else — e.g. a
+    // plain HR_ADMIN, who approves runs but must not also disburse them.
+    if (userRole !== 'FINANCE_OFFICER' && userRole !== 'SYSTEM_ADMIN' && userRole !== 'SUPER_ADMIN') {
+        const payoutLink = document.querySelector('a[data-route="disbursement"]');
+        if (payoutLink) payoutLink.style.display = 'none';
+    }
+
     // Hide the help-panel "Settings" link for non‑authorized roles. layout.html is served as a
     // static resource (never passed through Thymeleaf), so role gating here MUST be done in JS,
     // not via sec:authorize.

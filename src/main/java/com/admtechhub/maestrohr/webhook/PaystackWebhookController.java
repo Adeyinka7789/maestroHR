@@ -74,6 +74,9 @@ public class PaystackWebhookController {
                 case "transfer.failed":
                     paymentWebhookService.handleTransferFailed(webhookPayload);
                     break;
+                case "transfer.reversed":
+                    paymentWebhookService.handleTransferReversed(webhookPayload);
+                    break;
                 default:
                     log.debug("Unhandled event type: {}", event);
             }

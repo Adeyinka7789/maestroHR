@@ -206,4 +206,13 @@ class PaystackWebhookControllerTest {
         ResponseEntity<String> response = controller.handlePaystackWebhook(payload, null);
         assertEquals(401, response.getStatusCode().value());
     }
+
+    // ── transfer.reversed routes to the new handler; a no-match reference is a safe no-op (200) ──
+    @Test
+    void transferReversed_isRouted_andNoMatchReferenceReturns200() throws Exception {
+        String payload = "{\"event\":\"transfer.reversed\",\"data\":{\"reference\":\"TEST-PHASE-B-NOMATCH-REV\"}}";
+        ResponseEntity<String> response = controller.handlePaystackWebhook(payload, sign(payload));
+        assertEquals(200, response.getStatusCode().value(),
+                "transfer.reversed is handled (no matching entry → skipped, still 200)");
+    }
 }
