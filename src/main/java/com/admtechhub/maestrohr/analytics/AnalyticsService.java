@@ -1,0 +1,285 @@
+package com.admtechhub.maestrohr.analytics;
+
+import com.admtechhub.maestrohr.analytics.AnalyticsView.BurnoutRow;
+import com.admtechhub.maestrohr.analytics.AnalyticsView.DeptRcolRow;
+import com.admtechhub.maestrohr.analytics.AnalyticsView.SpikeRow;
+import com.admtechhub.maestrohr.employee.Employee;
+import com.admtechhub.maestrohr.employee.EmployeeRepository;
+import com.admtechhub.maestrohr.employee.EmployeeStatus;
+import com.admtechhub.maestrohr.leave.LeaveRequestRepository;
+import com.admtechhub.maestrohr.overtime.OvertimeEntry;
+import com.admtechhub.maestrohr.overtime.OvertimeEntryRepository;
+import com.admtechhub.maestrohr.payroll.PayrollEntry;
+import com.admtechhub.maestrohr.payroll.PayrollEntryRepository;
+import com.admtechhub.maestrohr.payroll.PayrollRun;
+import com.admtechhub.maestrohr.payroll.PayrollRunRepository;
+import com.admtechhub.maestrohr.payroll.PayrollStatus;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.Month;
+import java.time.format.TextStyle;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeSet;
+import java.util.UUID;
+
+/**
+ * Executive analytics over existing payroll / leave / overtime data (no new tables). Three lenses:
+ * <ul>
+ *   <li><b>Real Cost of Labor</b> — the true employer cost of the latest finalized run
+ *       (gross + employer pension + NSITF 1% + ITF 1%), per department and company-wide;</li>
+ *   <li><b>Departmental payroll spikes</b> — month-over-month employer payroll cost per department
+ *       (latest vs prior finalized run), flagging rises past the threshold, with overtime called out;</li>
+ *   <li><b>Burnout / attrition risk</b> — rules-based (not ML): tenured active staff who have taken
+ *       no approved leave in over a year, and/or logged heavy overtime recently.</li>
+ * </ul>
+ * NSITF/ITF rates and the thresholds are constants here (future: tenant-configurable). Health
+ * insurance is excluded from RCOL because it is not tracked.
+ */
+@Service
+@RequiredArgsConstructor
+public class AnalyticsService {
+
+    private static final List<PayrollStatus> FINALIZED = List.of(
+            PayrollStatus.APPROVED, PayrollStatus.DISBURSING,
+            PayrollStatus.DISBURSING_UNKNOWN, PayrollStatus.COMPLETED);
+
+    private static final long NSITF_BP = 1;   // 1% employer levy on gross
+    private static final long ITF_BP = 1;     // 1% employer levy on gross
+    private static final double SPIKE_THRESHOLD_PCT = 10.0;
+    private static final double SPIKE_SEVERE_PCT = 25.0;
+    private static final int BURNOUT_NO_LEAVE_MONTHS = 12;
+    private static final BigDecimal BURNOUT_OVERTIME_HOURS = new BigDecimal("24");
+    private static final int OVERTIME_LOOKBACK_MONTHS = 3;
+
+    private final PayrollRunRepository payrollRunRepository;
+    private final PayrollEntryRepository payrollEntryRepository;
+    private final EmployeeRepository employeeRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final OvertimeEntryRepository overtimeEntryRepository;
+
+    @Transactional(readOnly = true)
+    public AnalyticsView build() {
+        List<PayrollRun> runs = payrollRunRepository.findByStatusInOrderByPeriodDesc(FINALIZED);
+        if (runs.isEmpty()) {
+            return empty();
+        }
+
+        PayrollRun latest = runs.get(0);
+        List<PayrollEntry> latestEntries = payrollEntryRepository.findByPayrollRunIdWithEntities(latest.getId());
+
+        // ── Real Cost of Labor ──
+        long totalGross = 0, totalEmpPension = 0, totalNsitf = 0, totalItf = 0, totalRcol = 0;
+        Map<String, long[]> deptRcolAgg = new LinkedHashMap<>(); // dept -> [rcol, headcount]
+        Map<UUID, String> empDept = new java.util.HashMap<>();
+
+        for (PayrollEntry e : latestEntries) {
+            long gross = n(e.getGrossSalary());
+            long empPension = n(e.getPensionEmployer());
+            long nsitf = gross * NSITF_BP / 100;
+            long itf = gross * ITF_BP / 100;
+            long rcol = gross + empPension + nsitf + itf;
+
+            totalGross += gross;
+            totalEmpPension += empPension;
+            totalNsitf += nsitf;
+            totalItf += itf;
+            totalRcol += rcol;
+
+            String dept = departmentName(e.getEmployee());
+            long[] agg = deptRcolAgg.computeIfAbsent(dept, k -> new long[2]);
+            agg[0] += rcol;
+            agg[1] += 1;
+            if (e.getEmployee() != null) {
+                empDept.put(e.getEmployee().getId(), dept);
+            }
+        }
+
+        int headcount = latestEntries.size();
+        long avgRcol = headcount > 0 ? totalRcol / headcount : 0;
+        final long totalRcolFinal = totalRcol;
+        List<DeptRcolRow> deptRcol = deptRcolAgg.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0]))
+                .map(en -> new DeptRcolRow(en.getKey(), (int) en.getValue()[1],
+                        formatNaira(en.getValue()[0]), percentOf(en.getValue()[0], totalRcolFinal)))
+                .toList();
+
+        String latestLabel = periodLabel(latest);
+
+        // ── Departmental payroll spikes ──
+        boolean hasComparison = runs.size() >= 2;
+        String priorLabel = "";
+        List<SpikeRow> spikes = List.of();
+        if (hasComparison) {
+            PayrollRun prior = runs.get(1);
+            priorLabel = periodLabel(prior);
+            Map<String, Long> curCost = deptCost(latestEntries);
+            Map<String, Long> priCost = deptCost(payrollEntryRepository.findByPayrollRunIdWithEntities(prior.getId()));
+            Map<String, Long> deptOvertime = overtimeByDept(latest.getPayrollYear(), latest.getPayrollMonth(), empDept);
+            spikes = buildSpikes(curCost, priCost, deptOvertime);
+        }
+
+        // ── Burnout / attrition risk ──
+        List<BurnoutRow> burnout = buildBurnout();
+
+        return new AnalyticsView(true, latestLabel,
+                formatNaira(totalRcol), formatNaira(totalGross), formatNaira(totalEmpPension),
+                formatNaira(totalNsitf), formatNaira(totalItf), headcount, formatNaira(avgRcol), deptRcol,
+                hasComparison, priorLabel, spikes,
+                burnout.size(), burnout);
+    }
+
+    // ── spikes ──────────────────────────────────────────────────────────────────
+
+    /** Employer payroll cost (gross + employer pension) per department for a run's entries. */
+    private Map<String, Long> deptCost(List<PayrollEntry> entries) {
+        Map<String, Long> byDept = new LinkedHashMap<>();
+        for (PayrollEntry e : entries) {
+            byDept.merge(departmentName(e.getEmployee()), n(e.getGrossSalary()) + n(e.getPensionEmployer()), Long::sum);
+        }
+        return byDept;
+    }
+
+    /** Approved overtime amount (kobo) per department for a period. */
+    private Map<String, Long> overtimeByDept(int year, int month, Map<UUID, String> empDept) {
+        Map<String, Long> byDept = new LinkedHashMap<>();
+        for (OvertimeEntry o : overtimeEntryRepository.findByPeriodYearAndPeriodMonthOrderByAmountKoboDesc(year, month)) {
+            if (o.getStatus() != com.admtechhub.maestrohr.overtime.OvertimeStatus.APPROVED) {
+                continue;
+            }
+            byDept.merge(empDept.getOrDefault(o.getEmployeeId(), "Unassigned"), o.getAmountKobo(), Long::sum);
+        }
+        return byDept;
+    }
+
+    private List<SpikeRow> buildSpikes(Map<String, Long> cur, Map<String, Long> pri, Map<String, Long> deptOvertime) {
+        TreeSet<String> depts = new TreeSet<>();
+        depts.addAll(cur.keySet());
+        depts.addAll(pri.keySet());
+
+        List<SpikeRow> rows = new ArrayList<>();
+        for (String dept : depts) {
+            long c = cur.getOrDefault(dept, 0L);
+            long p = pri.getOrDefault(dept, 0L);
+            if (c == 0 && p == 0) {
+                continue;
+            }
+            String pct;
+            String kind;
+            boolean flagged;
+            double pctVal;
+            if (p == 0) {
+                pct = "new";
+                kind = "warn";
+                flagged = true;
+                pctVal = 100.0;
+            } else {
+                pctVal = (c - p) * 100.0 / p;
+                pct = (pctVal >= 0 ? "+" : "−") + Math.round(Math.abs(pctVal)) + "%";
+                flagged = pctVal >= SPIKE_THRESHOLD_PCT;
+                kind = pctVal >= SPIKE_SEVERE_PCT ? "error" : (flagged ? "warn" : "neutral");
+            }
+            long ot = deptOvertime.getOrDefault(dept, 0L);
+            String note = flagged && ot > 0 ? "incl. " + formatNaira(ot) + " overtime" : "";
+            rows.add(new SpikeRow(dept, formatNaira(c), formatNaira(p), pct, kind, flagged, note));
+        }
+        // Flagged first, then biggest movers.
+        rows.sort(Comparator.comparing(SpikeRow::flagged).reversed()
+                .thenComparing(r -> r.department()));
+        return rows;
+    }
+
+    // ── burnout ─────────────────────────────────────────────────────────────────
+
+    private List<BurnoutRow> buildBurnout() {
+        LocalDate today = LocalDate.now();
+
+        Map<UUID, LocalDate> lastLeave = new java.util.HashMap<>();
+        for (Object[] row : leaveRequestRepository.findLastApprovedLeaveEndDateByEmployee()) {
+            if (row[0] != null && row[1] != null) {
+                lastLeave.put((UUID) row[0], (LocalDate) row[1]);
+            }
+        }
+
+        int cutoffKey = (today.getYear() * 12 + today.getMonthValue()) - (OVERTIME_LOOKBACK_MONTHS - 1);
+        Map<UUID, BigDecimal> otHours = new java.util.HashMap<>();
+        for (OvertimeEntry o : overtimeEntryRepository.findApprovedSincePeriodKey(cutoffKey)) {
+            otHours.merge(o.getEmployeeId(),
+                    o.getWeekdayOtHours().add(o.getWeekendOtHours()), BigDecimal::add);
+        }
+
+        List<BurnoutRow> rows = new ArrayList<>();
+        for (Employee emp : employeeRepository.findByStatus(EmployeeStatus.ACTIVE)) {
+            List<String> reasons = new ArrayList<>();
+            boolean severe = false;
+
+            // Only flag "no leave" for tenured staff (employed > the window), so new hires aren't flagged.
+            boolean tenured = emp.getEmploymentStartDate() != null
+                    && emp.getEmploymentStartDate().isBefore(today.minusMonths(BURNOUT_NO_LEAVE_MONTHS));
+            if (tenured) {
+                LocalDate last = lastLeave.get(emp.getId());
+                if (last == null) {
+                    reasons.add("No approved leave on record");
+                } else if (last.isBefore(today.minusMonths(BURNOUT_NO_LEAVE_MONTHS))) {
+                    long months = ChronoUnit.MONTHS.between(last, today);
+                    reasons.add("No approved leave in " + months + " months");
+                }
+            }
+
+            BigDecimal ot = otHours.getOrDefault(emp.getId(), BigDecimal.ZERO);
+            if (ot.compareTo(BURNOUT_OVERTIME_HOURS) > 0) {
+                reasons.add(ot.stripTrailingZeros().toPlainString() + "h overtime (last "
+                        + OVERTIME_LOOKBACK_MONTHS + " months)");
+            }
+
+            if (!reasons.isEmpty()) {
+                severe = reasons.size() > 1;
+                rows.add(new BurnoutRow(emp.getId(), emp.getFullName(),
+                        emp.getDepartment() != null ? emp.getDepartment().getName() : "Unassigned",
+                        String.join("; ", reasons), severe ? "error" : "warn"));
+            }
+        }
+        rows.sort(Comparator.comparing(BurnoutRow::severityKind).thenComparing(BurnoutRow::name));
+        return rows;
+    }
+
+    // ── helpers ─────────────────────────────────────────────────────────────────
+
+    private AnalyticsView empty() {
+        return new AnalyticsView(false, "", "₦0", "₦0", "₦0", "₦0", "₦0",
+                0, "₦0", List.of(), false, "", List.of(), 0, List.of());
+    }
+
+    private String departmentName(Employee e) {
+        return e != null && e.getDepartment() != null ? e.getDepartment().getName() : "Unassigned";
+    }
+
+    private long n(Long v) {
+        return v != null ? v : 0L;
+    }
+
+    private String percentOf(long part, long total) {
+        if (total <= 0) {
+            return "0%";
+        }
+        return Math.round(part * 100.0 / total) + "%";
+    }
+
+    private String periodLabel(PayrollRun run) {
+        return Month.of(run.getPayrollMonth()).getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+                + " " + run.getPayrollYear();
+    }
+
+    private String formatNaira(long kobo) {
+        return String.format(Locale.ENGLISH, "₦%,d", kobo / 100);
+    }
+}

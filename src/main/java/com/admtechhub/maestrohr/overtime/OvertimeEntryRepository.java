@@ -1,6 +1,8 @@
 package com.admtechhub.maestrohr.overtime;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,4 +17,12 @@ public interface OvertimeEntryRepository extends JpaRepository<OvertimeEntry, UU
 
     /** The existing entry for an employee in a period, if any — recompute upserts onto it. */
     Optional<OvertimeEntry> findByEmployeeIdAndPeriodYearAndPeriodMonth(UUID employeeId, int periodYear, int periodMonth);
+
+    /**
+     * Approved overtime entries from the given period key onward (periodKey = year*12 + month) —
+     * backs the analytics overtime-burnout indicator and per-department overtime attribution.
+     */
+    @Query("SELECT o FROM OvertimeEntry o WHERE o.status = com.admtechhub.maestrohr.overtime.OvertimeStatus.APPROVED " +
+            "AND (o.periodYear * 12 + o.periodMonth) >= :minPeriodKey")
+    List<OvertimeEntry> findApprovedSincePeriodKey(@Param("minPeriodKey") int minPeriodKey);
 }

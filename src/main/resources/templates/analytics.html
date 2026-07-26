@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!--
+  analytics.html — server-rendered HTMX fragment (Option 3): the Executive / CEO analytics
+  dashboard. Rendered by AnalyticsController as "analytics :: content". Read-only lenses over
+  payroll / leave / overtime: Real Cost of Labor, departmental payroll spikes, burnout risk.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<div th:fragment="content" class="font-body-md text-on-surface">
+
+    <div class="mb-lg">
+        <h1 class="font-headline-lg text-headline-lg text-primary">Executive Growth &amp; Labor Insights</h1>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+            The real cost of your workforce, where payroll is moving, and who's at risk of burnout.
+        </p>
+    </div>
+
+    <!-- No data -->
+    <div th:if="${!view.hasData}"
+         class="bg-white border border-outline-variant rounded-xl p-lg flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">insights</span>
+        No finalized payroll run yet — approve a payroll run to unlock labor-cost analytics.
+    </div>
+
+    <div th:if="${view.hasData}">
+
+        <!-- ── Real Cost of Labor ── -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-md mb-lg">
+            <div class="bg-primary text-white rounded-xl p-lg lg:col-span-1">
+                <p class="font-label-sm text-label-sm uppercase tracking-wider text-white/70 mb-xs">Real Cost of Labor</p>
+                <p class="font-headline-lg text-headline-lg" th:text="${view.totalRcolFormatted}">₦0</p>
+                <p class="font-body-sm text-body-sm text-white/70 mt-xs">
+                    <span th:text="${view.latestPeriodLabel}">July 2026</span> · <span th:text="${view.headcount}">0</span> staff ·
+                    avg <span th:text="${view.avgRcolFormatted}">₦0</span>
+                </p>
+            </div>
+            <div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-lg">
+                <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Cost breakdown</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-md">
+                    <div>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Gross pay</p>
+                        <p class="font-table-data text-table-data text-on-surface" th:text="${view.totalGrossFormatted}">₦0</p>
+                    </div>
+                    <div>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">Employer pension</p>
+                        <p class="font-table-data text-table-data text-on-surface" th:text="${view.totalEmployerPensionFormatted}">₦0</p>
+                    </div>
+                    <div>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">NSITF (1%)</p>
+                        <p class="font-table-data text-table-data text-on-surface" th:text="${view.totalNsitfFormatted}">₦0</p>
+                    </div>
+                    <div>
+                        <p class="font-body-sm text-body-sm text-on-surface-variant">ITF (1%)</p>
+                        <p class="font-table-data text-table-data text-on-surface" th:text="${view.totalItfFormatted}">₦0</p>
+                    </div>
+                </div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-md">Excludes health insurance (not tracked).</p>
+            </div>
+        </div>
+
+        <!-- Dept RCOL -->
+        <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg" th:if="${view.hasDeptRcol()}">
+            <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant mb-md">Cost by department</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                            <th class="py-2 pr-4">Department</th>
+                            <th class="py-2 pr-4 text-right">Staff</th>
+                            <th class="py-2 pr-4 text-right">Real cost</th>
+                            <th class="py-2 pr-4 text-right">Share</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="d : ${view.deptRcol}" class="border-b border-outline-variant last:border-0">
+                            <td class="py-2 pr-4 font-label-md text-label-md text-on-surface" th:text="${d.department}">Sales</td>
+                            <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${d.headcount}">0</td>
+                            <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${d.rcolFormatted}">₦0</td>
+                            <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface-variant" th:text="${d.sharePercent}">0%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Departmental payroll spikes ── -->
+        <div class="bg-white border border-outline-variant rounded-xl p-lg mb-lg">
+            <div class="flex items-center justify-between mb-md">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Departmental payroll movement</h2>
+                <span th:if="${view.hasComparison}" class="font-body-sm text-body-sm text-on-surface-variant"
+                      th:text="${view.priorPeriodLabel} + ' → ' + ${view.latestPeriodLabel}">June → July</span>
+            </div>
+            <div th:if="${!view.hasComparison}" class="font-body-sm text-body-sm text-on-surface-variant py-md">
+                Need two finalized payroll runs to compare month-over-month movement.
+            </div>
+            <div th:if="${view.hasComparison and view.hasSpikes()}" class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                            <th class="py-2 pr-4">Department</th>
+                            <th class="py-2 pr-4 text-right">Prior</th>
+                            <th class="py-2 pr-4 text-right">Current</th>
+                            <th class="py-2 pr-4 text-right">Change</th>
+                            <th class="py-2 pr-4">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="s : ${view.spikes}" class="border-b border-outline-variant last:border-0">
+                            <td class="py-2 pr-4 font-label-md text-label-md text-on-surface" th:text="${s.department}">Sales</td>
+                            <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface-variant" th:text="${s.priorFormatted}">₦0</td>
+                            <td class="py-2 pr-4 text-right font-table-data text-table-data text-on-surface" th:text="${s.currentFormatted}">₦0</td>
+                            <td class="py-2 pr-4 text-right">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                      th:classappend="${s.changeKind == 'error' ? 'bg-error-container text-on-error-container' : (s.changeKind == 'warn' ? 'bg-primary-fixed text-on-primary-fixed-variant' : 'bg-surface-container text-on-surface-variant')}"
+                                      th:text="${s.changePercent}">+18%</span>
+                            </td>
+                            <td class="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${s.note}">incl. ₦450,000 overtime</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ── Burnout / attrition risk ── -->
+        <div class="bg-white border border-outline-variant rounded-xl p-lg">
+            <div class="flex items-center justify-between mb-md">
+                <h2 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Burnout &amp; retention risk</h2>
+                <span class="font-body-sm text-body-sm text-on-surface-variant" th:text="${view.burnoutCount} + ' flagged'">0 flagged</span>
+            </div>
+            <div th:if="${!view.hasBurnout()}" class="flex items-center gap-sm font-body-sm text-body-sm text-on-surface-variant py-md">
+                <span class="material-symbols-outlined text-[20px] text-secondary">sentiment_satisfied</span>
+                No burnout indicators — everyone has taken leave recently and overtime is within range.
+            </div>
+            <div th:if="${view.hasBurnout()}" class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-outline-variant font-label-sm text-label-sm text-on-surface-variant">
+                            <th class="py-2 pr-4">Employee</th>
+                            <th class="py-2 pr-4">Department</th>
+                            <th class="py-2 pr-4">Why flagged</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="b : ${view.burnout}" class="border-b border-outline-variant last:border-0">
+                            <td class="py-2 pr-4">
+                                <a th:href="@{/htmx/employee-view(id=${b.employeeId})}"
+                                   th:attr="hx-get=@{/htmx/employee-view(id=${b.employeeId})}"
+                                   hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+                                   class="font-label-md text-label-md text-primary hover:underline cursor-pointer"
+                                   th:text="${b.name}">Tayo Shonibare</a>
+                            </td>
+                            <td class="py-2 pr-4 font-body-sm text-body-sm text-on-surface-variant" th:text="${b.department}">Sales</td>
+                            <td class="py-2 pr-4">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold mr-xs"
+                                      th:classappend="${b.severityKind == 'error' ? 'bg-error-container text-on-error-container' : 'bg-primary-fixed text-on-primary-fixed-variant'}"
+                                      th:text="${b.severityKind == 'error' ? 'High' : 'Watch'}">High</span>
+                                <span class="font-body-sm text-body-sm text-on-surface" th:text="${b.reasons}">No approved leave in 14 months</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -149,4 +149,13 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
             @Param("employeeIds") List<UUID> employeeIds,
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd);
+
+    /**
+     * [employeeId, latest approved leave end date] across the tenant — backs the analytics
+     * leave-burnout indicator (an employee absent from the result has never taken approved leave).
+     * Tenant-scoped via the entity {@code @SQLRestriction}.
+     */
+    @Query("SELECT l.employee.id, MAX(l.endDate) FROM LeaveRequest l " +
+            "WHERE l.status = 'APPROVED' GROUP BY l.employee.id")
+    List<Object[]> findLastApprovedLeaveEndDateByEmployee();
 }
