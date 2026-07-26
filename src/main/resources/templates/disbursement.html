@@ -10,23 +10,26 @@
 
 <div th:fragment="content" class="font-body-md text-on-surface">
 
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
-        <div>
-            <h1 class="font-headline-lg text-headline-lg text-primary">Direct Bank Payouts</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-text">
+            <h1 class="font-headline-lg text-headline-lg text-primary mb-xs">Direct Bank Payouts</h1>
+            <p class="font-body-md text-body-md text-on-surface-variant">
                 Validate accounts, then disburse an approved payroll run straight to employees' banks via Paystack.
             </p>
         </div>
-        <form hx-get="/htmx/disbursement" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
-              th:if="${view.hasRuns()}">
-            <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Payroll run</label>
-            <select name="runId" onchange="this.form.requestSubmit()"
-                    class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
-                <option th:each="r : ${view.runs}" th:value="${r.runId}" th:selected="${r.runId == view.selectedRunId}"
-                        th:text="${r.periodLabel} + ' (' + ${r.status} + ')'">July 2026 (Approved)</option>
-            </select>
-        </form>
     </div>
+
+    <!-- Run selector -->
+    <form hx-get="/htmx/disbursement" hx-target="#page-content" hx-push-url="true" hx-swap="innerHTML"
+          th:if="${view.hasRuns()}" class="mb-lg">
+        <label class="block mb-0.5 font-label-sm text-label-sm text-on-surface-variant">Payroll run</label>
+        <select name="runId" onchange="this.form.requestSubmit()"
+                class="px-3 py-2 bg-white border border-outline-variant rounded-lg font-body-sm text-body-sm focus:outline-none focus:border-primary">
+            <option th:each="r : ${view.runs}" th:value="${r.runId}" th:selected="${r.runId == view.selectedRunId}"
+                    th:text="${r.periodLabel} + ' (' + ${r.status} + ')'">July 2026 (Approved)</option>
+        </select>
+    </form>
 
     <!-- Mode banner -->
     <div th:if="${view.liveMode}" role="alert"
