@@ -176,7 +176,7 @@ public class PayrollEngine {
         long afterLoan = afterStatutory - effectiveLoanDeduction;
         long effectiveAdjustmentDeduction = postTaxDeduction;
         boolean adjustmentCapped = false;
-        if (afterLoan - effectiveAdjustmentDeduction < minNet) {
+        if (postTaxDeduction > 0 && afterLoan - effectiveAdjustmentDeduction < minNet) {
             effectiveAdjustmentDeduction = Math.max(0L, afterLoan - minNet);
             adjustmentCapped = true;
             log.warn("Ad-hoc deduction capped for {}: requested {} kobo → {} kobo (net floor {} kobo)",

@@ -89,7 +89,9 @@ class PayrollIntegrationTest {
         when(nhfCalculator.calculate(BASIC)).thenReturn(NHF);
 
         // No proration in these tests, so nominal monthly gross == GROSS. No rent declared → 0.
-        when(payeCalculator.calculate(GROSS, PENSION_EMP, NHF, BASIC, GROSS, 0L))
+        // The engine calls the 8-arg overload (last two args = one-off taxable earnings / pre-tax
+        // relief); these tests log no adjustments, so both are 0.
+        when(payeCalculator.calculate(GROSS, PENSION_EMP, NHF, BASIC, GROSS, 0L, 0L, 0L))
                 .thenReturn(PAYECalculator.PAYEResult.builder()
                         .monthlyPAYE(PAYE)
                         .annualGross(GROSS * 12)
