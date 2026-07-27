@@ -1,5 +1,9 @@
 package com.admtechhub.maestrohr.web;
 
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -11,7 +15,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 @Controller
+@RequiredArgsConstructor
 public class PageController {
+
+    private final FeatureAccessService featureAccessService;
 
     // Core pages
     // NOTE: /htmx/dashboard is owned by DashboardController (server-rendered fragment pilot).
@@ -47,7 +54,14 @@ public class PageController {
 
     @GetMapping("/htmx/payroll-adjustments")
     public String payrollAdjustments(@RequestHeader(value = "HX-Request", required = false) String htmxRequest) {
-        return htmxRequest != null ? "forward:/payroll-adjustments.html" : "forward:/layout.html";
+        if (htmxRequest == null) {
+            return "forward:/layout.html";
+        }
+        // Gate the fragment fetch (not the shell) so a disabled BASIC_PAYROLL flag renders the
+        // locked state in-place instead of the adjustments page. The REST /api/payroll-adjustments
+        // endpoints carry the same @RequiresFeature so the data itself is never reachable.
+        featureAccessService.require(SubscriptionFeature.BASIC_PAYROLL);
+        return "forward:/payroll-adjustments.html";
     }
 
     @GetMapping("/htmx/performance-reviews")
@@ -173,5 +187,17 @@ public class PageController {
     public String handleAccessDenied(AccessDeniedException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
         return "access-denied :: content";
+    }
+
+    /**
+     * A feature-gated page stub (currently /htmx/payroll-adjustments) whose flag is off or plan
+     * doesn't include it renders the shared locked state in-place, matching the server-rendered
+     * feature pages ({@code ReportsWebController} et al.), rather than surfacing a raw 402/404.
+     */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Payroll Adjustments");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 }

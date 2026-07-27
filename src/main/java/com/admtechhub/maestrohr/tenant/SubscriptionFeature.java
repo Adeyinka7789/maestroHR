@@ -14,6 +14,8 @@ public enum SubscriptionFeature implements FlagKey {
 
     // Payroll features
     BASIC_PAYROLL,
+    // Entitlement tier only — gates no nav page of its own today (the "advanced payroll"
+    // capabilities live under BASIC_PAYROLL-gated pages). Kept as a plan-tier marker.
     ADVANCED_PAYROLL,
 
     // Access features
@@ -29,11 +31,15 @@ public enum SubscriptionFeature implements FlagKey {
     LOAN_MANAGEMENT,
     DOCUMENT_VAULT,
     RECRUITMENT,
+    EXIT_MANAGEMENT,
+    COMPLIANCE,
+    PUBLIC_HOLIDAYS,
 
     // Reporting
     CUSTOM_REPORTING,
 
     // Notifications
+    // Entitlement tier only — a delivery-channel capability, not a nav page; gates no sidebar item.
     SMS_NOTIFICATIONS,
 
     // Hardware integration

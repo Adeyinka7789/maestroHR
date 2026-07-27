@@ -2,6 +2,8 @@ package com.admtechhub.maestrohr.adjustment;
 
 import com.admtechhub.maestrohr.adjustment.AdjustmentDTOs.*;
 import com.admtechhub.maestrohr.common.ApiResponse;
+import com.admtechhub.maestrohr.subscription.RequiresFeature;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,7 @@ import java.util.UUID;
 @RequestMapping("/api/payroll-adjustments")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('HR_ADMIN', 'FINANCE_OFFICER', 'SUPER_ADMIN')")
+@RequiresFeature(SubscriptionFeature.BASIC_PAYROLL)
 public class PayrollAdjustmentController {
 
     private final PayrollAdjustmentService service;

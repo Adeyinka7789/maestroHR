@@ -1,5 +1,8 @@
 package com.admtechhub.maestrohr.overtime;
 
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,6 +33,7 @@ import java.util.UUID;
 public class PublicHolidayController {
 
     private final PublicHolidayService holidayService;
+    private final FeatureAccessService featureAccessService;
 
     private static final String[] ROLES = {
             "ROLE_HR_ADMIN", "ROLE_SUPER_ADMIN", "ROLE_SYSTEM_ADMIN"
@@ -41,6 +45,7 @@ public class PublicHolidayController {
             return "forward:/layout.html";
         }
         gate();
+        featureAccessService.require(SubscriptionFeature.PUBLIC_HOLIDAYS);
         model.addAttribute("holidays", holidayService.list());
         return "holidays :: content";
     }
@@ -84,6 +89,14 @@ public class PublicHolidayController {
     public String handleAccessDenied(AccessDeniedException ex, Model model) {
         model.addAttribute("errorMessage", ex.getMessage());
         return "access-denied :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load holiday data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Public Holidays");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     private void gate() {

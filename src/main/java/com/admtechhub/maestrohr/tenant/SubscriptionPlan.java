@@ -15,7 +15,13 @@ public enum SubscriptionPlan {
             "Free 14-day trial",
             SubscriptionFeature.BASIC_EMPLOYEES,
             SubscriptionFeature.BASIC_PAYROLL,
-            SubscriptionFeature.EMAIL_SUPPORT
+            SubscriptionFeature.EMAIL_SUPPORT,
+            // Cross-cutting HR tools available on every plan today — entitled here so the admin
+            // platform flag (not the plan) is the rollout/kill lever. Restrict per-plan later by
+            // dropping the feature from a plan's set.
+            SubscriptionFeature.EXIT_MANAGEMENT,
+            SubscriptionFeature.COMPLIANCE,
+            SubscriptionFeature.PUBLIC_HOLIDAYS
     ),
     BASIC(
             "Basic",
@@ -27,7 +33,10 @@ public enum SubscriptionPlan {
             SubscriptionFeature.EMAIL_SUPPORT,
             SubscriptionFeature.SMS_NOTIFICATIONS,
             SubscriptionFeature.ATTENDANCE_TRACKING,
-            SubscriptionFeature.DOCUMENT_VAULT
+            SubscriptionFeature.DOCUMENT_VAULT,
+            SubscriptionFeature.EXIT_MANAGEMENT,
+            SubscriptionFeature.COMPLIANCE,
+            SubscriptionFeature.PUBLIC_HOLIDAYS
     ),
     PROFESSIONAL(
             "Professional",
@@ -44,7 +53,10 @@ public enum SubscriptionPlan {
             SubscriptionFeature.ATTENDANCE_TRACKING,
             SubscriptionFeature.LOAN_MANAGEMENT,
             SubscriptionFeature.DOCUMENT_VAULT,
-            SubscriptionFeature.RECRUITMENT
+            SubscriptionFeature.RECRUITMENT,
+            SubscriptionFeature.EXIT_MANAGEMENT,
+            SubscriptionFeature.COMPLIANCE,
+            SubscriptionFeature.PUBLIC_HOLIDAYS
     ),
     ENTERPRISE(
             "Enterprise",
@@ -63,7 +75,10 @@ public enum SubscriptionPlan {
             SubscriptionFeature.HARDWARE_SYNC,
             SubscriptionFeature.LOAN_MANAGEMENT,
             SubscriptionFeature.DOCUMENT_VAULT,
-            SubscriptionFeature.RECRUITMENT
+            SubscriptionFeature.RECRUITMENT,
+            SubscriptionFeature.EXIT_MANAGEMENT,
+            SubscriptionFeature.COMPLIANCE,
+            SubscriptionFeature.PUBLIC_HOLIDAYS
     );
 
     private final String displayName;

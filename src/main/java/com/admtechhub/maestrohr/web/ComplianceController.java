@@ -1,6 +1,9 @@
 package com.admtechhub.maestrohr.web;
 
 import com.admtechhub.maestrohr.employee.EmployeeService;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -31,6 +34,7 @@ public class ComplianceController {
 
     private final ComplianceDashboardService complianceDashboardService;
     private final EmployeeService employeeService;
+    private final FeatureAccessService featureAccessService;
 
     /** Full page: app shell on a cold visit, the populated fragment under HTMX. */
     @GetMapping("/htmx/compliance")
@@ -40,6 +44,7 @@ public class ComplianceController {
         if (htmx == null) {
             return "forward:/layout.html";
         }
+        featureAccessService.require(SubscriptionFeature.COMPLIANCE);
         model.addAttribute("view", complianceDashboardService.build());
         return "compliance :: content";
     }
@@ -62,5 +67,13 @@ public class ComplianceController {
         model.addAttribute("error", ex.getMessage());
         model.addAttribute("view", complianceDashboardService.build());
         return "compliance :: content";
+    }
+
+    /** Feature off / not entitled: locked state only — never load compliance data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Compliance");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 }

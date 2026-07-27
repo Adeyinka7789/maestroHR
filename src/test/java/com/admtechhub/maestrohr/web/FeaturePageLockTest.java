@@ -6,7 +6,9 @@ import com.admtechhub.maestrohr.auth.JwtService;
 import com.admtechhub.maestrohr.auth.UserRepository;
 import com.admtechhub.maestrohr.document.DocumentService;
 import com.admtechhub.maestrohr.employee.EmployeeService;
+import com.admtechhub.maestrohr.exit.ExitService;
 import com.admtechhub.maestrohr.loan.LoanService;
+import com.admtechhub.maestrohr.overtime.PublicHolidayService;
 import com.admtechhub.maestrohr.payroll.PayrollRunService;
 import com.admtechhub.maestrohr.subscription.FeatureAccessService;
 import com.admtechhub.maestrohr.subscription.FeatureDisabledException;
@@ -51,7 +53,11 @@ class FeaturePageLockTest {
     @MockBean private PayrollListService payrollListService;
     @MockBean private AttendanceListService attendanceListService;
     @MockBean private ShiftService shiftService;
+    @MockBean private ExitManagementService exitManagementService;
+    @MockBean private ComplianceDashboardService complianceDashboardService;
+    @MockBean private PublicHolidayService publicHolidayService;
     // Present so the controllers construct; not reached on the locked path.
+    @MockBean private ExitService exitService;
     @MockBean private LoanService loanService;
     @MockBean private AttendanceService attendanceService;
     @MockBean private EmployeeService employeeService;
@@ -152,5 +158,51 @@ class FeaturePageLockTest {
                 .andExpect(content().string(containsString("is not available right now")));
 
         verify(shiftService, never()).getShiftsForTenant();
+    }
+
+    @Test
+    void exitManagementPage_featureOff_locksWithoutData() throws Exception {
+        mockToken("tok", "HR_ADMIN");
+        featureOff(SubscriptionFeature.EXIT_MANAGEMENT);
+
+        mockMvc.perform(get("/htmx/exit-management").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
+
+        verify(exitManagementService, never()).buildList();
+    }
+
+    @Test
+    void compliancePage_featureOff_locksWithoutData() throws Exception {
+        mockToken("tok", "HR_ADMIN");
+        featureOff(SubscriptionFeature.COMPLIANCE);
+
+        mockMvc.perform(get("/htmx/compliance").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
+
+        verify(complianceDashboardService, never()).build();
+    }
+
+    @Test
+    void holidaysPage_featureOff_locksWithoutData() throws Exception {
+        mockToken("tok", "HR_ADMIN"); // passes the controller's manual role gate() before the feature check
+        featureOff(SubscriptionFeature.PUBLIC_HOLIDAYS);
+
+        mockMvc.perform(get("/htmx/holidays").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
+
+        verify(publicHolidayService, never()).list();
+    }
+
+    @Test
+    void payrollAdjustmentsPage_featureOff_locksWithoutForwardingToStaticPage() throws Exception {
+        mockToken("tok", "HR_ADMIN");
+        featureOff(SubscriptionFeature.BASIC_PAYROLL);
+
+        mockMvc.perform(get("/htmx/payroll-adjustments").header("Authorization", "Bearer tok").header("HX-Request", "true"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("is not available right now")));
     }
 }

@@ -3,6 +3,9 @@ package com.admtechhub.maestrohr.web;
 import com.admtechhub.maestrohr.exit.ExitRequestDTO;
 import com.admtechhub.maestrohr.exit.ExitService;
 import com.admtechhub.maestrohr.exit.FinalSettlementDTO;
+import com.admtechhub.maestrohr.subscription.FeatureAccessException;
+import com.admtechhub.maestrohr.subscription.FeatureAccessService;
+import com.admtechhub.maestrohr.tenant.SubscriptionFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -26,12 +29,14 @@ public class ExitManagementController {
 
     private final ExitService exitService;
     private final ExitManagementService exitManagementService;
+    private final FeatureAccessService featureAccessService;
 
     @GetMapping("/htmx/exit-management")
     public String list(
             @RequestHeader(value = "HX-Request", required = false) String htmx,
             Model model) {
         if (htmx == null) return "forward:/layout.html";
+        featureAccessService.require(SubscriptionFeature.EXIT_MANAGEMENT);
         model.addAttribute("view", exitManagementService.buildList());
         return "exit-management :: list";
     }
@@ -42,6 +47,7 @@ public class ExitManagementController {
             @RequestHeader(value = "HX-Request", required = false) String htmx,
             Model model) {
         if (htmx == null) return "forward:/layout.html";
+        featureAccessService.require(SubscriptionFeature.EXIT_MANAGEMENT);
         ExitRequestDTO dto = exitService.getExitRequestById(id);
         model.addAttribute("exit", dto);
         // Pre-populate settlement form with auto-calculated values when clearance is complete
@@ -119,6 +125,14 @@ public class ExitManagementController {
         model.addAttribute("formError", ex.getMessage());
         model.addAttribute("view", exitManagementService.buildList());
         return "exit-management :: list";
+    }
+
+    /** Feature off / not entitled: locked state only — never load exit data. */
+    @ExceptionHandler(FeatureAccessException.class)
+    public String handleFeatureLocked(FeatureAccessException ex, Model model) {
+        model.addAttribute("lockTitle", "Exit Management");
+        model.addAttribute("formError", ex.getMessage());
+        return "fragments/feature-locked :: locked";
     }
 
     /**
